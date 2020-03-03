@@ -1,0 +1,6 @@
+mod batch;
+
+fn multiplication() {
+
+}
+
