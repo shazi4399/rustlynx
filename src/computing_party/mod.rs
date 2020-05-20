@@ -1,20 +1,22 @@
 use std::error::Error;
 
-mod protocol;
-mod init;
+pub mod protocol;
+pub mod init;
+pub mod constants;
+mod util;
 
 pub fn run( cfg_file : String ) -> Result<(), Box<dyn Error>> {
 
-	/* Build context structs */
+	let mut ctx = init::runtime_context( &cfg_file )?;
+	init::connection( &mut ctx )?;
 
-	/* Connect */
+		
 
-	/* match */
-	// "logistic regression" => ml::logistic_regression()
-	// "extra trees" => ml::extra_trees();
-	// "random forests" => ml::extra_trees();
-	// "CNN" => nl::cnn();
-	// ...
+	println!("rustlynx::computing_party::run: runtime context initialized\n\n{}\n", &ctx);
+
+	// match ctx.ml.model {
+	// 	"logisticregression": super::ml::logistic_regression();
+	// }
 
 	Ok(())
 

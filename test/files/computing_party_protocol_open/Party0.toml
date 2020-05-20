@@ -1,0 +1,41 @@
+[net]
+
+	[net.local]
+	party_id   = 0
+	ip         = "127.0.0.1"
+	portrange  = "5000:6000"
+
+	[net.extern]
+	party_id  = 1
+	ip        = "127.0.0.1"
+	portrange = "6000:7000"
+
+	[net.ti]
+	ip   = "127.0.0.1"
+	port = 4000
+
+[sys]
+
+	[sys.threads]
+	optimise = false
+	offline = 32
+	online = 32
+
+[numbersystem]
+precision_frac = 10
+precision_int  = 15
+
+[correlatedrandomness]
+debug = true							   #true doesn't interact with TI
+
+[ml]
+phase = "learning"                      #or, "inference"
+model = "logisticregression"           
+reveal_output = true
+
+	[ml.logisticregression]
+	x_input_path = ""
+	y_input_path = ""
+	output_path  = ""
+	learning_rate = 0.001
+	iterations = 1000

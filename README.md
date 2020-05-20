@@ -4,9 +4,8 @@ This README would normally document whatever steps are necessary to get your app
 
 ### What is this repository for? ###
 
-* Quick summary
+* MPC Overview
 * Version
-* [Learn Markdown](https://bitbucket.org/tutorials/markdowndemo)
 
 ### How do I get set up? ###
 
@@ -14,7 +13,7 @@ This README would normally document whatever steps are necessary to get your app
 * Configuration
 * Dependencies
 * Database configuration
-* How to run tests
+* How to run tests --> cargo test
 * Deployment instructions
 
 ### Contribution guidelines ###

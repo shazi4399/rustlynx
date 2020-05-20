@@ -28,11 +28,11 @@ pub fn argparse(args: Vec<String>) -> Result<Args, Box<dyn Error>> {
 						Err(_) => return Err( format!("cannot parse '{}' into boolean", &val).into() ),
 					},
 
-			"cfg_file" => if Path::new(val).exists() { 
-							cfg_file = String::from(val); 
-						} else { 
-							return Err( format!("file path '{}' not found", &val).into() ); 
-						},
+			"cfg" => if Path::new(val).exists() { 
+						cfg_file = String::from(val); 
+					} else { 
+						return Err( format!("file path '{}' not found", &val).into() ); 
+					},
 
 			_ => return Err( format!("unrecognized cmd line arg: {}", &arg).into() ),
 		}
