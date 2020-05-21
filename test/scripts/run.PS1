@@ -1,2 +1,0 @@
-start powershell { cargo test _computing_party_protocol_multiply --  --nocapture C:\Users\davis\projects\rustlynx\test\cfg\Party1.toml }
-cargo test _computing_party_protocol_multiply --  --nocapture C:\Users\davis\projects\rustlynx\test\cfg\Party0.toml

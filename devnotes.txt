@@ -1,0 +1,49 @@
+_________________________________
+
+TODO
+_________________________________
+
+- Z2 arithmetic, PRI: HIGH
+- Z2 & ZQ matmul, PRI: HIGH
+- pgeq, peq, ptoq, pdecomp, PRI: HIGH 
+- NaiveBayes Inference, PRI: HIGH
+- Trusted initialized master/slave, PRI: LOW
+
+_________________________________
+
+Style/Standards:
+_________________________________
+
+- use Rust naming conventions
+	- snake_case for {directories, files, functions, variables}
+	- CamelCase for {enums, structs}
+- print statments are prefixed with 'rustlynx::<module heirarchy>::<function>:'
+- all functions return Result<T, E> for error handling
+- all functions have unit tests in lib.rs with name '_module_heirarchy_function' and test scripts in rustlynx/test/scripts/
+- all tests should pass before pushing to remote repo
+__________________________________
+
+Adding Support for a New ML Model:
+__________________________________
+
+- in rustlynx/computing_party/ml/:
+	- in mod.rs, add line 'pub mod <NEW MODEL>;'
+	- create new dir '<NEW MODEL>'
+- in rustlynx/computing_party/ml/<NEW MODEL>:
+	- create file 'mod.rs' with content 'pub mod learning; pub mod inference;'
+	- create file 'learning.rs' with pub fn run(&mut ctx: Context) -> Result<(), Box<dyn Error>> {..}
+	- create file 'inference.rs' with pub fn run(&mut ctx: Context) -> Result<(), Box<dyn Error>> {..}
+- in rustlynx/computing_party/mod.rs:
+	- add <NEW MODEL> in CamelCase to enum MLModel
+- in rustlynx/computing_party/init.rs:
+	- in parse_ml_settings, add biolerplate 'else if' clause for <NEW MODEL>
+- in rustlynx/cfg/ml:
+	- create new dir '<NEW MODEL>'
+-in rustlynx/cfg/ml/<NEW MODEL>:
+	- create file 'learning0.toml'
+	- create file 'learning1.toml'
+	- create file 'inference0.toml'
+	- create file 'inference1.toml'
+	- add relevant config options for parties 0, 1
+- in rustlynx/cfg/Party{0, 1}.toml:
+	- under header [ml], add subheader [ml.<NEW MODEL>] with learning_cfg, inference_cfg = "ml/<NEW MODEL>/{learning, inference}{0, 1}.toml"

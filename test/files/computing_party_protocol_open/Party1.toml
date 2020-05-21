@@ -1,5 +1,4 @@
 [net]
-
 	[net.local]
 	party_id   = 1
 	ip         = "127.0.0.1"
@@ -15,7 +14,6 @@
 	port = 4000
 
 [sys]
-
 	[sys.threads]
 	optimise = false
 	offline = 32
@@ -25,18 +23,17 @@
 precision_frac = 10
 precision_int  = 15
 
-
 [correlatedrandomness]
 debug = true							   #true doesn't interact with TI
 
 [ml]
 phase = "learning"                      #or, "inference"
-model = "logisticregression"           
-reveal_output = true
+model = "naivebayes"           
+
+	[ml.naivebayes]
+	learning_cfg = "ml/naivebayes/learning1.toml"
+	inference_cfg = "ml/naivebayes/learning1.toml"
 
 	[ml.logisticregression]
-	x_input_path = ""
-	y_input_path = ""
-	output_path  = ""
-	learning_rate = 0.001
-	iterations = 1000
+	learning_cfg = "ml/logisticregression/learning1.toml"
+	inference_cfg = "ml/logisticregression/inference1.toml"

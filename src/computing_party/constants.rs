@@ -6,19 +6,6 @@ pub const SIZEOF_U16: usize = 1 << 1;
 pub const SIZEOF_U8: usize = 1;
 pub const BITLENGTH: usize = 64;
 
-pub const ML_MODELS: [&str ; 1] = [
-	
-	"logisticregression",
-	
-];
-
-
-pub const ML_PHASES: [&str ; 2] = [
-
-	"learning",
-	"inference",
-];
-
 pub const TEST_CR_WRAPPING_U8_0: (u128, u128, u128) = (
 		0x03,
 		0x2a,

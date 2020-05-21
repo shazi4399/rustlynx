@@ -1,14 +1,19 @@
-use super::init::Context;
+use super::Context;
 use super::constants;
 use std::io::{Read, Write};
 use std::net::TcpStream;
 use std::thread;
 use std::error::Error;
-use std::fmt::{Display, Debug};
 use std::num::Wrapping;
 use std::cmp;
-use std::time::SystemTime;
+// use std::time::SystemTime;
 
+/*
+    Input: two vectors x, y of n secret shares in Z_2^64
+    Output: one vector z_i = {x_i * y_i} of n secret shares in Z_2^64
+    CR: 2n Beaver Triples in Z_2^64
+    Threads: local: ctx.sys.threads.online, online: 2*ctx.sys.threads.online 
+*/
 pub fn multiply(x: &Vec<Wrapping<u64>>, y: &Vec<Wrapping<u64>>, ctx: &mut Context) 
     -> Result<Vec<Wrapping<u64>>, Box<dyn Error>> {
 
@@ -32,9 +37,9 @@ pub fn multiply(x: &Vec<Wrapping<u64>>, y: &Vec<Wrapping<u64>>, ctx: &mut Contex
         let triple_sub = triples[lb..ub].to_vec();
         let len = ub - lb;
 
-        let mut istream = ctx.net.external.tcp.as_ref().unwrap()[i].istream.try_clone()
+        let istream = ctx.net.external.tcp.as_ref().unwrap()[i].istream.try_clone()
 		    .expect("rustlynx::computing_party::protocol::multiply: failed cloning tcp istream");
-	    let mut ostream = ctx.net.external.tcp.as_ref().unwrap()[i].ostream.try_clone()
+	    let ostream = ctx.net.external.tcp.as_ref().unwrap()[i].ostream.try_clone()
 		    .expect("rustlynx::computing_party::protocol::multiply: failed cloning tcp ostream");
 
         let t_handle = thread::spawn(move || {
@@ -57,21 +62,21 @@ pub fn multiply(x: &Vec<Wrapping<u64>>, y: &Vec<Wrapping<u64>>, ctx: &mut Contex
         t_handles.push(t_handle);
     }
 
-    // let now = SystemTime::now();
     let mut subvecs: Vec<Vec<Wrapping<u64>>> = t_handles.into_iter().map(|t| t.join().unwrap()).collect();
-    // println!("multiplication: work time {:5} ms", now.elapsed().unwrap().as_millis());
-    // let now = SystemTime::now();
     let mut result: Vec<Wrapping<u64>> = Vec::new(); 
     
     for i in 0..ctx.sys.threads.online {
         result.append(&mut subvecs[i]); 
     }
-    // println!("recombination: work time {:5} ms", now.elapsed().unwrap().as_millis());
     Ok(result)
 }
 
-
-
+/*
+    Input: two vectors x, y of n secret shares in Z_2^64
+    Output: one vector z_i = {x_i * y_i} of n secret shares in Z_2^64
+    CR: 2n Beaver Triples in Z_2^64
+    Threads: local: 1, online: 2 
+*/
 pub fn multiply_single_thread(x: &Vec<Wrapping<u64>>, y: &Vec<Wrapping<u64>>, ctx: &mut Context) 
     -> Result<Vec<Wrapping<u64>>, Box<dyn Error>> {
 
@@ -97,7 +102,12 @@ pub fn multiply_single_thread(x: &Vec<Wrapping<u64>>, y: &Vec<Wrapping<u64>>, ct
 		.collect())
 }
 
-
+/* 
+    Input: vector of n secret shares in Z_2^64
+    Output: vector of n revealed secrets 
+    CR: None
+    Threads: local: 1, online: 2 * ctx.sys.threads.online
+*/
 pub fn open(vec: &Vec<Wrapping<u64>>, ctx: &mut Context) 
     -> Result<Vec<Wrapping<u64>>, Box<dyn Error>> {
 
@@ -162,6 +172,12 @@ pub fn open(vec: &Vec<Wrapping<u64>>, ctx: &mut Context)
     Ok(result)
 }
 
+/* 
+    Input: vector of n secret shares in Z_2^64
+    Output: vector of n revealed secrets 
+    CR: None
+    Threads: local: 1, online: 2
+*/
 pub fn open_single_thread(vec: &Vec<Wrapping<u64>>, mut istream: TcpStream, mut ostream: TcpStream) 
     -> Result<Vec<Wrapping<u64>>, Box<dyn Error>> {
 
@@ -196,6 +212,8 @@ pub fn open_single_thread(vec: &Vec<Wrapping<u64>>, mut istream: TcpStream, mut 
 
 	Ok(vec.iter().zip(&other).map(|(&x, &y)| x + y).collect())
 }
+
+
 
 // /* 
 // - at the lowest level (open), there are a fixed number of threads n.

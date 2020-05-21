@@ -9,14 +9,11 @@ pub mod io;
 pub fn run( args: init::Args ) -> Result<(), Box<dyn Error>> {
 
 	if args.ti {
-		trusted_initializer::run( args.cfg_file )?;
+		trusted_initializer::run( args.cfg_file )
 	} else {
-		computing_party::run( args.cfg_file )?;
-	}
-
-	Ok(())
+		computing_party::run( args.cfg_file )
+    }  
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -52,7 +49,6 @@ mod tests {
         use std::time::SystemTime;
         use super::computing_party::protocol;
         use super::computing_party::init;
-        use super::computing_party::constants;
         use super::io;
         let test_path = "test/files/computing_party_protocol_open";
 
@@ -61,8 +57,13 @@ mod tests {
         let test_cfg = format!("{}/Party{}.toml", test_path, id); 
         let mut ctx = init::runtime_context( &test_cfg ).unwrap();
         
+        /* connection */
         assert!( init::connection( &mut ctx ).is_ok() );
         
+        /* empty vec test */
+        let input: Vec<Wrapping<u64>> = Vec::new();
+        assert_eq!(input, protocol::open(&input, &mut ctx).unwrap());
+
         /* random tests */
         let test_file = format!("{}/p{}.csv", test_path, ctx.num.asymm);
         let itc_file = format!("{}/itc.csv", test_path);
@@ -74,10 +75,6 @@ mod tests {
 
         assert_eq!(&result, &check);
 
-        /* empty vec test */
-        let input: Vec<Wrapping<u64>> = Vec::new();
-        assert_eq!(input, protocol::open(&input, &mut ctx).unwrap());
-
         /* runtime tests */
         for input_size in vec![100000, 1000000, 10000000].iter() {
         
@@ -85,13 +82,13 @@ mod tests {
                 .map(|x| Wrapping(if ctx.num.asymm == 0 {0} else {x})).collect(); 
             let check = (0..*input_size).map(|x| Wrapping(x)).collect::<Vec<Wrapping<u64>>>();
            
-            for n_threads in vec![1, 2, 4, 8, 16, 32].iter() {    
+            for n_threads in vec![4, 8, 16, 32].iter() {    
                 
                 ctx.sys.threads.online = *n_threads;
             
                 let mut avg_elapsed = 0.0;
                 let num_tests = 10;
-                for test_no in 0..num_tests {
+                for _test_no in 0..num_tests {
                     let now = SystemTime::now();
                     let result = protocol::open(&input, &mut ctx).unwrap();
                     let elapsed = now.elapsed().unwrap().as_millis();
@@ -113,7 +110,6 @@ mod tests {
         use std::time::SystemTime;
         use super::computing_party::protocol;
         use super::computing_party::init;
-        use super::computing_party::constants;
         use super::io;
         let test_path = "test/files/computing_party_protocol_multiply";
 
@@ -122,6 +118,7 @@ mod tests {
         let test_cfg = format!("{}/Party{}.toml", test_path, id); 
         let mut ctx = init::runtime_context( &test_cfg ).unwrap();
         
+        /* connect */
         assert!( init::connection( &mut ctx ).is_ok() );
         
         /* empty vec test */
@@ -148,13 +145,13 @@ mod tests {
                 .map(|x| Wrapping(if ctx.num.asymm == 0 {0} else {x})).collect(); 
             let check = (0..*input_size).map(|x| Wrapping(x*x)).collect::<Vec<Wrapping<u64>>>();
            
-            for n_threads in vec![1, 2, 4, 8, 16, 32].iter() {    
+            for n_threads in vec![4, 8, 16, 32].iter() {    
                 
                 ctx.sys.threads.online = *n_threads;
             
                 let mut avg_elapsed = 0.0;
                 let num_tests = 1;
-                for test_no in 0..num_tests {
+                for _test_no in 0..num_tests {
                     let now = SystemTime::now();
                     let result = protocol::multiply(&input, &input, &mut ctx).unwrap();
                     let elapsed = now.elapsed().unwrap().as_millis();
@@ -167,4 +164,5 @@ mod tests {
             } 
         }
     }
+
 }

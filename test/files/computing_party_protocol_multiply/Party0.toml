@@ -21,21 +21,22 @@
 	offline = 32
 	online = 32
 
+
 [numbersystem]
 precision_frac = 10
 precision_int  = 15
 
 [correlatedrandomness]
-debug = true							   #true doesn't interact with TI
+debug = true							   #'true' doesn't use TI
 
 [ml]
 phase = "learning"                      #or, "inference"
-model = "logisticregression"           
-reveal_output = true
+model = "naivebayes"           
+
+	[ml.naivebayes]
+	learning_cfg = "ml/naivebayes/learning0.toml"
+	inference_cfg = "ml/naivebayes/learning0.toml"
 
 	[ml.logisticregression]
-	x_input_path = ""
-	y_input_path = ""
-	output_path  = ""
-	learning_rate = 0.001
-	iterations = 1000
+	learning_cfg = "ml/logisticregression/learning0.toml"
+	inference_cfg = "ml/logisticregression/inference0.toml"

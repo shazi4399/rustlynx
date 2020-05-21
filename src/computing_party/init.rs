@@ -1,107 +1,12 @@
 extern crate config;
-
-use super::constants;
-use std::num::Wrapping;
+// use std::num::Wrapping;
 use std::error::Error;
 use std::net::{IpAddr, Ipv4Addr, TcpStream, TcpListener, SocketAddr};
 use std::thread;
 use std::time::Duration;
-use std::fmt;
-use std::collections::HashMap;
-use std::any::TypeId;
-
-#[derive(Debug, Default)]
-pub struct Context {
-
-	pub sys: System,
-	pub net: Network,
-	pub num: Numeric,
-	pub ml: MachineLearning,
-	pub cr: CorrelatedRandomness,
-}
-
-#[derive(Debug, Default)]
-pub struct System {
-	
-	pub threads: Threading,
-}
-
-#[derive(Debug, Default)]
-pub struct Threading {
-	pub optimise: bool,
-	pub offline: usize,
-	pub online: usize,
-}
-
-#[derive(Debug, Default)]
-pub struct CorrelatedRandomness {
-
-	pub debug: bool,
-	pub additive: Option<Vec<(u64, u64, u64)>>,
-	pub xor: Option<Vec<(u128, u128, u128)>>,
-}
-
-#[derive(Debug, Default)]
-pub struct Numeric {
-	
-	pub precision_frac: usize,
-	pub precision_int: usize,
-	pub asymm: u64,
-}
-
-#[derive(Debug, Default)]
-pub struct Network {
-
-	pub local: User,
-	pub external: User,
-	pub ti: Option<User>,
-}
-
-#[derive(Debug, Default)]
-pub struct User {
-
-	pub id: u8,
-	pub ip: Option<Ipv4Addr>,
-	pub portrange: (u16, u16),
-	pub tcp: Option<Vec<IoStream>>,
-}
-
-#[derive(Debug)]
-pub struct IoStream {
-	pub istream : TcpStream,
-	pub ostream : TcpStream,
-}
-
-#[derive(Debug, Default)]
-pub struct MachineLearning {
-	pub model: String,
-	pub phase: String,
-	pub reveal_output: bool,
-	/*model-specific settings: xor, additive share count, dimensions, io-files, etc*/
-}
-
-impl fmt::Display for Context {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-		
-		write!(f, "Context:
-	sys.......:{:?}
-	net.local.:{}
-	net.extern:{}
-	net.ti....:{:?}
-	num.......:{:?}
-	ml........:{:?}
-	cr........:{:?}",
-			self.sys, self.net.local, self.net.external, self.net.ti, self.num, self.ml, self.cr)	
-	}		
-}
-
-impl fmt::Display for User {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-		
-		write!(f, "User {{ id: {}, ip: {:?}, portrange: {:?}, tcp: {} }}",
-			self.id, self.ip, self.portrange, self.tcp.is_some())	
-	}		
-}
+use super::constants;
+use super::{MLModel, MLPhase, MachineLearning, Context, System, Threading, 
+	CorrelatedRandomness, Numeric, Network, User, IoStream};
 
 pub fn runtime_context(cfg_file: &String) -> Result<Context, Box<dyn Error>>  {
 
@@ -133,14 +38,11 @@ pub fn runtime_context(cfg_file: &String) -> Result<Context, Box<dyn Error>>  {
 	/* machine learning settings */
 	let phase: String = settings.get_str("ml.phase")?;
 	let model: String = settings.get_str("ml.model")?;
-	let reveal_output: String = settings.get_str("ml.reveal_output")?;
-	
-	println!("rustlynx::computing_party::init: cfg file ok... parsing");
 
 	let local_user: User = parse_user_settings(&local_id, &local_ip, &local_portrange)?;
 	let extern_user: User = parse_user_settings(&extern_id, &extern_ip, &extern_portrange)?;
 	let ti: Option<User> = parse_ti_settings(&ti_ip, &ti_port, &debug_cr)?;
-	let ml: MachineLearning = parse_ml_settings(&phase, &model, &reveal_output)?;
+	let ml: MachineLearning = parse_ml_settings(&phase, &model, &settings)?;
 	let num: Numeric = parse_numeric_settings(&precision_frac, &precision_int, &local_id)?;
 	let threading: Threading = parse_thread_settings(&optimise_threads, &offline_threads, &online_threads)?;
 	let cr: CorrelatedRandomness = parse_cr_settings(&debug_cr)?;
@@ -177,22 +79,44 @@ fn parse_ti_settings(ip: &String, port: &String, null_ti: &String) -> Result<Opt
 	Ok(Some( parse_user_settings(&String::from("255"), &ip, &portrange)? ))
 }
 
-fn parse_ml_settings(phase: &String, model: &String, reveal_output: &String) -> Result<MachineLearning, Box<dyn Error>> {
+fn parse_ml_settings(phase: &String, model: &String, settings: &config::Config) -> Result<MachineLearning, Box<dyn Error>> {
 
-	let reveal_output = reveal_output.parse::<bool>()?;
+	let ml_model: Option<MLModel>;
+	let ml_phase: Option<MLPhase>;
+	let callable: Option<fn(&mut Context) -> Result<(), Box<dyn Error>>>;
+	let cfg: String;
 
-	let phase = (*phase).clone();
-	let model = (*model).clone();
-
-	if !constants::ML_PHASES.contains(&phase.as_str()) {
-		return Err( format!("invalid ml.phase: '{}'", &phase).into() )
+	if model == "logisticregression" {
+		ml_model = Some(MLModel::LogisticRegression);
+		if phase == "learning" {
+			ml_phase = Some(MLPhase::Learning);
+			cfg = settings.get_str("ml.logisticregression.learning_cfg")?;
+			callable = Some(super::ml::logistic_regression::learning::run);
+		} else if phase == "inference" {
+			ml_phase = Some(MLPhase::Inference);
+			cfg = settings.get_str("ml.logisticregression.inference_cfg")?;
+			callable = Some(super::ml::logistic_regression::inference::run);
+		} else {
+			return Err("invalid ml.phase".into())
+		}
+	} else if model == "naivebayes" {
+		ml_model = Some(MLModel::NaiveBayes);
+		if phase == "learning" {
+			ml_phase = Some(MLPhase::Learning);
+			cfg = settings.get_str("ml.naivebayes.learning_cfg")?;
+			callable = Some(super::ml::naive_bayes::learning::run);
+		} else if phase == "inference" {
+			ml_phase = Some(MLPhase::Inference);
+			cfg = settings.get_str("ml.naivebayes.inference_cfg")?;
+			callable = Some(super::ml::naive_bayes::inference::run);
+		} else {
+			return Err("invalid ml.phase".into())
+		}	
+	} else {
+		return Err("invalid or unimplemented ml.model".into())
 	}
 
-	if !constants::ML_MODELS.contains(&model.as_str()) {
-		return Err( format!("invalid ml.model: '{}'", &model).into() )
-	}
-
-	Ok(MachineLearning { phase: phase, model: model, reveal_output: reveal_output })
+	Ok(MachineLearning { phase: ml_phase, model: ml_model, cfg: cfg, callable: callable })
 }
 
 fn parse_numeric_settings(precision_int: &String, precision_frac: &String, asymm: &String) -> Result<Numeric, Box<dyn Error>> {
@@ -267,9 +191,9 @@ pub fn connection(ctx: &mut Context) -> Result<(), Box<dyn Error>> {
 
 			loop {
 				match listener.accept() {
-					Ok((stream, addr)) => {
-						println!("rustlynx::computing_party::init::connection:thread{}: TcpListener {:?} established connection with {:?}",
-							i, &listener.local_addr(), &addr);
+					Ok((stream, _addr)) => {
+						// println!("rustlynx::computing_party::init::connection:thread{}: TcpListener {:?} established connection with {:?}",
+						// 	i, &listener.local_addr(), &addr);
 						return stream
 					},
 					Err(_) => continue,
@@ -282,8 +206,8 @@ pub fn connection(ctx: &mut Context) -> Result<(), Box<dyn Error>> {
 			loop {
 				match TcpStream::connect(client_s_addr) {
 					Ok(stream) => {
-						println!("rustlynx::computing_party::init::connection:thread{}: TcpClient {:?} established connection with {:?}",
-						i, &client_s_addr, &stream.local_addr());
+						// println!("rustlynx::computing_party::init::connection:thread{}: TcpClient {:?} established connection with {:?}",
+						// i, &client_s_addr, &stream.local_addr());
 						return stream
 					},
 					Err(_) => { 
