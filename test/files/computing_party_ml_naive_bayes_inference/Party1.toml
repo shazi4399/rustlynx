@@ -1,0 +1,39 @@
+[net]
+	[net.local]
+	party_id   = 1
+	ip         = "127.0.0.1"
+	portrange  = "6000:7000"
+
+	[net.extern]
+	party_id  = 0
+	ip        = "127.0.0.1"
+	portrange = "5000:6000"
+
+	[net.ti]
+	ip   = "127.0.0.1"
+	port = 4000
+
+[sys]
+	[sys.threads]
+	optimise = false
+	offline = 32
+	online = 32
+
+[numbersystem]
+precision_frac = 10
+precision_int  = 15
+
+[correlatedrandomness]
+debug = true							   #true doesn't interact with TI
+
+[ml]
+phase = "inference"                      #or, "inference"
+model = "naivebayes"           
+
+	[ml.naivebayes]
+	learning_cfg = "ml/naivebayes/learning1.toml"
+	inference_cfg = "ml/naivebayes/learning1.toml"
+
+	[ml.logisticregression]
+	learning_cfg = "ml/logisticregression/learning1.toml"
+	inference_cfg = "ml/logisticregression/inference1.toml"

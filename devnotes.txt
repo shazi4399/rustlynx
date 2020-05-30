@@ -21,6 +21,19 @@ _________________________________
 - all functions return Result<T, E> for error handling
 - all functions have unit tests in lib.rs with name '_module_heirarchy_function' and test scripts in rustlynx/test/scripts/
 - all tests should pass before pushing to remote repo
+
+__________________________________
+
+Adding Support for a new protocol
+__________________________________
+
+- in rustlynx/computing_party/protocol/mod.rs:
+	- add fn <PROTOCOL NAME>( [args] ) -> Result<T, E>
+- in rustlynx/lib.rs
+	- in mod tests, add fn _computing_party_protocol_<protocol_name>
+	- empty input test, sufficient random tests, runtime tests
+	
+
 __________________________________
 
 Adding Support for a New ML Model:
