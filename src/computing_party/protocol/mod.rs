@@ -1,14 +1,13 @@
 use super::Context;
 use super::super::constants;
 use super::super::util;
-use super::super::util::Bitset;
 use std::io::{Read, Write};
 use std::net::TcpStream;
 use std::thread;
 use std::error::Error;
 use std::num::Wrapping;
 use std::cmp;
-// use std::time::SystemTime;
+use std::time::SystemTime;
 
 /*
     Input: two vectors x, y of n secret shares in Z_2^64
@@ -379,31 +378,26 @@ pub fn multiply_z2(x: &Vec<u128>, y: &Vec<u128>, ctx: &mut Context)
     Ok(result)
 }
 
-pub fn pairwise_mult_z2(bitset: &Bitset, ctx: &mut Context) -> Result<Bitset, Box<dyn Error>> { 
+pub fn pairwise_mult_z2(bitset: &Vec<u128>, n_elems: usize, bitlen: usize, ctx: &mut Context) -> Result<Vec<u128>, Box<dyn Error>> { 
 
-    let len = bitset.size;
+    let len = bitset.len();
     let bitmask = 0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaau128;
     let asymm = (- Wrapping(ctx.num.asymm as u128)).0;
 
+    /* note change w in constants to shifted down by 1*/
     let (uv, w) = if ctx.num.asymm == 0 {
         constants::TEST_CR_XOR_U128_PAIRWISE_0
     } else {
         constants::TEST_CR_XOR_U128_PAIRWISE_1
     };
-	
-    //let triples = vec![ (0u128, 0u128) ; len]; // let triples = vec![ (uv, w) ; len];
-    let triples = if ctx.num.asymm == 0 {
-        vec![ (0u128, 0x0u128) ; len ]
-    } else {
-        vec![ (0u128, 0u128) ; len]
-    };
+    let triples = vec![(uv, w) ; len];
 
     let mut t_handles: Vec<thread::JoinHandle<Vec<u128>>> = Vec::new();
     for i in 0..ctx.sys.threads.online {
 
         let lb = cmp::min((i * len) / ctx.sys.threads.online, (Wrapping(len) - Wrapping(1)).0);
         let ub = cmp::min(((i+1) * len) / ctx.sys.threads.online, len);
-        let vec_sub = bitset.bits[lb..ub].to_vec();
+        let vec_sub = bitset[lb..ub].to_vec();
         let triple_sub = triples[lb..ub].to_vec();
         let len = ub - lb;
 
@@ -420,98 +414,89 @@ pub fn pairwise_mult_z2(bitset: &Bitset, ctx: &mut Context) -> Result<Bitset, Bo
             let de = open_z2_single_thread(&de_share, istream, ostream).unwrap();
 
             de.iter().zip(&triple_sub).map(|(&de, (uv, w))| 
-                    (bitmask & ((w ^ de & (uv >> 1) ^ (de >> 1) & uv ^ (de >> 1) & de & asymm) << 1))) 
+                    (bitmask & (((w >> 1) ^ de & (uv >> 1) ^ (de >> 1) & uv ^ (de >> 1) & de & asymm) << 1))) 
                 .collect()
 
         });
 
         t_handles.push(t_handle);
     }
+
     let mut subvecs: Vec<Vec<u128>> = t_handles.into_iter().map(|t| t.join().unwrap()).collect();
     let mut result: Vec<u128> = Vec::new(); 
     
     for i in 0..ctx.sys.threads.online {
         result.append(&mut subvecs[i]); 
     }
+
+    Ok(result)
     
-    let mut bitset_new = Bitset {
-        bits: result,
-        status: util::CompressionStatus::Tesselated,
-        size: bitset.size,
-        n_elems: bitset.n_elems, 
-        bitlen: (bitset.bitlen >> 1),
-        pad: ctx.num.asymm as u128,
-        is_padded: false,
-    };
-    bitset_new.decompress()?;
-    Ok(bitset_new)
 }
 
-pub fn parallel_mult_z2(bitset: &Bitset, ctx: &mut Context) -> Result<Bitset, Box<dyn Error>> {
+pub fn parallel_mult_z2(bitset: &Vec<u128>, n_elems: usize, bitlen: usize, ctx: &mut Context) -> Result<Vec<u128>, Box<dyn Error>> {
 
-    let mut bitset = bitset.clone();
-    // if bitset.status != util::CompressionStatus::Compressed {
-    //     bitset.compress(true);
-    // }
-    // println!("{:x?}", open_z2(&bitset.bits, ctx));
-    while bitset.bitlen > 1 {
+    let total = SystemTime::now();
 
-        if bitset.bitlen % 2 == 1 {
-            for i in 0..bitset.n_elems {
-                bitset.bits[i] = (bitset.bits[i] << 1) | (ctx.num.asymm as u128);
-            }
-            
-            bitset.bitlen += 1;
-        }
-
-        bitset = pairwise_mult_z2(&bitset, ctx)?;
-        
-    //    println!("{:x?}", open_z2(&bitset.bits, ctx));
+    if bitlen < 2 {
+        return Ok(bitset.clone())
     }
 
-    //bitset.decompress();
+    let now = SystemTime::now();
+    let mut bitlen = bitlen;
+    let mut bitset = util::compress_bit_vector(&bitset, n_elems, bitlen, true, ctx.num.asymm)?;
+    let mut compress_time = now.elapsed().unwrap().as_millis();   
 
-    Ok(bitset)
+    while bitlen > 1 {
+
+        bitset = pairwise_mult_z2(&bitset, n_elems, bitlen, ctx)?;
+        
+        bitlen = (bitlen + 1) >> 1;
+
+        let now = SystemTime::now();
+        if bitlen == 1 {
+            bitset = util::compress_from_tesselated_bit_vector(&bitset, n_elems, bitlen, false, ctx.num.asymm)?;
+        } else {
+            bitset = util::compress_from_tesselated_bit_vector(&bitset, n_elems, bitlen, true, ctx.num.asymm)?;
+        }
+        compress_time += now.elapsed().unwrap().as_millis();
+
+    }
+
+    let now = SystemTime::now();
+    let result = util::decompress_bit_vector(&bitset, n_elems, 1, false, ctx.num.asymm)?;
+    compress_time += now.elapsed().unwrap().as_millis();
+
+    // println!("parallel_mult: compression {:5} ms, pairwise mult {:5} ms", 
+    //     compress_time, total.elapsed().unwrap().as_millis() - compress_time);
+
+    Ok(result)
 }
 
-pub fn equality_from_z2(x: &Bitset, y: &Bitset, ctx: &mut Context) -> Result<Bitset, Box<dyn Error>> {
+pub fn equality_from_z2(x: &Vec<u128>, y: &Vec<u128>, n_elems: usize, bitlen: usize, ctx: &mut Context) -> Result<Vec<u128>, Box<dyn Error>> {
 
-    let bitmask = (-Wrapping(ctx.num.asymm as u128)).0; 
-    let mut bitset = Bitset::new( 
-        x.bits[..14*x.n_elems/128].into_iter().zip(&y.bits[..14*x.n_elems/128].to_vec()).map(|(xb, yb)| bitmask ^ xb ^ yb).collect::<Vec<u128>>(),
-        x.bitlen, ctx.num.asymm);
-    
+    let bitmask = if ctx.num.asymm == 1 {(1u128 << bitlen) - 1} else {0u128}; 
 
-    let mut eq_result = parallel_mult_z2(&bitset, ctx)?;
+    let bitset = x.iter().zip(y).map(|(xs, ys)| xs ^ ys ^ bitmask).collect::<Vec<u128>>();
 
-    // Ok(eq_result)
-    
-    Ok(Bitset::new( vec![0u128 ; x.n_elems], 1, ctx.num.asymm ))
-    /* verify */
-    //let eq_result = open_z2(&bitset.bits, ctx)?;
-    
-    // Ok( 
-    //     Bitset::new( 
-    //         eq_result.iter().map(|&b| if b == bitmask {ctx.num.asymm as u128} else {0u128}).collect::<Vec<u128>>(),
-    //         1,
-    //         ctx.num.asymm,
-    //     )
-    // )
+    let eq_result = parallel_mult_z2(&bitset, n_elems, bitlen, ctx)?;
+
+    Ok(eq_result)
+
 }
 
 /* right now only 1 bit */
-pub fn z2_to_zq(vec: &Bitset, ctx: &mut Context) -> Result<Vec<Wrapping<u64>>, Box<dyn Error>> {
+pub fn z2_to_zq(vec: &Vec<u128>, ctx: &mut Context) -> Result<Vec<Wrapping<u64>>, Box<dyn Error>> {
 
     let s0 = if ctx.num.asymm == 0 {
-        vec.bits.iter().map(|&b| Wrapping(b as u64)).collect::<Vec<Wrapping<u64>>>()
+        vec.iter().map(|&b| Wrapping(b as u64)).collect::<Vec<Wrapping<u64>>>()
     } else {
-        vec![ Wrapping(0u64) ; vec.n_elems ]
+        vec![ Wrapping(0u64) ; vec.len() ]
     }; 
 
     let s1 = if ctx.num.asymm == 1 {
-        vec.bits.iter().map(|&b| Wrapping(b as u64)).collect::<Vec<Wrapping<u64>>>()
+        vec.iter().map(|&b| Wrapping(b as u64)).collect::<Vec<Wrapping<u64>>>()
     } else {
-        vec![ Wrapping(0u64) ; vec.n_elems ]
+        vec![ Wrapping(0u64) ; vec.len() ]
     }; 
 
     let prod = multiply(&s0, &s1, ctx)?;
@@ -522,33 +507,100 @@ pub fn z2_to_zq(vec: &Bitset, ctx: &mut Context) -> Result<Vec<Wrapping<u64>>, B
     Ok(xor)
 }
 
+
+/* ToDo, make work for more than 2 inputs */
 pub fn argmax(vec: &Vec<Wrapping<u64>>, ctx: &mut Context ) -> Result<Vec<u128>, Box<dyn Error>> {
 
-    /**/
-    multiply(&vec, &vec, ctx);
-    multiply(&vec, &vec, ctx);
-    multiply(&vec, &vec, ctx);
-
-
-    let revealed = open(&vec, ctx)?;
-
-    let mut argmax = vec![0u128 ; revealed.len()];
-
-    let mut max = Wrapping(0u64);
-    let mut i_max = 0;
-    for (i, &elem) in revealed.iter().enumerate() {
-        if elem > max {
-            max = elem;
-            i_max = i;
-        }
+    if vec.len() == 0 {
+        return Ok(vec![])
     }
 
-    argmax[i_max] = ctx.num.asymm as u128;
-    
-    Ok(argmax)
+    let x_geq_y = geq(&vec[0], &vec[1], ctx)?;
+        
+    let agmx = vec![ x_geq_y, (ctx.num.asymm as u128) ^ x_geq_y ];
+
+    Ok(agmx)
+
 }
 
-/* 
+
+pub fn bit_extract(val: &Wrapping<u64>, bit_pos: usize, ctx: &mut Context) -> Result<u128, Box<dyn Error>> {
+
+    assert!(0 <= bit_pos && bit_pos < 64);
+
+    let propogate = val.0 as u128;
+    
+    if bit_pos == 0 {
+        return Ok(1 & propogate);
+    }
+
+    let mut p_layer = propogate;
+    let mut g_layer = if ctx.num.asymm == 0 {
+        multiply_z2(&vec![propogate], &vec![0u128], ctx)?[0]
+    } else {
+        multiply_z2(&vec![0u128], &vec![propogate], ctx)?[0]
+    };
+
+    let mut matrices = bit_pos;
+    while matrices > 1 {
+
+        let pairs = matrices / 2;
+        let remainder = matrices % 2;
+
+        let mut p = 0u128;
+        let mut p_next = 0u128;
+        let mut g = 0u128;
+        let mut g_next = 0u128;
+
+        for i in 0..pairs {
+            p |= ((p_layer >> (2*i)) & 1) << i;
+            g |= ((g_layer >> (2*i)) & 1) << i;
+            p_next |= ((p_layer >> (2*i+1)) & 1) << i;
+            g_next |= ((g_layer >> (2*i+1)) & 1) << i;	
+        }
+
+        let l_ops  = util::compress_bit_vector(&vec![ p_next ; 2 ], 2, pairs as usize, false, 0)?;
+        let r_ops  = util::compress_bit_vector(&vec![ p, g ], 2, pairs as usize, false, 0)?;
+        let matmul = multiply_z2(&l_ops, &r_ops, ctx)?;
+        let matmul = util::decompress_bit_vector(&matmul, 2, pairs as usize, false, 0)?;
+
+        let mut p_layer_next = 0u128;
+        let mut g_layer_next = 0u128;
+
+        for i in 0..pairs {
+            p_layer_next |= ((matmul[0] >> i) & 1) << i;
+            g_layer_next |= (((g_next >> i) ^ (matmul[1] >> i)) & 1) << i;
+        }
+
+        if remainder == 1 {
+            p_layer_next |= ((p_layer >> (matrices-1)) & 1) << pairs;
+            g_layer_next |= ((g_layer >> (matrices-1)) & 1) << pairs;  
+        }
+
+        p_layer = p_layer_next;
+        g_layer = g_layer_next;
+        matrices = pairs + remainder;
+    }
+
+    Ok(1 & (g_layer ^ (propogate >> bit_pos)))
+
+}
+
+// x >= y <----> ~MSB(x - y)
+pub fn geq(x: &Wrapping<u64>, y: &Wrapping<u64>, ctx: &mut Context) -> Result<u128, Box<dyn Error>> {
+
+    let diff = (x - y);
+    let bit_pos = ctx.num.precision_int + ctx.num.precision_frac + 1;
+    let msb = bit_extract(&diff, bit_pos, ctx)?;
+    let x_geq_y = (ctx.num.asymm as u128) ^ msb;
+
+    Ok(x_geq_y)
+}
+
+
+
+
+ /* 
 - at the lowest level (open), there are a fixed number of threads n.
 - a protocol one level above can either
 	- call open on the entire input set -- open splits input into n threads
@@ -575,3 +627,4 @@ pub fn argmax(vec: &Vec<Wrapping<u64>>, ctx: &mut Context ) -> Result<Vec<u128>,
     e = y - v;
     open(d, e)
 */
+

@@ -59,55 +59,6 @@ mod tests {
     }
 
     #[test]
-    fn _util_bitset_compress() {
-
-        use super::util::Bitset;
-        use rand::{thread_rng, Rng};
-        
-        let mut bits = Bitset::new( vec![0xdeadbeef, 0xffffffff], 65, 1);
-        println!("{}\n", &bits);
-        bits.compress(true);
-        println!("{}\n", &bits);
-        bits.tesselate();
-        println!("{}\n", &bits);
-        bits.compress(true);
-        println!("{}\n", &bits);
-        bits.decompress();
-        println!("{}\n", &bits);
-
-        
-
-        /* RANDOM TESTS */
-        let mut rng = rand::thread_rng();
-        let n_tests = 10;
-        let max_len = 1000;
-        
-        for i in 0..n_tests {
-
-            for bitlen in 1..65 {
-
-                let len = 1 + rng.gen::<usize>() % (max_len - 1); 
-                let asymm = 1;
-                let bitmask = (1 << bitlen) - 1;
-
-                // println!("i={:2}, bitlen={:3}, len={:2}", i, bitlen, len);
-
-                let input = (0..len).map(|_i| ((rng.gen::<u64>() as u128) | ((rng.gen::<u64>() as u128) << 64)) & bitmask).collect::<Vec<u128>>();
-                let mut bitset = Bitset::new( input, bitlen, asymm );
-                
-                let check = bitset.clone();
-                bitset.compress(true);
-                bitset.tesselate();
-                bitset.compress(true);
-                bitset.decompress();
-            
-                assert_eq!(&bitset, &check);
-            }
-        }
-
-    }
-
-    #[test]
     fn _util_compress_bit_vector() {
 
         use super::util;
@@ -117,7 +68,7 @@ mod tests {
         let output = util::compress_bit_vector(&vec![], 0, 1, false, 0).unwrap();
         assert_eq!(&output, &vec![]);
 
-        /* KNOWN ERRORS: bitlen less than 1 */
+        // /* KNOWN ERRORS: bitlen less than 1 */
         assert!(util::compress_bit_vector(&vec![0x0 ; 1], 1, 0, false, 0).is_err());
         /* bitlen greater than 128 w/o padding */
         assert!(util::compress_bit_vector(&vec![0x0 ; 1], 1, 129, false, 0).is_err());
@@ -160,7 +111,7 @@ mod tests {
 
         /* RANDOM TESTS */
         let mut rng = rand::thread_rng();
-        let n_tests = 10;
+        let n_tests = 10000;
         let max_len = 10000;
         
         for i in 0..n_tests {
@@ -172,9 +123,6 @@ mod tests {
             let bitmask = (1 << bitlen) - 1;
 
             let input = (0..len).map(|_i| ((rng.gen::<u64>() as u128) | ((rng.gen::<u64>() as u128) << 64)) & bitmask).collect::<Vec<u128>>();
-            // println!("len: {}, bitlen: {}, pad: {}, asymm: {}, bitmask: 0x{:x}, input: [{:x}, ... ]",
-            //     len, bitlen, pad, asymm, bitmask, input[0]);
-
             let compressed = util::compress_bit_vector(&input, len, bitlen, pad, asymm).unwrap();
             let output = util::decompress_bit_vector(&compressed, len, bitlen, pad, asymm).unwrap();
 
@@ -235,59 +183,74 @@ mod tests {
         /* random tests in _util_compress_bit_vector */
 
     }
-
+ 
     #[test]
-    fn _util_remove_tesselated_padding() {
+    fn _util_compress_from_tesselated_bit_vector() {
 
         use super::util;
+        use rand::{thread_rng, Rng};
 
         /* empty vec -> empty vec */
-        let output = util::remove_tesselated_padding(&vec![], 0).unwrap();
+        let output = util::compress_from_tesselated_bit_vector(&vec![], 0, 1, false, 0).unwrap();
         assert_eq!(&output, &vec![]);
 
-        let output = util::remove_tesselated_padding(&vec![0xffffffffffffffffffffffffffffffff ; 1], 1).unwrap();
-        assert_eq!(&output, &vec![0xffffffffffffffff0000000000000000; 1]);
-        
-        let output = util::remove_tesselated_padding(&vec![0xffffffffffffffffffffffffffffffff ; 2], 2).unwrap();
-        assert_eq!(&output, &vec![0xffffffffffffffffffffffffffffffff; 1]);
-        
-        let output = util::remove_tesselated_padding(&vec![0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa ; 2], 2).unwrap();
-        assert_eq!(&output, &vec![0xffffffffffffffffffffffffffffffff; 1]);
-        
-        let output = util::remove_tesselated_padding(&vec![0x55555555555555555555555555555555 ; 2], 2).unwrap();
-        assert_eq!(&output, &vec![0x00000000000000000000000000000000; 1]);
-              
-        let output = util::remove_tesselated_padding(&vec![0xffffffffffffffffffffffffffffffff ; 3], 3).unwrap();
-        assert_eq!(&output, &vec![0xffffffffffffffffffffffffffffffff, 0xffffffffffffffff0000000000000000]);
-        
-        let output = util::remove_tesselated_padding(&vec![0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa ; 3], 3).unwrap();
-        assert_eq!(&output, &vec![0xffffffffffffffffffffffffffffffff, 0xffffffffffffffff0000000000000000]);
-        
-        let output = util::remove_tesselated_padding(&vec![0x55555555555555555555555555555555 ; 3], 3).unwrap();
-        assert_eq!(&output, &vec![0x00000000000000000000000000000000; 2]);
-
-    }
-
-    
-    #[test]
-    /* unfinished */
-    fn _util_compress_from_tesselated() {
-
-        use super::util;
-
-        /* empty vec -> empty vec */
-        let output = util::compress_from_tesselated(&vec![], 0, 1, false, 0).unwrap();
-        assert_eq!(&output, &vec![]);
-
-        let output = util::compress_from_tesselated(&vec![0xffffffffffffffffffffffffffffffff], 64, 1, true, 0).unwrap();
+        let output = util::compress_from_tesselated_bit_vector(&vec![0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa], 64, 1, true, 0).unwrap();
         assert_eq!(&output, &vec![0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa]);
 
-        let output = util::compress_from_tesselated(&vec![0xffffffffffffffffffffffffffffffff], 64, 1, true, 1).unwrap();
+        let output = util::compress_from_tesselated_bit_vector(&vec![0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa], 64, 1, true, 1).unwrap();
         assert_eq!(&output, &vec![0xffffffffffffffffffffffffffffffff]);
         
-        let output = util::compress_from_tesselated(&vec![0xffffffffffffffffffffffffffffffff ; 2], 63, 1, true, 0).unwrap();
-        //assert_eq!(&output, &vec![0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa]);
-        println!("{:x?}", &output);
+        /* RANDOM TESTS */
+        let mut rng = rand::thread_rng();
+        let n_tests = 10000;
+        let max_len = 1000;
+        
+        for i in 0..n_tests {
+
+            let len = 10000 + rng.gen::<usize>() % (max_len - 1); 
+            let bitlen = 1 + rng.gen::<usize>() % 64;
+            let pad = true;
+            let asymm = rng.gen::<u64>() & 1;
+            let bitmask = (1 << bitlen) - 1;
+
+            let input = (0..len).map(|_i| ((rng.gen::<u64>() as u128) | ((rng.gen::<u64>() as u128) << 64)) & bitmask).collect::<Vec<u128>>();
+            let compressed = util::compress_bit_vector(&input, len, bitlen, pad, asymm).unwrap();
+            let tesselated = compressed.iter().map(|x| x & 0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa).collect::<Vec<u128>>(); 
+            let tesselated_bitlen = (bitlen + 1) >> 1;
+            let compressed = util::compress_from_tesselated_bit_vector(&tesselated, len, tesselated_bitlen, pad, asymm).unwrap();
+            let output = util::decompress_bit_vector(&compressed, len, tesselated_bitlen, pad, asymm).unwrap();
+
+            let mut expected = vec![0u128 ; len];
+            let shift = if pad && (bitlen & 1 == 1) {0} else {1};
+            for i in 0..len {
+                for j in 0..tesselated_bitlen {
+                    expected[i] |= ((input[i] >> 2*j + shift ) & 1) << j;
+                }
+            }
+
+            //assert_eq!(&expected, &output);
+            assert_eq!(expected.len(), output.len());
+            // print!("I:");
+            // for el in &input {
+            //     print!(" {:b}", el);
+            // }
+            // println!();
+
+            // print!("O:");
+            // for el in &output {
+            //     print!(" {:b}", el);
+            // }
+            // println!();
+
+            // print!("E:");
+            // for el in &expected {
+            //     print!(" {:b}", el);
+            // }
+            // println!();
+        }
+
+
+
     }
 
     #[test]
@@ -544,10 +507,10 @@ mod tests {
         use std::env;
         use std::num::Wrapping;
         use std::time::SystemTime;
+        use super::util;
         use super::computing_party::protocol;
         use super::computing_party::init;
         use super::io;
-        use super::util::Bitset;
         use rand::{thread_rng, Rng};
         let test_path = "test/files/computing_party_protocol_pairwise_mult_z2";
 
@@ -560,49 +523,72 @@ mod tests {
         assert!( init::connection( &mut ctx ).is_ok() );
         
         /* empty vec test */
-        // assert_eq!( &Vec::<u128>::new(), &protocol::pairwise_mult_z2(&vec![], 0, 1, &mut ctx).unwrap() );
-
-        // let mut rng = rand::thread_rng();
-
-        // for &len in vec![1, 10, 100, 1000].iter() {
-        //     for bitlen in (2..128).step_by(2) {
-
-        //         println!("len: {}, bitlen: {}", len, bitlen);
-
-        //         let bitmask = (-Wrapping(1u128)).0 >> (128 - bitlen);
-        //         let input = if ctx.num.asymm == 0 {
-        //             (0..len).map(|_i| (bitmask & (rng.gen::<u64>() as u128 | (rng.gen::<u64>() as u128) << 64))).collect::<Vec<u128>>()
-        //         } else {
-        //             vec![ 0x0 ; len]
-        //         };
-        //         let check = protocol::open_z2(&input, &mut ctx).unwrap();
+        let empty_vec = Vec::<u128>::new();
+        assert_eq!(empty_vec, protocol::pairwise_mult_z2(&vec![], 0, 0, &mut ctx).unwrap());
         
-        //         let mut check_eq = vec![0u128 ; len];
-        //         for (j, &elem) in check.iter().enumerate() {
-        //             for i in (1..128).step_by(2) {
-        //                 let val = (elem >> i) & (elem >> (i-1)) & 1;
-        //                 check_eq[j] |=  val << i;
-        //             }
-        //         }
+        /* known results */
+        let input = vec![ if ctx.num.asymm == 0 {0xffffffffffffffffffffffffffffffffu128} else {0u128}];
+        let expected = vec![0xffffffffffffffffu128]; 
+        let output = protocol::pairwise_mult_z2(&input, 1, 128, &mut ctx).unwrap();
+        let output = util::compress_from_tesselated_bit_vector(&output, 1, 64, true, ctx.num.asymm).unwrap();
+        let output = util::decompress_bit_vector(&output, 1, 64, true, ctx.num.asymm).unwrap();
+        let output = protocol::open_z2(&output, &mut ctx).unwrap();
 
-        //         let mut bitset = Bitset::new(input, bitlen, ctx.num.asymm);
-        //         println!("{}", &bitset);
-        //         bitset.compress(true);
-        //         println!("{}", &bitset);
+        println!("I: {:x?}", &input);
+        println!("O: {:x?}", &output);
+        println!("E: {:x?}", &expected);
 
-        //         let mut output = protocol::pairwise_mult_z2(&bitset, &mut ctx).unwrap();
-        //         output.compress(false);
-        //         output.decompress();
+        assert_eq!(&output, &expected);
 
-        //         let output = protocol::open_z2(&output.bits, &mut ctx).unwrap();
+        /* RANDOM TESTS */
+        let mut rng = rand::thread_rng();
+  
+        for &len in vec![1, 2, 3, 5, 7, 11, 11177].iter() {
+            for bitlen in 1..65 {
 
-        //         // println!("check  {:x?} -- output {:x?}", &check_eq, &output);
-        //         assert_eq!(&check_eq, &output);
-        //     }
-        // }
+            
+                let pad = true;
+                let asymm = ctx.num.asymm;
+                let bitmask: u128 = (1u128 << bitlen) - 1u128;
 
+                let input = (0..len).map(|_i| ((rng.gen::<u64>() as u128) | ((rng.gen::<u64>() as u128) << 64)) & bitmask).collect::<Vec<u128>>();
 
+                let opened_input = protocol::open_z2(&input, &mut ctx).unwrap();
+                let compressed = util::compress_bit_vector(&input, len, bitlen, pad, asymm).unwrap();                
+                let tesselated = protocol::pairwise_mult_z2(&compressed, len, bitlen, &mut ctx).unwrap(); 
+  
+                let tesselated_bitlen = (bitlen + 1) >> 1;
+                let compressed = util::compress_from_tesselated_bit_vector(&tesselated, len, tesselated_bitlen, pad, asymm).unwrap();
+                let output = util::decompress_bit_vector(&compressed, len, tesselated_bitlen, pad, asymm).unwrap();
+                let output = protocol::open_z2(&output, &mut ctx).unwrap(); 
 
+                let mut expected = vec![0u128 ; len];
+                if pad && (bitlen & 1 == 1) {
+                    for i in 0..len {
+                        expected[i] |= opened_input[i] & 1;
+                        for j in 1..tesselated_bitlen {
+                            let left_bit = (opened_input[i] >> 2*j - 1);
+                            let right_bit = (opened_input[i] >> 2*j);
+                            expected[i] |= (left_bit & right_bit & 1) << j;
+                        }
+                    }
+                } else {
+                    for i in 0..len {
+                        for j in 0..tesselated_bitlen {
+                            let left_bit = (opened_input[i] >> 2*j);
+                            let right_bit = (opened_input[i] >> 2*j + 1);
+                            expected[i] |= (left_bit & right_bit & 1) << j;
+                        }
+                    }
+                }
+
+                // println!("[len={}][bitlen={}]", len, bitlen);
+                // println!("[len={}][bitlen={}] I: {:x?}, O: {:x?}, E: {:x?}", len, bitlen, &opened_input, &output, &expected);
+                // println!("\t expected: {:x?}", &expected);
+
+                assert_eq!(&expected, &output);
+            }
+        }
     }
 
     #[test]
@@ -611,15 +597,13 @@ mod tests {
         use std::env;
         use std::num::Wrapping;
         use std::time::SystemTime;
+        use super::util;
         use super::computing_party::protocol;
         use super::computing_party::init;
         use super::io;
-        use super::util;
-        use super::util::Bitset;
         use rand::{thread_rng, Rng};
-        
         let test_path = "test/files/computing_party_protocol_parallel_mult_z2";
-        
+
         let args: Vec<String> = env::args().collect();
         let id = &args[args.len()-1];
         let test_cfg = format!("{}/Party{}.toml", test_path, id); 
@@ -627,58 +611,94 @@ mod tests {
         
         /* connect */
         assert!( init::connection( &mut ctx ).is_ok() );
-
-        let input = if ctx.num.asymm == 0 {vec![0xffffffff, 0xfffeffff, 0xffffffff]} else {vec![0u128; 3]};
-        let mut bits = Bitset::new( input, 32, ctx.num.asymm );
         
+        /* empty vec test */
+        let empty_vec = Vec::<u128>::new();
+        assert_eq!(empty_vec, protocol::parallel_mult_z2(&vec![], 0, 0, &mut ctx).unwrap());
+        
+        /* known results */
+        let input = vec![if ctx.num.asymm == 0 {0xffffffffffffffffu128} else {0u128} ; 2];
+        let expected = vec![0x1u128 ; 2]; 
+        let output = protocol::parallel_mult_z2(&input, 2, 64, &mut ctx).unwrap();
+        let output = protocol::open_z2(&output, &mut ctx).unwrap();
+
+        println!("I: {:x?}", &input);
+        println!("O: {:x?}", &output);
+        println!("E: {:x?}", &expected);
+
+        assert_eq!(&output, &expected);
+
         /* RANDOM TESTS */
         let mut rng = rand::thread_rng();
-        let n_tests = 1 << 14;
-        let len = 10;
-          
-        for bitlen in 14..15 {
-            for i in 0..(1 << bitlen) {
 
+        for &len in vec![1, 2, 3, 5, 7, 11, 11177].iter() {
+            for bitlen in 1..65 {
+   
+                let pad = true;
                 let asymm = ctx.num.asymm;
-                let bitmask = (Wrapping(1u128 << bitlen) - Wrapping(1u128)).0;
-                
-                let input = if asymm == 0 {
-                vec![i ; len]
-                } else {
-                    vec![0u128 ; len]
-                };
-                let check = protocol::open_z2(&input, &mut ctx).unwrap();
+                let bitmask: u128 = (1u128 << bitlen) - 1u128;
 
-                let mut bitset = Bitset::new( input, bitlen, asymm );
+                let input = vec![if ctx.num.asymm == 0 {bitmask} else {0} ; len];
 
-                let now = SystemTime::now();
-                let result = protocol::parallel_mult_z2(&bitset, &mut ctx).unwrap().bits;
+                let opened_input = protocol::open_z2(&input, &mut ctx).unwrap();
+                let output = protocol::parallel_mult_z2(&input, len, bitlen, &mut ctx).unwrap(); 
+                let output = protocol::open_z2(&output, &mut ctx).unwrap(); 
 
-
-                // let mut eq_check = vec![0u128 ; len];
-                // for i in 0..len {
-                //     if check[i] < (1 << bitlen) - 1 {
-                //         eq_check[i] = 0;
-                //     } else {
-                //         eq_check[i] = 1;
-                //     }
-                // }
-                
-                println!("test={}, work time: {:5} ms", i, now.elapsed().unwrap().as_millis());
-
-                // let opened = protocol::open_z2(&result, &mut ctx).unwrap();
-                // if check[0] == (1 << bitlen) - 1 {
-                //     println!("result: i={:2}, bitlen={:3}, len={:2}", i, bitlen, len);
-                //     println!("check:  {:x?} = opened {:x?}", &eq_check, &opened);
-                        
-                // }
-
-
-                // assert_eq!(&protocol::open_z2(&result, &mut ctx).unwrap(), &eq_check);
-                    
+                assert_eq!(&vec![1u128 ; len], &output);
             }
         }
-        
+
+        for &len in vec![1, 2, 3, 5, 7, 11, 11177].iter() {
+            for &bitlen in vec![2, 8, 32, 64].iter() {
+   
+                for i in 0..bitlen {
+
+                    let pad = true;
+                    let asymm = ctx.num.asymm;
+                    let bitmask: u128 = (1u128 << bitlen) - 1u128;
+    
+                    let input = vec![if ctx.num.asymm == 0 {bitmask} else {1 << i} ; len];
+    
+                    let opened_input = protocol::open_z2(&input, &mut ctx).unwrap();
+                    let output = protocol::parallel_mult_z2(&input, len, bitlen, &mut ctx).unwrap(); 
+                    let output = protocol::open_z2(&output, &mut ctx).unwrap(); 
+    
+                    assert_eq!(&vec![0u128 ; len], &output);
+
+                }
+
+            }
+        }
+
+        for &len in vec![1, 2, 3, 5, 7, 11, 11177].iter() {
+            for bitlen in 1..65 {
+
+            
+                let pad = true;
+                let asymm = ctx.num.asymm;
+                let bitmask: u128 = (1u128 << bitlen) - 1u128;
+
+                let input = (0..len).map(|_i| ((rng.gen::<u64>() as u128) | ((rng.gen::<u64>() as u128) << 64)) & bitmask).collect::<Vec<u128>>();
+
+                let opened_input = protocol::open_z2(&input, &mut ctx).unwrap();
+                let output = protocol::parallel_mult_z2(&input, len, bitlen, &mut ctx).unwrap(); 
+                let output = protocol::open_z2(&output, &mut ctx).unwrap(); 
+
+                let mut expected = vec![0u128 ; len];
+                for i in 0..len {
+                    expected[i] = opened_input[i] & 1;
+                    for j in 1..bitlen {
+                        expected[i] &= opened_input[i] >> j;
+                    }
+                }
+            
+                // println!("[len={}][bitlen={}]", len, bitlen);
+                // println!("[len={}][bitlen={}] I: {:x?}, O: {:x?}, E: {:x?}", len, bitlen, &opened_input, &output, &expected);
+                // println!("\t expected: {:x?}", &expected);
+
+                assert_eq!(&expected, &output);
+            }
+        }
     }
 
     #[test]
@@ -687,15 +707,13 @@ mod tests {
         use std::env;
         use std::num::Wrapping;
         use std::time::SystemTime;
+        use super::util;
         use super::computing_party::protocol;
         use super::computing_party::init;
         use super::io;
-        use super::util;
-        use super::util::Bitset;
         use rand::{thread_rng, Rng};
-        
-        let test_path = "test/files/computing_party_protocol_parallel_mult_z2";
-        
+        let test_path = "test/files/computing_party_protocol_equality_from_z2";
+
         let args: Vec<String> = env::args().collect();
         let id = &args[args.len()-1];
         let test_cfg = format!("{}/Party{}.toml", test_path, id); 
@@ -703,84 +721,169 @@ mod tests {
         
         /* connect */
         assert!( init::connection( &mut ctx ).is_ok() );
+        
+        /* empty vec test */
+        let empty_vec = Vec::<u128>::new();
+        assert_eq!(empty_vec, protocol::equality_from_z2(&vec![], &vec![], 0, 0, &mut ctx).unwrap());
+        
+        /* known results */
+        let all_1s = if ctx.num.asymm == 0 {0xffffffffffffffffu128 } else { 0u128 };
+        let x = vec![ all_1s, 0u128, all_1s, 0u128 ];
+        let y = vec![ all_1s, 0u128, 0u128, all_1s ];
+        
+        let expected = vec![1u128, 1u128, 0u128, 0u128]; 
+        let output = protocol::equality_from_z2(&x, &y, 4, 64, &mut ctx).unwrap();
+        let output = protocol::open_z2(&output, &mut ctx).unwrap();
 
-        /* RANDOM TESTS */
+        println!("I: x={:x?}, y={:x?}", &x, &y);
+        println!("O: {:x?}", &output);
+        println!("E: {:x?}", &expected);
+
+        assert_eq!(&output, &expected);
+
+        // /* RANDOM TESTS */
         let mut rng = rand::thread_rng();
-        
 
-        for bitlen in 14..15 {
+        for &bitlen in vec![5].iter() {
+            let max_val = (1 << bitlen) - 1;
+            let bitmask: u128 = (1u128 << bitlen) - 1u128;
 
-            
-            let x = (0..(1 << bitlen))
-            .map(|i| if ctx.num.asymm == 0 {i as u128} else {0u128})
-            .collect::<Vec<u128>>();
+            let x = (0..max_val).map(|idx| if ctx.num.asymm == 0 {idx as u128} else {0u128}).collect::<Vec<u128>>();
 
-            let x = Bitset::new(x, bitlen, ctx.num.asymm);
+            for j in 0..max_val {
 
+                let y = vec![ if ctx.num.asymm == 1 {j as u128} else {0u128} ; max_val ];
 
-            for i in 0..(1 << bitlen) {
+                let output = protocol::equality_from_z2(&x, &y, max_val, bitlen, &mut ctx).unwrap(); 
+                let output = protocol::open_z2(&output, &mut ctx).unwrap(); 
 
-                let y = vec![ if ctx.num.asymm == 1 {0u128} else {i as u128} ; 1 << bitlen ];
-                let y = Bitset::new(y, bitlen, ctx.num.asymm);
+                println!("O: {:x?}", &output);
 
-
-                let eq_result = protocol::equality_from_z2(&x, &y, &mut ctx).unwrap();
-
-                // println!("i={}, eq_result: {:?}", i, protocol::open_z2(&eq_result.bits, &mut ctx).unwrap());
-
-                assert_eq!( 
-                    protocol::open_z2(&eq_result.bits, &mut ctx).unwrap(),
-                    (0..(1 << bitlen)).map(|j| if i == j {1u128} else {0u128} ).collect::<Vec<u128>>()
-                );
-            }      
-            
-
+                let expected = (0..max_val).map(|i| if i == j {1u128} else {0u128}).collect::<Vec<u128>>();
+                assert_eq!(&expected, &output); 
+            }
         }
-
-        
+    
     }
 
     #[test]
-    fn _computing_party_ml_naive_bayes_inference() {
+    fn _computing_party_protocol_bit_extract() {
 
         use std::env;
         use std::num::Wrapping;
         use std::time::SystemTime;
+        use super::util;
         use super::computing_party::protocol;
         use super::computing_party::init;
         use super::io;
-        use super::util;
-        use super::util::Bitset;
         use rand::{thread_rng, Rng};
-        use super::computing_party::ml::naive_bayes;
-        
-        let test_path = "test/files/computing_party_ml_naive_bayes_inference";
-        
+        let test_path = "test/files/computing_party_protocol_bit_extract";
+
         let args: Vec<String> = env::args().collect();
         let id = &args[args.len()-1];
         let test_cfg = format!("{}/Party{}.toml", test_path, id); 
         let mut ctx = init::runtime_context( &test_cfg ).unwrap();
-      
+        
         /* connect */
         assert!( init::connection( &mut ctx ).is_ok() );
+     
+        let mut rng = rand::thread_rng();
+        let n_tests = 100;
+           
+        for test in 0..n_tests {
 
-        naive_bayes::inference::run(&mut ctx);
+            let input = rng.gen::<u64>();
+            let input_opened = protocol::open(&vec![Wrapping(input)], &mut ctx).unwrap()[0].0 as u128;
 
-        // for &dict_size in vec![10, 100, 1000, 10000].iter() {
-        //     for &ex_size in vec![5, 10, 25, 50, 100, 500].iter() {
-        //         for &n_classes in vec![2, 3, 4].iter() {
+            for bit_pos in 0..64 {
 
-        //             let now = SystemTime::now();
-        //             naive_bayes::inference::run(dict_size, ex_size, n_classes, &mut ctx);
-        //             println!("dict_size: {:5}, ex_size: {:5}, n_classes: {:5} -- work time {:5} ms",
-        //                 dict_size, ex_size, n_classes, now.elapsed().unwrap().as_millis());
-                    
+                let output = protocol::bit_extract(&Wrapping(input), bit_pos, &mut ctx).unwrap();
+                let output = protocol::open_z2(&vec![output], &mut ctx).unwrap()[0];
 
-        //         }
-        //     }
-        // }
+                // println!("[bitpos={}] input opened : {}", bit_pos, input_opened);
+                // println!("[bitpos={}] output opened: {}", bit_pos, output);    
 
+                assert_eq!((input_opened >> bit_pos) & 1, output)
 
+            } 
+        }
     }
+
+    #[test]
+    fn _computing_party_protocol_geq() {
+
+        use std::env;
+        use std::num::Wrapping;
+        use std::time::SystemTime;
+        use super::util;
+        use super::computing_party::protocol;
+        use super::computing_party::init;
+        use super::io;
+        use rand::{thread_rng, Rng};
+        let test_path = "test/files/computing_party_protocol_bit_extract";
+
+        let args: Vec<String> = env::args().collect();
+        let id = &args[args.len()-1];
+        let test_cfg = format!("{}/Party{}.toml", test_path, id); 
+        let mut ctx = init::runtime_context( &test_cfg ).unwrap();
+        
+        /* connect */
+        assert!( init::connection( &mut ctx ).is_ok() );
+     
+        let mut rng = rand::thread_rng();
+        let n_tests = 100;
+        let bitmask: u64 = (1 << (ctx.num.precision_int + ctx.num.precision_frac)) - 1;   
+        
+        for test in 0..n_tests {
+
+            let mut x = 0u64;
+            let mut y = 0u64;
+            let x_neg = rng.gen::<bool>();
+            let y_neg = rng.gen::<bool>();
+            
+            if ctx.num.asymm == 0 {
+
+                x = rng.gen::<u64>() & bitmask;
+                y = rng.gen::<u64>() & bitmask;
+                
+                if x_neg {
+                    x = (- Wrapping(x)).0; 
+                }
+
+                if y_neg {
+                    y = (- Wrapping(y)).0; 
+                }
+            }
+
+            let xy_open = protocol::open(&vec![Wrapping(x), Wrapping(y)], &mut ctx).unwrap();
+            let x_open = xy_open[0];
+            let y_open = xy_open[1];
+
+            let expected = if !(x_neg ^ y_neg) {
+                if x_open >= y_open {
+                    1u128
+                } else {
+                    0u128
+                }
+            } else if x_neg && !y_neg {
+                0u128
+            } else {
+                1u128
+            };
+
+            // println!("x: {}, y: {}, output: {} expected: {}", x_open, y_open, output, expected);
+
+            let output = protocol::geq(&Wrapping(x), &Wrapping(y), &mut ctx).unwrap();
+            let output = protocol::open_z2(&vec![output], &mut ctx).unwrap()[0];
+
+            if ctx.num.asymm == 0 {
+
+                assert_eq!(expected, output);
+
+            }
+
+        }
+    }
+
 
 }

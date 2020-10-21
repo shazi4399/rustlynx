@@ -1,0 +1,8 @@
+n_classes    = 2
+dict_len     = 100
+ex_len       = 10
+hash_len     = 14
+dict         = "C:/ML_data/nb/dict_1.csv"
+example      = "C:/ML_data/nb/example_1.csv"
+l_probs      = "C:/ML_data/nb/l_probs_1.csv"
+class_priors = "C:/ML_data/nb/class_priors_1.csv"

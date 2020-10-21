@@ -16,8 +16,8 @@
 [sys]
 	[sys.threads]
 	optimise = false
-	offline = 16
-	online = 16
+	offline = 32
+	online = 32
 
 [numbersystem]
 precision_frac = 10
@@ -27,13 +27,13 @@ precision_int  = 15
 debug = true							   #true doesn't interact with TI
 
 [ml]
-phase = "inference"                      #or, "inference"
+phase = "learning"                      #or, "inference"
 model = "naivebayes"           
 
 	[ml.naivebayes]
-	learning_cfg = "cfg/ml/naivebayes/learning1.toml"
-	inference_cfg = "cfg/ml/naivebayes/inference1.toml"
+	learning_cfg = "ml/naivebayes/learning1.toml"
+	inference_cfg = "ml/naivebayes/learning1.toml"
 
 	[ml.logisticregression]
-	learning_cfg = "cfg/ml/logisticregression/learning1.toml"
-	inference_cfg = "cfg/ml/logisticregression/inference1.toml"
+	learning_cfg = "ml/logisticregression/learning1.toml"
+	inference_cfg = "ml/logisticregression/inference1.toml"

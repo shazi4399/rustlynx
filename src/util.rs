@@ -3,424 +3,331 @@ use std::num::Wrapping;
 use std::fmt;
 use super::constants;
 use std::cmp::PartialEq;
+use std::cmp;
+use std::thread;
 
-#[derive(Debug, Clone, PartialEq)]
-pub enum CompressionStatus {
-    Compressed,
-    Decompressed,
-    Tesselated,
-    NotAllocated, 
-}
+pub fn compress_bit_vector(vec: &Vec<u128>, n_elems: usize, bitlen: usize, pad_odd_bitlen: bool, asymm: u64) -> Result<Vec<u128>, Box<dyn Error>> {
 
-#[derive(Debug, Clone, PartialEq)]
-pub struct Bitset {
-    pub bits: Vec<u128>,
-    pub status: CompressionStatus,
-    pub size: usize,
-    pub n_elems: usize, 
-    pub bitlen: usize,
-    pub pad: u128, // 0 or 1
-    pub is_padded: bool,
-}
+    let MAX_THREADS = 16;
 
-impl fmt::Display for Bitset {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-
-        let mut hex_string = String::from("|");
-        for subset in &self.bits {
-            hex_string = format!("{}{}|", hex_string, hex(*subset));
-        }
-
-        write!(f, "Bitset {{ bits: {}, status: {:?}, size: {}, n_elems: {}, bitlen: {}, pad: {}, is_padded: {} }}", 
-        hex_string, self.status, self.size, self.n_elems, self.bitlen, self.pad, self.is_padded)
-    }
-}
-
-impl Bitset {
-
-    pub fn new(bits: Vec<u128>, bitlen: usize, asymm: u64) -> Bitset {
-
-        /* bound check bitlen, asymm == 1 or 0 */
-        let len = bits.len();
-        Bitset {
-            bits: bits,
-            status: CompressionStatus::Decompressed,
-            size: len,
-            n_elems: len,
-            bitlen: bitlen,
-            pad: asymm as u128,
-            is_padded: false,
-        }
+    if bitlen < 1 || bitlen + if pad_odd_bitlen {1} else {0} > 128 {
+        return Err("invalid bitlength".into())
     }
 
-    pub fn compress(&mut self, with_padding: bool) -> Result<(), Box<dyn Error>> {
+    let padded_bitlen = bitlen + if pad_odd_bitlen & (bitlen & 1 == 1) {1} else {0};
 
-        match self.status {
-            CompressionStatus::Tesselated => {
+    let bits_per_chunk = lcm(128, padded_bitlen);
+    let elems_per_chunk = bits_per_chunk / padded_bitlen;
+    let chunk_size = bits_per_chunk / 128;
 
-                /* doesn't work for bitlengths > 64 */
-                
-                let padded_bitlen = self.bitlen + if with_padding & (self.bitlen & 1 == 1) {1} else {0};
-                let n_bits = self.n_elems * padded_bitlen;
-                let tesselated_bitlen = 2 * padded_bitlen;                
-                let compressed_size = n_bits / 128 + if n_bits % 128 > 0 {1} else {0};
-                let mut compressed_bits = vec![0u128 ; compressed_size];
+    let n_chunks = n_elems / elems_per_chunk + if n_elems % elems_per_chunk > 0 {1} else {0};
 
-                if tesselated_bitlen < 129 {
-                    let bitmask = (-Wrapping(1u128)).0 >> (128 - tesselated_bitlen);
-                    let step_size = 128 - tesselated_bitlen;
+    let n_threads = cmp::min(MAX_THREADS, n_chunks);
 
-                    for i in 0..self.n_elems {
+    // let n_bits = n_elems * padded_bitlen;
+    // let compressed_size = n_bits / 128 + if n_bits % 128 > 0 {1} else {0};
 
-                        let literal_shift = (1 + i) * step_size;             
-                        let i_shift = literal_shift / 128;
-                        let bitshift = literal_shift % 128;
-                        let mut bitset = (self.bits[i - i_shift] >> bitshift) & bitmask;
-                
-                        if bitshift + tesselated_bitlen > 128 {
-                            bitset |= (self.bits[i-i_shift-1] << (128 - bitshift)) & bitmask;
-                        }
+    // println!("n_elems         : {}", n_elems);
+    // println!("bitlen          : {}", bitlen);
+    // println!("pad odd bitlen  : {}", pad_odd_bitlen);
+    // println!("padded bitlen   : {}", padded_bitlen);
+    // println!("bits per chunk  : {}", bits_per_chunk);
+    // println!("elems per chunk : {}", elems_per_chunk);
+    // println!("chunk size      : {}", chunk_size);
+    // println!("n chunks        : {}", n_chunks);
+    // println!("n threads       : {}", n_threads);
+    // println!();
 
-                        let mut compact_bitset = 0u128;
-                        for j in 0..padded_bitlen {
-                            compact_bitset |= ((bitset >> (2*j + 1)) & 1) << j;           
-                        }
+    let mut t_handles: Vec<thread::JoinHandle<Vec<u128>>> = Vec::new();
 
-                        let bitset = compact_bitset;
-                        let literal_shift = (1 + i) * (128 - padded_bitlen);
-                        let i_shift = literal_shift / 128;
-                        let bitshift = literal_shift % 128;
-            
-                        compressed_bits[i - i_shift] |= bitset << bitshift;
-            
-                        if bitshift + padded_bitlen > 128 {
-                            compressed_bits[i - i_shift - 1] |= bitset >> (128 - bitshift);
-                        }         
-                    }
-                } else {
-                    println!("not implemented for bitlength > 64 yet");
-                }
+    for t in 0..n_threads {
 
-                self.bits = compressed_bits;
-                self.size = compressed_size;
-                self.is_padded = with_padding & (self.bitlen & 1 == 1);
-                self.status = CompressionStatus::Compressed;
-                Ok(())
-            },
-            CompressionStatus::Decompressed => {
-       
-                let padded_bitlen = self.bitlen + if with_padding & (self.bitlen & 1 == 1) {1} else {0};
-                let n_bits = self.n_elems * padded_bitlen;
-                let compressed_size = n_bits / 128 + if n_bits % 128 > 0 {1} else {0};
-                let mut compressed_bits = vec![0u128 ; compressed_size];
-
-                for (i, b) in self.bits.iter().enumerate() {
-
-                    let bitset = if with_padding & (self.bitlen & 1 == 1) {(*b << 1)|self.pad} else {*b};
-                    let literal_shift = (1 + i) * (128 - padded_bitlen);
-                    let i_shift = literal_shift / 128;
-                    let bitshift = literal_shift % 128;
+        let base_lb = (t * n_elems) / n_threads;
+        let segmented_lb = base_lb + if base_lb % elems_per_chunk > 0 { elems_per_chunk - (base_lb % elems_per_chunk)} else {0};
+        let base_ub = ((t + 1) * n_elems) / n_threads;
+        let segmented_ub = base_ub + if base_ub % elems_per_chunk > 0 { elems_per_chunk - (base_ub % elems_per_chunk)} else {0};
+        let lb = cmp::min( segmented_lb, (Wrapping(n_elems) - Wrapping(1)).0);
+        let ub = cmp::min( segmented_ub, n_elems);
+        // println!("t: {}, lb: {}, ub: {}", t, lb, ub);
         
-                    compressed_bits[i - i_shift] |= bitset << bitshift;
+        let subvec = vec[lb..ub].to_vec();
+        let len = padded_bitlen * (ub - lb) / 128 + if padded_bitlen * (ub - lb) % 128 > 0 {1} else {0};
+
+        let t_handle = thread::spawn(move || {
+
+            let mut compressed_bits = vec![0u128 ; len];
+
+            for (i, b) in subvec.iter().enumerate() {
+
+                let bitset = if pad_odd_bitlen & (bitlen & 1 == 1) { (*b << 1) | (asymm as u128)} else {*b};
+                let literal_shift = (1 + i) * (128 - padded_bitlen);
+                let i_shift = literal_shift / 128;
+                let bitshift = literal_shift % 128;
         
-                    if bitshift + padded_bitlen > 128 {
-                        compressed_bits[i - i_shift - 1] |= bitset >> (128 - bitshift);
-                    }
+                compressed_bits[i - i_shift] |= bitset << bitshift;
+        
+                if bitshift + padded_bitlen > 128 {
+                    compressed_bits[i - i_shift - 1] |= bitset >> (128 - bitshift);
                 }
-
-                // WHY does this fail? compressed_bits[compressed_size - 1] |= (-(Wrapping(self.pad))).0 >> (n_bits % 128); 
-
-                self.bits = compressed_bits;
-                self.size = compressed_size;
-                self.is_padded = with_padding & (self.bitlen & 1 == 1);
-                self.status = CompressionStatus::Compressed;
-                Ok(())
-            },
-            _ => Ok(())
-        }
-    }
-    
-    pub fn decompress(&mut self) -> Result<(), Box<dyn Error>> {
-
-        match self.status {
-            CompressionStatus::Decompressed => return Ok(()),
-            CompressionStatus::NotAllocated => return Ok(()),
-            CompressionStatus::Tesselated => return Ok(()),
-            CompressionStatus::Compressed => {
-
-                let padded_bitlen = self.bitlen + if self.is_padded {1} else {0};
-                let bitmask = (-Wrapping(1u128)).0 >> (128 - padded_bitlen);
-                let mut decompressed_bits = vec![0u128 ; self.n_elems];
-
-                for i in 0..self.n_elems {
-
-                    let literal_shift = (1 + i) * (128 - padded_bitlen);
-                    let i_shift = literal_shift / 128;
-                    let bitshift = literal_shift % 128;        
-                    
-                    let mut bitset = (self.bits[i - i_shift] >> bitshift) & bitmask;
-            
-                    if bitshift + padded_bitlen > 128 {
-                        bitset |= (self.bits[i-i_shift-1] << (128 - bitshift)) & bitmask;
-                    }
-            
-                    bitset >>= if self.is_padded {1} else {0};
-                    decompressed_bits[i] = bitset;
-                }
-
-                self.is_padded = false;
-                self.bits = decompressed_bits;
-                self.size = self.n_elems;
-                self.status = CompressionStatus::Decompressed;
-                Ok(())
-            },
-        }
-    }  
-    
-    pub fn tesselate(&mut self) -> Result<(), Box<dyn Error>> {
-
-        match self.status {
-            CompressionStatus::Compressed => {
-                
-                let padded_bitlen = self.bitlen + if self.is_padded {1} else {0};
-                let n_bits = self.n_elems * padded_bitlen; 
-                let n_u128s_complete = n_bits / 128;
-                let n_bits_partial = n_bits % 128;
-                let bitmask = (-Wrapping(1u128)).0 >> 64;
-                let mut tesselated_bits = Vec::<u128>::new();
-            
-                let pad = (-Wrapping(self.pad)).0 & 0x55555555555555555555555555555555;
-
-                for i in 0..n_u128s_complete {
-
-                    let upper = self.bits[i] >> 64;
-                    let lower = self.bits[i] & bitmask;
-
-                    let mut upper_tesselated = pad;
-                    let mut lower_tesselated = pad;
-
-                    for j in 0..64 {
-                        upper_tesselated |= ((upper >> j) & 1) << (2*j + 1);
-                        lower_tesselated |= ((lower >> j) & 1) << (2*j + 1);
-                    }
-
-                    tesselated_bits.push(upper_tesselated);
-                    tesselated_bits.push(lower_tesselated);
-                }
-
-                if n_bits_partial > 64 {
-                    let partial_pad = pad & !((1 << (128 - n_bits_partial)) -1 );
-                    let upper = self.bits[self.size-1] >> 64;
-                    let lower = self.bits[self.size-1] & bitmask;
-
-                    let mut upper_tesselated = pad;
-                    let mut lower_tesselated = partial_pad;                    
-
-                    for j in 0..64 {
-                        upper_tesselated |= ((upper >> j) & 1) << (2*j + 1);
-                        lower_tesselated |= ((lower >> j) & 1) << (2*j + 1);
-                    }
-
-                    tesselated_bits.push(upper_tesselated);
-                    tesselated_bits.push(lower_tesselated);
-
-                } else if n_bits_partial > 0 {
-
-                    let partial_pad = pad & !((1 << (128 - n_bits_partial)) -1 );
-                    let upper = self.bits[self.size-1] >> 64;
-                    let mut upper_tesselated = partial_pad;
-
-                    for j in 0..64 {
-                        upper_tesselated |= ((upper >> j) & 1) << (2*j + 1);
-                    }
-
-                    tesselated_bits.push(upper_tesselated);
-                }
-
-                let new_size = tesselated_bits.len();
-                self.bits = tesselated_bits;
-                self.size = new_size;
-                self.status = CompressionStatus::Tesselated;
-
-                Ok(())
-            },
-            CompressionStatus::Decompressed => {
-
-                self.compress(true);
-                self.tesselate();
-
-                Ok(())
             }
-            _ => Ok(()),
-        }
+
+            compressed_bits
+        });
+
+        t_handles.push(t_handle);
 
     }
+
+    let mut subvecs: Vec<Vec<u128>> = t_handles.into_iter().map(|t| t.join().unwrap()).collect();
+    let mut result: Vec<u128> = Vec::new(); 
+    
+    for i in 0..n_threads {
+        result.append(&mut subvecs[i]); 
+    }
+
+    Ok(result)
 }
 
-pub fn compress_bit_vector(vec: &Vec<u128>, len: usize, bitlen: usize, pad_odd_bitlen: bool, asymm: u64) -> Result<Vec<u128>, Box<dyn Error>> {
+pub fn compress_bit_vector_single_thread(vec: &Vec<u128>, n_elems: usize, bitlen: usize, pad_odd_bitlen: bool, asymm: u64) -> Result<Vec<u128>, Box<dyn Error>> {
 
     if bitlen < 1 || bitlen + if pad_odd_bitlen {1} else {0} > 128 {
         return Err("invalid bitlength".into())
     }
 
-    let asymm = asymm as u128;
-    let bitlen_u128 = 8 * constants::SIZEOF_U128;     
-    let bitlen = bitlen + if pad_odd_bitlen {1} else {0};
-    let compressed_len = (len * bitlen) / bitlen_u128 
-        + if (len * bitlen) % bitlen_u128 > 0 {1} else {0}; 
-    let mut compressed_vec = vec![0u128 ; compressed_len];
+    let padded_bitlen = bitlen + if pad_odd_bitlen & (bitlen & 1 == 1) {1} else {0};
+    let n_bits = n_elems * padded_bitlen;
+    let compressed_size = n_bits / 128 + if n_bits % 128 > 0 {1} else {0};
+    let mut compressed_bits = vec![0u128 ; compressed_size];
 
+    for (i, b) in vec.iter().enumerate() {
 
-    /* make # of threads: min( len / lcm(128, bitlen), max_local_threads ) */
+        let bitset = if pad_odd_bitlen & (bitlen & 1 == 1) { (*b << 1) | (asymm as u128)} else {*b};
+        let literal_shift = (1 + i) * (128 - padded_bitlen);
+        let i_shift = literal_shift / 128;
+        let bitshift = literal_shift % 128;
 
-    for i in 0..len {
+        compressed_bits[i - i_shift] |= bitset << bitshift;
 
-        let bitset = if pad_odd_bitlen { (vec[i] << 1) | asymm } else { vec[i] };
-        let literal_shift = (1 + i) * (bitlen_u128 - bitlen);
-        let i_shift = literal_shift / bitlen_u128;
-        let bitshift = literal_shift % bitlen_u128;
-
-        compressed_vec[i - i_shift] |= bitset << bitshift;
-        
-        if bitshift + bitlen > bitlen_u128 {
-            compressed_vec[i - i_shift - 1] |= bitset >> (bitlen_u128 - bitshift);
+        if bitshift + padded_bitlen > 128 {
+            compressed_bits[i - i_shift - 1] |= bitset >> (128 - bitshift);
         }
     }
-    
-    Ok(compressed_vec)
+
+   Ok(compressed_bits)
 }
 
-pub fn decompress_bit_vector(vec: &Vec<u128>, decompressed_len: usize, original_bitlen: usize, is_padded: bool, asymm: u64) -> Result<Vec<u128>, Box<dyn Error>> {
+pub fn decompress_bit_vector(vec: &Vec<u128>, n_elems: usize, original_bitlen: usize, pad_odd_bitlen: bool, asymm: u64) -> Result<Vec<u128>, Box<dyn Error>> {
 
-    if original_bitlen < 1 || original_bitlen + if is_padded {1} else {0} > 128 {
+    if original_bitlen < 1 || original_bitlen + if pad_odd_bitlen {1} else {0} > 128 {
         return Err("invalid bitlength".into())
     }
 
-    let asymm = asymm as u128;
-    let bitlen_u128 = 8 * constants::SIZEOF_U128; 
-    let bitlen = original_bitlen + if is_padded {1} else {0};
-    let mut decompressed_vec = vec![0u128 ; decompressed_len];
-    let bitmask = (-Wrapping(1u128)).0 >> (bitlen_u128 - bitlen);
+    let padded_bitlen = original_bitlen + if pad_odd_bitlen && (original_bitlen & 1 == 1) {1} else {0};
+    let bitmask = (-Wrapping(1u128)).0.checked_shr((128 - padded_bitlen) as u32).unwrap_or(0u128);
+    let mut decompressed_bits = vec![0u128 ; n_elems];
 
-    for i in 0..decompressed_len {
+    for i in 0..n_elems {
 
-        let literal_shift = (1 + i) * (bitlen_u128 - bitlen);
-        let i_shift = literal_shift / bitlen_u128;
-        let bitshift = literal_shift % bitlen_u128;        
+        let literal_shift = (1 + i) * (128 - padded_bitlen);
+        let i_shift = literal_shift / 128;
+        let bitshift = literal_shift % 128;        
+        
+        let mut bitset = (vec[i - i_shift] >> bitshift) & bitmask;
 
-        let mut bitset = 0u128;
-
-        bitset |= (vec[i - i_shift] >> bitshift) & bitmask;
-
-        if bitshift + bitlen > bitlen_u128 {
-            bitset |= (vec[i - i_shift - 1] << (bitlen_u128 - bitshift)) & bitmask;
+        if bitshift + padded_bitlen > 128 {
+            bitset |= (vec[i-i_shift-1] << (128 - bitshift)) & bitmask;
         }
 
-        bitset >>= if is_padded {1} else {0};
-        decompressed_vec[i] = bitset;
+        bitset >>= if pad_odd_bitlen & (original_bitlen & 1 == 1) {1} else {0};
+        decompressed_bits[i] = bitset;
     }
 
-    Ok(decompressed_vec)
+    Ok(decompressed_bits)
 }
 
-pub fn remove_tesselated_padding(vec: &Vec<u128>, len: usize) -> Result<Vec<u128>, Box<dyn Error>> {
-
-    let mut compressed_vec = vec![0u128 ; (len >> 1) + (len & 1)];
-
-    for i in (0..len >> 1).step_by(2) {
-
-        let mut upper = 0u128;
-        let mut lower = 0u128;
-
-        for j in 0..64 {
-
-            upper |= ((vec[i] >> (127 - (j << 1))) & 1) << (63 - j); 
-            lower |= ((vec[i + 1] >> (127 - (j << 1))) & 1) << (63 - j);
-
-        }
-
-        compressed_vec[i >> 1] = (upper << 64) | lower;
-
-    }
-
-    if len & 1 == 1 {
-
-        let mut upper = 0u128;
-
-        for j in 0..64 {
-            upper |= ((vec[len-1] >> (128 - 1 - 2*j)) & 1) << (64 - 1 - j) 
-        }
-
-        compressed_vec[len >> 1] = upper << 64;
-    }
-
-    Ok(compressed_vec)
-
-}
-
-pub fn compress_from_tesselated(vec: &Vec<u128>, len: usize, bitlen: usize, pad_odd_bitlen: bool, asymm: u64) -> Result<Vec<u128>, Box<dyn Error>> {
+pub fn compress_from_tesselated_bit_vector(vec: &Vec<u128>, n_elems: usize, original_bitlen: usize, pad_odd_bitlen: bool, asymm: u64) -> Result<Vec<u128>, Box<dyn Error>> {
     
-    if bitlen < 1 || bitlen + if pad_odd_bitlen {1} else {0} > 128 {
+    let MAX_THREADS = 1024;
+
+    if original_bitlen < 1 || original_bitlen + if pad_odd_bitlen && (original_bitlen & 1 == 1) {1} else {0} > 64 {
         return Err("invalid bitlength".into())
     }
 
-    let asymm = asymm as u128;
-    let bitlen_u128 = 8 * constants::SIZEOF_U128;     
-    let tesselated_bitlen = 2 * bitlen;
-    let bitlen = bitlen + if pad_odd_bitlen {1} else {0};
-    let bitmask = (-Wrapping(1u128)).0 >> (bitlen_u128 - tesselated_bitlen);
-
-    let compressed_len = (len * bitlen) / bitlen_u128 
-        + if (len * bitlen) % bitlen_u128 > 0 {1} else {0}; 
-
-    let mut compressed_vec = vec![0u128 ; compressed_len];
-
-    // println!("bitlen: {}, tesselated_bitlen: {}, ")
-
-    for i in 0..len {
-
-        let literal_shift_compressed = (1 + i) * (bitlen_u128 - bitlen);
-        let i_shift_compressed = literal_shift_compressed / bitlen_u128;
-        let bitshift_compressed = literal_shift_compressed % bitlen_u128;      
-        
-        let literal_shift = (1 + i) * (bitlen_u128 - tesselated_bitlen);
-        let i_shift = literal_shift / bitlen_u128;
-        let bitshift = literal_shift % bitlen_u128;        
-
-        let mut bitset = 0u128;
-
-        bitset |= (vec[i - i_shift] >> bitshift) & bitmask;
-
-        // println!("vec[i-i_shift]: {:x}", &vec[i-i_shift]);
-
-        if bitshift + bitlen > bitlen_u128 {
-            bitset |= (vec[i - i_shift - 1] << (bitlen_u128 - bitshift)) & bitmask;
-        }
-
-        //println!("bitset: {:x}", bitset);
-
-        let mut bitset_compressed = 0u128;
-        for j in 0..bitlen {
-            bitset_compressed |= (bitset & (1 << (2*j + 1))) >> (j+1);
-        }
-
-        //println!("bitset compressed: {:x}", bitset_compressed);
-
-        if pad_odd_bitlen {
-            bitset_compressed = (bitset_compressed << 1) | asymm;
-        }
-
-        //println!("bitset compressed w/ pad: {:x}", bitset_compressed);
-
-        compressed_vec[i - i_shift_compressed] |= bitset_compressed << bitshift_compressed;
-        
-        if bitshift_compressed + bitlen > bitlen_u128 {
-            compressed_vec[i - i_shift_compressed - 1] |= bitset_compressed >> (bitlen_u128 - bitshift_compressed);
-        }        
-
-    }
+    let padded_bitlen = original_bitlen + if pad_odd_bitlen && (original_bitlen & 1 == 1) {1} else {0};
     
-    Ok(compressed_vec)
+    let n_bits = n_elems * padded_bitlen;
+    let tesselated_bitlen = 2 * original_bitlen;                
+    
+    let compressed_size = n_bits / 128 + if n_bits % 128 > 0 {1} else {0};
+
+    let bitmask = (-Wrapping(1u128)).0.checked_shr((128 - tesselated_bitlen) as u32).unwrap_or(0u128);
+    let step_size = 128 - tesselated_bitlen;
+
+   /* need an input size that lines up with 128 that will yield an output size that lines up with 128 */
+    let mut bits_per_chunk = lcm(128, lcm(padded_bitlen, tesselated_bitlen));
+    if (bits_per_chunk / 128) % 2 == 1 {
+        bits_per_chunk *= 2;
+    }
+    let elems_per_chunk = bits_per_chunk / tesselated_bitlen;
+    let chunk_size = bits_per_chunk / 128;
+    let output_bits_per_chunk = elems_per_chunk * padded_bitlen;
+    let output_chunk_size = output_bits_per_chunk as f64 / 128 as f64;
+
+    let n_chunks = n_elems / elems_per_chunk + if n_elems % elems_per_chunk > 0 {1} else {0};
+
+    let n_threads = cmp::min(MAX_THREADS, n_chunks);
+
+    // println!("u128 len        : {}", vec.len());
+    // println!("n_elems         : {}", n_elems);
+    // println!("bitlen          : {}", original_bitlen);
+    // println!("pad odd bitlen  : {}", pad_odd_bitlen);
+    // println!("padded bitlen   : {}", padded_bitlen);
+    // println!("tessltd bitlen  : {}", tesselated_bitlen);
+    // println!("bits per chunk  : {}", bits_per_chunk);
+    // println!("elems per chunk : {}", elems_per_chunk);
+    // println!("o bits/chunk    : {}", output_bits_per_chunk);
+    // println!("o chunk size    : {}", output_chunk_size);
+    // println!("chunk size      : {}", chunk_size);
+    // println!("n chunks        : {}", n_chunks);
+    // println!("n threads       : {}", n_threads);
+    // println!();
+
+
+    let mut t_handles: Vec<thread::JoinHandle<Vec<u128>>> = Vec::new();
+    let mut remaining_elems = n_elems;
+
+    for t in 0..n_threads {
+
+
+        let base_lb = (t * vec.len()) / n_threads;
+        let segmented_lb = base_lb + if base_lb % chunk_size > 0 { chunk_size - (base_lb % chunk_size)} else {0};
+        let base_ub = ((t + 1) * vec.len()) / n_threads;
+        let segmented_ub = base_ub + if base_ub % chunk_size > 0 { chunk_size - (base_ub % chunk_size)} else {0};
+        let lb = cmp::min( segmented_lb, (Wrapping(vec.len()) - Wrapping(1)).0);
+        let ub = cmp::min( segmented_ub, vec.len());
+
+        let subvec = vec[lb..ub].to_vec();
+        let len = output_chunk_size as usize * (ub - lb) / chunk_size + if (output_chunk_size as usize * (ub - lb)) % chunk_size > 0 {1} else {0};
+        
+        let mut sub_n_elems = 0;
+        
+        if t == n_threads - 1 {
+          sub_n_elems = remaining_elems;  
+        } else {
+            sub_n_elems = len * 128 / padded_bitlen;
+            remaining_elems -= sub_n_elems;
+        }
+
+        let elems = sub_n_elems; 
+
+        // println!("t: {}, lb: {}, ub: {}, i-len: {}, o-len: {}, n_elems: {}", t, lb, ub, ub - lb, len, elems);
+
+        let t_handle = thread::spawn(move || {
+
+            let mut compressed_bits = vec![0u128 ; len];
+
+            for i in 0..elems {
+
+                let literal_shift = (1 + i) * step_size;             
+                let i_shift = literal_shift / 128;
+                let bitshift = literal_shift % 128;
+                let mut bitset = (subvec[i - i_shift] >> bitshift) & bitmask;
+
+                if bitshift + tesselated_bitlen > 128 {
+                    bitset |= (subvec[i-i_shift-1] << (128 - bitshift)) & bitmask;
+                }
+
+                let mut compact_bitset = 0u128;
+                for j in 0..original_bitlen {
+                    compact_bitset |= ((bitset >> (2*j + 1)) & 1) << j;           
+                }
+
+                if original_bitlen & 1 == 1 && pad_odd_bitlen {
+                    compact_bitset = (compact_bitset << 1) | (asymm as u128);
+                }
+
+                let bitset = compact_bitset;
+                let literal_shift = (1 + i) * (128 - padded_bitlen);
+                let i_shift = literal_shift / 128;
+                let bitshift = literal_shift % 128;
+
+                compressed_bits[i - i_shift] |= bitset << bitshift;
+
+                if bitshift + padded_bitlen > 128 {
+                    compressed_bits[i - i_shift - 1] |= bitset >> (128 - bitshift);
+                }         
+            }
+
+            compressed_bits
+        });
+
+        t_handles.push(t_handle);
+    }
+
+    let mut subvecs: Vec<Vec<u128>> = t_handles.into_iter().map(|t| t.join().unwrap()).collect();
+    let mut result: Vec<u128> = Vec::new(); 
+    
+    for i in 0..n_threads {
+        result.append(&mut subvecs[i]); 
+    }
+
+    // println!("{:x?}", result);
+
+    Ok(result)
+
+}
+
+
+pub fn compress_from_tesselated_bit_vector_single_thread(vec: &Vec<u128>, n_elems: usize, original_bitlen: usize, pad_odd_bitlen: bool, asymm: u64) -> Result<Vec<u128>, Box<dyn Error>> {
+    
+    if original_bitlen < 1 || original_bitlen + if pad_odd_bitlen && (original_bitlen & 1 == 1) {1} else {0} > 64 {
+        return Err("invalid bitlength".into())
+    }
+
+    let padded_bitlen = original_bitlen + if pad_odd_bitlen && (original_bitlen & 1 == 1) {1} else {0};
+    let n_bits = n_elems * padded_bitlen;
+    let tesselated_bitlen = 2 * original_bitlen;                
+    let compressed_size = n_bits / 128 + if n_bits % 128 > 0 {1} else {0};
+    let mut compressed_bits = vec![0u128 ; compressed_size];
+
+    let bitmask = (-Wrapping(1u128)).0.checked_shr((128 - tesselated_bitlen) as u32).unwrap_or(0u128);
+    let step_size = 128 - tesselated_bitlen;
+
+    for i in 0..n_elems {
+
+        let literal_shift = (1 + i) * step_size;             
+        let i_shift = literal_shift / 128;
+        let bitshift = literal_shift % 128;
+        let mut bitset = (vec[i - i_shift] >> bitshift) & bitmask;
+
+        if bitshift + tesselated_bitlen > 128 {
+            bitset |= (vec[i-i_shift-1] << (128 - bitshift)) & bitmask;
+        }
+
+        let mut compact_bitset = 0u128;
+        for j in 0..original_bitlen {
+            compact_bitset |= ((bitset >> (2*j + 1)) & 1) << j;           
+        }
+
+        if original_bitlen & 1 == 1 && pad_odd_bitlen {
+            compact_bitset = (compact_bitset << 1) | (asymm as u128);
+        }
+
+        let bitset = compact_bitset;
+        let literal_shift = (1 + i) * (128 - padded_bitlen);
+        let i_shift = literal_shift / 128;
+        let bitshift = literal_shift % 128;
+
+        compressed_bits[i - i_shift] |= bitset << bitshift;
+
+        if bitshift + padded_bitlen > 128 {
+            compressed_bits[i - i_shift - 1] |= bitset >> (128 - bitshift);
+        }         
+    }
+
+
+    Ok(compressed_bits)
+
 }
 
 
@@ -457,21 +364,17 @@ pub fn truncate(x: Wrapping<u64>, decimal_precision : usize, asymm: u64) -> Wrap
     Wrapping( x.0 >> decimal_precision )
 }
 
-/*
-len: length of tesselated vec (in values represented):
-bitlen: bitlength of compressed bitset: half of bitlen from pairwise mult
-pad: add a 1 after compressed bitset: true if half of bitlen from pairwise mult is odd
 
-size of chunk to collect bitset from: 2 * bitlen
--> extract chunk from vec
--> remove tesselated padding
--> if 'pad' is true, pad with a 1 on lower end
--> push into new compressed vec in same way as compress_bit_vec
+pub fn transpose(mat: &Vec<Vec<Wrapping<u64>>>) -> Result<Vec<Vec<Wrapping<u64>>>, Box<dyn Error>> {
 
-equivalent to
+    let mut mat_t = vec![vec![ Wrapping(0u64) ; mat.len() ] ; mat[0].len()];
 
-vec = remove_tesselated_padding(vec, len)
-vec = decompress(vec, original_len, original_bitlen / 2, padded=false, asymm )
-vec = compress(vec, original_len, original_bitlen / 2, padded=true, asymm)
+    for i in 0..mat.len() {
+        for j in 0..mat[0].len() {
+            mat_t[j][i] = mat[i][j] 
+        }
+    }
 
-*/
+    Ok(mat_t)
+
+}
