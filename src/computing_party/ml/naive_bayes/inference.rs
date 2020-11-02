@@ -58,13 +58,14 @@ fn get_probabilities(vec: &Vec<Wrapping<u64>>, nb: &NBInferenceContext, ctx: &mu
         left_op.append(&mut vec.clone());
         let mut push = nb.l_probs[i].clone();
         right_op.append(&mut push);
+    }
 
     let probs = protocol::multiply(&left_op, &right_op, ctx)?;
 
     let mut class_probs: Vec<Wrapping<u64>> = Vec::new();
     for i in 0..nb.n_classes {
-        let sum_of_probs = probs[i*nb.dict_len..(i+1)*nb.dict_len].into_iter().sum();
-        class_probs.push( nb.class_priors[i] + util::truncate(sum_of_probs, ctx.num.precision_frac, ctx.num.asymm ));
+        let sum_of_probs: Wrapping<u64> = probs[i*nb.dict_len..(i+1)*nb.dict_len].into_iter().sum();
+        class_probs.push(nb.class_priors[i] + sum_of_probs);
     }
 
     Ok(class_probs)
