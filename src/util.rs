@@ -6,9 +6,7 @@ use std::cmp::PartialEq;
 use std::cmp;
 use std::thread;
 
-pub fn compress_bit_vector(vec: &Vec<u128>, n_elems: usize, bitlen: usize, pad_odd_bitlen: bool, asymm: u64) -> Result<Vec<u128>, Box<dyn Error>> {
-
-    let MAX_THREADS = 16;
+pub fn compress_bit_vector(vec: &Vec<u128>, n_elems: usize, bitlen: usize, pad_odd_bitlen: bool, asymm: u64, max_threads: usize) -> Result<Vec<u128>, Box<dyn Error>> {
 
     if bitlen < 1 || bitlen + if pad_odd_bitlen {1} else {0} > 128 {
         return Err("invalid bitlength".into())
@@ -22,7 +20,7 @@ pub fn compress_bit_vector(vec: &Vec<u128>, n_elems: usize, bitlen: usize, pad_o
 
     let n_chunks = n_elems / elems_per_chunk + if n_elems % elems_per_chunk > 0 {1} else {0};
 
-    let n_threads = cmp::min(MAX_THREADS, n_chunks);
+    let n_threads = cmp::min(max_threads, n_chunks);
 
     // let n_bits = n_elems * padded_bitlen;
     // let compressed_size = n_bits / 128 + if n_bits % 128 > 0 {1} else {0};
@@ -48,7 +46,6 @@ pub fn compress_bit_vector(vec: &Vec<u128>, n_elems: usize, bitlen: usize, pad_o
         let segmented_ub = base_ub + if base_ub % elems_per_chunk > 0 { elems_per_chunk - (base_ub % elems_per_chunk)} else {0};
         let lb = cmp::min( segmented_lb, (Wrapping(n_elems) - Wrapping(1)).0);
         let ub = cmp::min( segmented_ub, n_elems);
-        // println!("t: {}, lb: {}, ub: {}", t, lb, ub);
         
         let subvec = vec[lb..ub].to_vec();
         let len = padded_bitlen * (ub - lb) / 128 + if padded_bitlen * (ub - lb) % 128 > 0 {1} else {0};
@@ -70,12 +67,10 @@ pub fn compress_bit_vector(vec: &Vec<u128>, n_elems: usize, bitlen: usize, pad_o
                     compressed_bits[i - i_shift - 1] |= bitset >> (128 - bitshift);
                 }
             }
-
             compressed_bits
         });
 
         t_handles.push(t_handle);
-
     }
 
     let mut subvecs: Vec<Vec<u128>> = t_handles.into_iter().map(|t| t.join().unwrap()).collect();
@@ -145,9 +140,7 @@ pub fn decompress_bit_vector(vec: &Vec<u128>, n_elems: usize, original_bitlen: u
     Ok(decompressed_bits)
 }
 
-pub fn compress_from_tesselated_bit_vector(vec: &Vec<u128>, n_elems: usize, original_bitlen: usize, pad_odd_bitlen: bool, asymm: u64) -> Result<Vec<u128>, Box<dyn Error>> {
-    
-    let MAX_THREADS = 1024;
+pub fn compress_from_tesselated_bit_vector(vec: &Vec<u128>, n_elems: usize, original_bitlen: usize, pad_odd_bitlen: bool, asymm: u64, max_threads: usize) -> Result<Vec<u128>, Box<dyn Error>> {
 
     if original_bitlen < 1 || original_bitlen + if pad_odd_bitlen && (original_bitlen & 1 == 1) {1} else {0} > 64 {
         return Err("invalid bitlength".into())
@@ -175,29 +168,12 @@ pub fn compress_from_tesselated_bit_vector(vec: &Vec<u128>, n_elems: usize, orig
 
     let n_chunks = n_elems / elems_per_chunk + if n_elems % elems_per_chunk > 0 {1} else {0};
 
-    let n_threads = cmp::min(MAX_THREADS, n_chunks);
-
-    // println!("u128 len        : {}", vec.len());
-    // println!("n_elems         : {}", n_elems);
-    // println!("bitlen          : {}", original_bitlen);
-    // println!("pad odd bitlen  : {}", pad_odd_bitlen);
-    // println!("padded bitlen   : {}", padded_bitlen);
-    // println!("tessltd bitlen  : {}", tesselated_bitlen);
-    // println!("bits per chunk  : {}", bits_per_chunk);
-    // println!("elems per chunk : {}", elems_per_chunk);
-    // println!("o bits/chunk    : {}", output_bits_per_chunk);
-    // println!("o chunk size    : {}", output_chunk_size);
-    // println!("chunk size      : {}", chunk_size);
-    // println!("n chunks        : {}", n_chunks);
-    // println!("n threads       : {}", n_threads);
-    // println!();
-
+    let n_threads = cmp::min(max_threads, n_chunks);
 
     let mut t_handles: Vec<thread::JoinHandle<Vec<u128>>> = Vec::new();
     let mut remaining_elems = n_elems;
 
     for t in 0..n_threads {
-
 
         let base_lb = (t * vec.len()) / n_threads;
         let segmented_lb = base_lb + if base_lb % chunk_size > 0 { chunk_size - (base_lb % chunk_size)} else {0};
@@ -219,9 +195,6 @@ pub fn compress_from_tesselated_bit_vector(vec: &Vec<u128>, n_elems: usize, orig
         }
 
         let elems = sub_n_elems; 
-
-        // println!("t: {}, lb: {}, ub: {}, i-len: {}, o-len: {}, n_elems: {}", t, lb, ub, ub - lb, len, elems);
-
         let t_handle = thread::spawn(move || {
 
             let mut compressed_bits = vec![0u128 ; len];
@@ -271,10 +244,7 @@ pub fn compress_from_tesselated_bit_vector(vec: &Vec<u128>, n_elems: usize, orig
         result.append(&mut subvecs[i]); 
     }
 
-    // println!("{:x?}", result);
-
     Ok(result)
-
 }
 
 

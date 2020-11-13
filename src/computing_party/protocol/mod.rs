@@ -443,7 +443,7 @@ pub fn parallel_mult_z2(bitset: &Vec<u128>, n_elems: usize, bitlen: usize, ctx: 
 
     let now = SystemTime::now();
     let mut bitlen = bitlen;
-    let mut bitset = util::compress_bit_vector(&bitset, n_elems, bitlen, true, ctx.num.asymm)?;
+    let mut bitset = util::compress_bit_vector(&bitset, n_elems, bitlen, true, ctx.num.asymm, ctx.sys.threads.offline)?;
     let mut compress_time = now.elapsed().unwrap().as_millis();   
 
     while bitlen > 1 {
@@ -454,9 +454,9 @@ pub fn parallel_mult_z2(bitset: &Vec<u128>, n_elems: usize, bitlen: usize, ctx: 
 
         let now = SystemTime::now();
         if bitlen == 1 {
-            bitset = util::compress_from_tesselated_bit_vector(&bitset, n_elems, bitlen, false, ctx.num.asymm)?;
+            bitset = util::compress_from_tesselated_bit_vector(&bitset, n_elems, bitlen, false, ctx.num.asymm, ctx.sys.threads.offline)?;
         } else {
-            bitset = util::compress_from_tesselated_bit_vector(&bitset, n_elems, bitlen, true, ctx.num.asymm)?;
+            bitset = util::compress_from_tesselated_bit_vector(&bitset, n_elems, bitlen, true, ctx.num.asymm, ctx.sys.threads.offline)?;
         }
         compress_time += now.elapsed().unwrap().as_millis();
 
@@ -559,8 +559,8 @@ pub fn bit_extract(val: &Wrapping<u64>, bit_pos: usize, ctx: &mut Context) -> Re
             g_next |= ((g_layer >> (2*i+1)) & 1) << i;	
         }
 
-        let l_ops  = util::compress_bit_vector(&vec![ p_next ; 2 ], 2, pairs as usize, false, 0)?;
-        let r_ops  = util::compress_bit_vector(&vec![ p, g ], 2, pairs as usize, false, 0)?;
+        let l_ops  = util::compress_bit_vector(&vec![ p_next ; 2 ], 2, pairs as usize, false, 0, ctx.sys.threads.offline)?;
+        let r_ops  = util::compress_bit_vector(&vec![ p, g ], 2, pairs as usize, false, 0, ctx.sys.threads.offline)?;
         let matmul = multiply_z2(&l_ops, &r_ops, ctx)?;
         let matmul = util::decompress_bit_vector(&matmul, 2, pairs as usize, false, 0)?;
 
