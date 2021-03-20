@@ -597,6 +597,59 @@ pub fn geq(x: &Wrapping<u64>, y: &Wrapping<u64>, ctx: &mut Context) -> Result<u1
     Ok(x_geq_y)
 }
 
+//INSECURE PLACEHOLDER
+pub fn batch_geq(x: &Vec<Wrapping<u64>>, y: &Vec<Wrapping<u64>>, ctx: &mut Context) -> Result<Vec<u128>, Box<dyn Error>> {
+
+    let rev_x = open(x, ctx)?;
+    let rev_y = open(y, ctx)?;
+
+    if ctx.num.asymm == 1 {
+        let result = rev_x.iter().zip(rev_y.iter()).map(|(x, y)| (x >= y) as u128).collect();
+        return Ok(result);
+    } else {
+        let result = vec![0u128; rev_x.len()];
+        return Ok(result);
+    }
+}
+
+//INSECURE PLACEHOLDER
+//x row-wize, y column-wise
+pub fn matmul(x: &Vec<Vec<Wrapping<u64>>>, y: &Vec<Vec<Wrapping<u64>>>, ctx: &mut Context) -> Result<Vec<Vec<Wrapping<u64>>>, Box<dyn Error>> {
+
+    let rev_x_box:Result<Vec<Vec<Wrapping<u64>>>, Box<dyn Error>>  = x.iter().map(|x_row| open(x_row, ctx)).collect();
+    let rev_x = rev_x_box?;
+    let rev_y_box:Result<Vec<Vec<Wrapping<u64>>>, Box<dyn Error>> = y.iter().map(|y_col| open(y_col, ctx)).collect();
+    let rev_y = rev_y_box?;
+
+    if ctx.num.asymm == 1 {
+        let result = rev_x.iter().map(|x_row| y.iter().map(|y_col| x_row.iter().zip(y_col.iter()).fold(Wrapping(0u64), |acc, (x_j, y_i)|  acc + (x_j * y_i))).collect()).collect();
+        return Ok(result);
+    } else {
+        let result = vec![vec![Wrapping(0u64); rev_y.len()]; rev_x.len()];
+        return Ok(result);
+    }
+}
+
+//INSECURE PLACEHOLDER
+//Return the minimums and maximums attribures of a column-wise dataset.
+//0th index is mins, 1st is maxes.
+pub fn minmax(x: &Vec<Vec<Wrapping<u64>>>, ctx: &mut Context) -> Result<Vec<Vec<Wrapping<u64>>>, Box<dyn Error>> {
+
+    let rev_x_box:Result<Vec<Vec<Wrapping<u64>>>, Box<dyn Error>>  = x.iter().map(|x_col| open(x_col, ctx)).collect();
+    let rev_x = rev_x_box?;
+    let mut result:Vec<Vec<Wrapping<u64>>> = vec![];
+    if ctx.num.asymm == 1 {
+        let mins = rev_x.iter().map(|x_col| x_col.iter().fold(Wrapping(u64::MAX), |acc, x| if x < &acc {*x} else {acc})).collect();
+        let maxes = rev_x.iter().map(|x_col| x_col.iter().fold(Wrapping(0u64), |acc, x| if x > &acc {*x} else {acc})).collect();
+        result.push(mins);
+        result.push(maxes);
+        return Ok(result);
+    } else {
+        result = vec![vec![Wrapping(0u64); rev_x.len()]; 2];
+        return Ok(result);
+    }
+}
+
 
 
 
