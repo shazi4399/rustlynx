@@ -89,7 +89,9 @@ pub struct MachineLearning {
 #[derive(Debug)]
 pub enum MLModel {
 	LogisticRegression,
-	NaiveBayes,	
+	NaiveBayes,
+	ExtraTrees,
+	RandomForest,
 }
 
 #[derive(Debug)]

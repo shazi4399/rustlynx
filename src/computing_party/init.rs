@@ -112,7 +112,33 @@ fn parse_ml_settings(phase: &String, model: &String, settings: &config::Config) 
 		} else {
 			return Err("invalid ml.phase".into())
 		}	
-	} else {
+	} else if model == "extratrees" {
+		ml_model = Some(MLModel::ExtraTrees);
+		if phase == "learning" {
+			ml_phase = Some(MLPhase::Learning);
+			cfg = settings.get_str("ml.extratrees.learning_cfg")?;
+			callable = Some(super::ml::decision_trees::extra_trees::learning::run);
+		} else if phase == "inference" {
+			ml_phase = Some(MLPhase::Inference);
+			cfg = settings.get_str("ml.extratrees.inference_cfg")?;
+			callable = Some(super::ml::naive_bayes::inference::run);
+		} else {
+			return Err("invalid ml.phase".into())
+		}	
+	} else if model == "randomforest" {
+		ml_model = Some(MLModel::RandomForest);
+		if phase == "learning" {
+			ml_phase = Some(MLPhase::Learning);
+			cfg = settings.get_str("ml.randomforest.learning_cfg")?;
+			callable = Some(super::ml::decision_trees::learning::run);
+		} else if phase == "inference" {
+			ml_phase = Some(MLPhase::Inference);
+			cfg = settings.get_str("ml.randomforest.inference_cfg")?;
+			callable = Some(super::ml::naive_bayes::inference::run);
+		} else {
+			return Err("invalid ml.phase".into())
+		}	
+	}else {
 		return Err("invalid or unimplemented ml.model".into())
 	}
 

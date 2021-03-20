@@ -40,3 +40,11 @@ model = "naivebayes"
 	[ml.logisticregression]
 	learning_cfg = "cfg/ml/logisticregression/learning0.toml"
 	inference_cfg = "cfg/ml/logisticregression/inference0.toml"
+
+	[ml.extratrees]
+	learning_cfg = "cfg/ml/extratrees/learning0.toml"
+	inference_cfg = "cfg/ml/extratrees/inference0.toml"
+
+	[ml.randomforest]
+	learning_cfg = "cfg/ml/randomforest/learning0.toml"
+	inference_cfg = "cfg/ml/randomforest/inference0.toml"
