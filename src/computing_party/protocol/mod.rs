@@ -630,26 +630,243 @@ pub fn matmul(x: &Vec<Vec<Wrapping<u64>>>, y: &Vec<Vec<Wrapping<u64>>>, ctx: &mu
     }
 }
 
-//INSECURE PLACEHOLDER
-//Return the minimums and maximums attribures of a column-wise dataset.
-//0th index is mins, 1st is maxes.
-pub fn minmax(x: &Vec<Vec<Wrapping<u64>>>, ctx: &mut Context) -> Result<Vec<Vec<Wrapping<u64>>>, Box<dyn Error>> {
+pub fn minmax_batch(
+    x_list: &Vec<Vec<Wrapping<u64>>>,
+    ctx: &mut Context,
+) -> (Vec<Wrapping<u64>>, Vec<Wrapping<u64>>) {
+    let asymmetric_bit = Wrapping(ctx.num.asymm as u64);
+    // number of collums to process
+    let n_star = x_list.len();
+    // n is the number of elements in a single collumn
+    let mut n = x_list[0].len();
+    let mut pairs = n / 2;
 
-    let rev_x_box:Result<Vec<Vec<Wrapping<u64>>>, Box<dyn Error>>  = x.iter().map(|x_col| open(x_col, ctx)).collect();
-    let rev_x = rev_x_box?;
-    let mut result:Vec<Vec<Wrapping<u64>>> = vec![];
-    if ctx.num.asymm == 1 {
-        let mins = rev_x.iter().map(|x_col| x_col.iter().fold(Wrapping(u64::MAX), |acc, x| if x < &acc {*x} else {acc})).collect();
-        let maxes = rev_x.iter().map(|x_col| x_col.iter().fold(Wrapping(0u64), |acc, x| if x > &acc {*x} else {acc})).collect();
-        result.push(mins);
-        result.push(maxes);
-        return Ok(result);
-    } else {
-        result = vec![vec![Wrapping(0u64); rev_x.len()]; 2];
-        return Ok(result);
+    let mut l_operands: Vec<Wrapping<u64>> = Vec::new();
+    let mut r_operands: Vec<Wrapping<u64>> = Vec::new();
+
+    for col in x_list {
+        for i in 0..col.len() / 2 {
+            l_operands.push(col[2 * i]);
+            r_operands.push(col[2 * i + 1]);
+        }
     }
+
+    let l_geq_r = batch_geq(&l_operands, &r_operands, &mut ctx).unwrap();
+
+    let l_geq_r = z2_to_zq(&l_geq_r, ctx/*, 1*/).unwrap();
+
+    let l_lt_r: Vec<Wrapping<u64>> = l_geq_r.iter().map(|x| -x + asymmetric_bit).collect();
+
+    let mut values = l_operands.clone();
+    values.append(&mut l_operands.clone());
+    values.append(&mut r_operands.clone());
+    values.append(&mut r_operands.clone());
+
+    let mut assignments = l_geq_r.clone();
+    assignments.append(&mut l_lt_r.clone());
+    assignments.append(&mut l_geq_r.clone());
+    assignments.append(&mut l_lt_r.clone());
+
+    let min_max_pairs = multiply(&values, &assignments, &mut ctx).unwrap();
+
+    let mut mins: Vec<Wrapping<u64>> = Vec::new();
+    let mut maxs: Vec<Wrapping<u64>> = Vec::new();
+
+    for i in 0..pairs * n_star {
+        if i % pairs == 0 && i != 0 {
+            // i is a multiple of pairs
+            if n % 2 == 1 {
+                // at this point, we need to push onto max/min the neglected value from the
+                // vector we just got done processing
+                maxs.push(x_list[i / pairs - 1][n - 1]);
+                mins.push(x_list[i / pairs - 1][n - 1]);
+            }
+        }
+
+        maxs.push(min_max_pairs[i] + min_max_pairs[i + 3 * pairs * n_star]);
+        mins.push(min_max_pairs[i + pairs * n_star] + min_max_pairs[i + 2 * pairs * n_star]);
+
+        if i == pairs * n_star - 1 {
+            // if we are the last value
+            if n % 2 == 1 {
+                // push last neglected value to max/min
+                maxs.push(x_list[n_star - 1][n - 1]);
+                mins.push(x_list[n_star - 1][n - 1]);
+            }
+        }
+    }
+
+    n = (n / 2) + (n % 2);
+    pairs = n / 2;
+
+    while n > 1 {
+
+        let mut l_operands: Vec<Wrapping<u64>> = Vec::new();
+        let mut r_operands: Vec<Wrapping<u64>> = Vec::new();
+
+        let offset = (n % 2 == 1) as usize;
+
+        for i in 0..pairs * n_star {
+            l_operands.push(mins[offset * (i / pairs) + 2 * i]);
+            r_operands.push(mins[offset * (i / pairs) + 2 * i + 1]);
+        }
+
+        for i in 0..pairs * n_star {
+            l_operands.push(maxs[offset * (i / pairs) + 2 * i]);
+            r_operands.push(maxs[offset * (i / pairs) + 2 * i + 1]);
+        }
+
+        let l_geq_r = batch_geq(&l_operands, &r_operands, &mut ctx).unwrap();
+
+        let l_geq_r = z2_to_zq(&l_geq_r, ctx/*, 1*/).unwrap();
+
+        let l_lt_r: Vec<Wrapping<u64>> = l_geq_r.iter().map(|x| -x + asymmetric_bit).collect();
+
+        let mut values = r_operands[..(pairs * n_star)].to_vec();
+        values.append(&mut l_operands[(pairs * n_star)..].to_vec());
+        values.append(&mut l_operands[..(pairs * n_star)].to_vec());
+        values.append(&mut r_operands[(pairs * n_star)..].to_vec());
+
+        let mut assignments = l_geq_r.clone();
+        assignments.append(&mut l_lt_r.clone());
+
+        let min_max_pairs = multiply(&values, &assignments, &mut ctx).unwrap();
+
+        let mut new_mins: Vec<Wrapping<u64>> = Vec::new();
+        let mut new_maxs: Vec<Wrapping<u64>> = Vec::new();
+
+        for i in 0..pairs * n_star {
+            if i % pairs == 0 && i != 0 {
+                // i is a multiple of pairs
+                if n % 2 == 1 {
+                    // at this point, we need to push onto max/min the neglected value from the
+                    // vector we just got done processing
+                    new_mins.push(mins[(n - 1) * (i / pairs) + (offset * (i - pairs) / pairs)]);
+                    new_maxs.push(maxs[(n - 1) * (i / pairs) + (offset * (i - pairs) / pairs)]);
+                }
+            }
+            new_mins.push(min_max_pairs[i] + min_max_pairs[i + 2 * pairs * n_star]);
+            new_maxs.push(
+                min_max_pairs[i + pairs * n_star] + min_max_pairs[i + 3 * pairs * n_star],
+            );
+
+            if i == pairs * n_star - 1 && n % 2 == 1 {
+                new_mins.push(mins[mins.len() - 1]);
+                new_maxs.push(maxs[maxs.len() - 1]);
+            }
+        }
+
+        mins = new_mins;
+        maxs = new_maxs;
+
+        n = (n / 2) + (n % 2);
+        pairs = n / 2;
+    }
+
+    (mins, maxs)
 }
 
+
+/** Multiplies a vector of a vectors values in a pairwise fashion, leading to log_2 communication complexity
+ * dependent on the inner vector size multiplied by the outer vector size. Still needs testing.
+ */
+pub fn pairwise_mult(x: &Vec<Vec<Wrapping<u64>>>, ctx: &mut Context) -> Result<Vec<Wrapping<u64>>, Box<dyn Error>> {
+
+    let vectors = x.clone();
+
+    let num_of_vecs = x.len();
+    let num_of_vals = x[0].len();
+    let pairs = num_of_vals/2;
+
+    let mut l_operands: Vec<Wrapping<u64>> = Vec::new();
+    let mut r_operands: Vec<Wrapping<u64>> = Vec::new();
+
+    for vector in vectors {
+        for i in 0.. pairs {
+            l_operands.push(vector[2 * i]);
+            r_operands.push(vector[2 * i + 1]);
+        }
+    }
+
+    let mut products = multiply(&l_operands, &r_operands, &mut ctx)?;
+
+    let mut values_to_process = vec![];
+
+    let mut offest = 0;
+
+    // if true, values at the end of each vector were left behind (no one to pair with), add them back in
+    if num_of_vals % 2 == 1 {
+        for i in 0.. pairs * num_of_vecs {
+
+            if i % pairs == 0 && i != 0 {
+                values_to_process.push(vectors[offest][num_of_vals - 1]);
+                offest += 1;
+                continue;
+            }
+
+            values_to_process.push(products[i - offest]);
+        }
+    } else {
+        values_to_process = products.clone();
+    }
+
+    num_of_vals = (num_of_vals / 2) + (num_of_vals % 2);
+    pairs = num_of_vals / 2;
+
+    while num_of_vals > 1 {
+
+        let mut l_operands: Vec<Wrapping<u64>> = Vec::new();
+        let mut r_operands: Vec<Wrapping<u64>> = Vec::new();
+
+        let odd_length = ((num_of_vals % 2) == 1) as usize;
+
+        let mut offest = 0;
+
+        // only used if length is odd
+        let mut unprocessed_values = vec![];
+
+        for i in 0.. num_of_vecs * pairs {
+
+            // if odd length, we need to skip over the last element of the logically partioned vector
+            l_operands.push(values_to_process[2 * i + offest * odd_length]);
+            r_operands.push(values_to_process[2 * i + 1 + offest * odd_length]);
+
+            if (i + 1) % pairs == 0 && i != 0 && odd_length == 1 {
+
+                unprocessed_values.push(values_to_process[2 * (i + 1) + offest * odd_length]);
+                offest += 1;
+
+            }
+
+        }
+
+        // batch multiply the values that got paired up
+        let mut products = multiply(&l_operands, &r_operands, &mut ctx)?;
+
+        let mut values_to_process = vec![];
+
+        // if true, tack on unprocessed values to the end of the logically partitioned vectors 
+        // that were not processed in previous round of multiplicaiton
+        if odd_length == 1 {
+            let mut offest = 0;
+            for i in 0.. pairs * num_of_vecs {
+
+                if i % pairs == 0 && i != 0 {
+                    values_to_process.push(unprocessed_values[offest]);
+                    offest += 1;
+                    continue;
+                }
+                values_to_process.push(products[i - offest])
+            }
+        } else {
+            values_to_process = products.clone();
+        }
+
+        num_of_vals = (num_of_vals / 2) + (num_of_vals % 2);
+        pairs = num_of_vals / 2;
+    }
+    Ok(values_to_process)
+}
 
 
 
