@@ -44,7 +44,8 @@ pub fn run(ctx: &mut Context) -> Result<(), Box<dyn Error>> {
 }
 
 //Additive stares are Wrapping<u64>, binary are u128
-pub fn sid3t(input: Vec<Vec<Vec<u128>>>, class: Vec<Vec<u128>>, ctx: &mut Context, train_ctx: &mut TrainingContext) -> Result<Vec<Vec<TreeNode>>, Box<dyn Error>>{
+//TEMPORARY: BOTH INPUTS HERE SHOULD BE U128, TO GET THINGS RUNNING EARLY THEY'RE WRAPPING<U64>. THIS WILL CHANGE.
+pub fn sid3t(input: Vec<Vec<Vec<Wrapping<u64>>>>, class: Vec<Vec<Wrapping<u64>>>, ctx: &mut Context, train_ctx: &mut TrainingContext) -> Result<Vec<Vec<TreeNode>>, Box<dyn Error>>{
 
     // VALUES NEEDED
 
