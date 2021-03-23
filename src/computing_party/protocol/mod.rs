@@ -651,7 +651,7 @@ pub fn minmax_batch(
         }
     }
 
-    let l_geq_r = batch_geq(&l_operands, &r_operands, &mut ctx).unwrap();
+    let l_geq_r = batch_geq(&l_operands, &r_operands, ctx).unwrap();
 
     let l_geq_r = z2_to_zq(&l_geq_r, ctx/*, 1*/).unwrap();
 
@@ -667,7 +667,7 @@ pub fn minmax_batch(
     assignments.append(&mut l_geq_r.clone());
     assignments.append(&mut l_lt_r.clone());
 
-    let min_max_pairs = multiply(&values, &assignments, &mut ctx).unwrap();
+    let min_max_pairs = multiply(&values, &assignments, ctx).unwrap();
 
     let mut mins: Vec<Wrapping<u64>> = Vec::new();
     let mut maxs: Vec<Wrapping<u64>> = Vec::new();
@@ -716,7 +716,7 @@ pub fn minmax_batch(
             r_operands.push(maxs[offset * (i / pairs) + 2 * i + 1]);
         }
 
-        let l_geq_r = batch_geq(&l_operands, &r_operands, &mut ctx).unwrap();
+        let l_geq_r = batch_geq(&l_operands, &r_operands, ctx).unwrap();
 
         let l_geq_r = z2_to_zq(&l_geq_r, ctx/*, 1*/).unwrap();
 
@@ -730,7 +730,7 @@ pub fn minmax_batch(
         let mut assignments = l_geq_r.clone();
         assignments.append(&mut l_lt_r.clone());
 
-        let min_max_pairs = multiply(&values, &assignments, &mut ctx).unwrap();
+        let min_max_pairs = multiply(&values, &assignments, ctx).unwrap();
 
         let mut new_mins: Vec<Wrapping<u64>> = Vec::new();
         let mut new_maxs: Vec<Wrapping<u64>> = Vec::new();
@@ -781,14 +781,14 @@ pub fn pairwise_mult(x: &Vec<Vec<Wrapping<u64>>>, ctx: &mut Context) -> Result<V
     let mut l_operands: Vec<Wrapping<u64>> = Vec::new();
     let mut r_operands: Vec<Wrapping<u64>> = Vec::new();
 
-    for vector in vectors {
+    for vector in vectors.clone() {
         for i in 0.. pairs {
             l_operands.push(vector[2 * i]);
             r_operands.push(vector[2 * i + 1]);
         }
     }
 
-    let mut products = multiply(&l_operands, &r_operands, &mut ctx)?;
+    let products = multiply(&l_operands, &r_operands, ctx)?;
 
     let mut values_to_process = vec![];
 
@@ -810,8 +810,8 @@ pub fn pairwise_mult(x: &Vec<Vec<Wrapping<u64>>>, ctx: &mut Context) -> Result<V
         values_to_process = products.clone();
     }
 
-    num_of_vals = (num_of_vals / 2) + (num_of_vals % 2);
-    pairs = num_of_vals / 2;
+    let mut num_of_vals = (num_of_vals / 2) + (num_of_vals % 2);
+    let mut pairs = num_of_vals / 2;
 
     while num_of_vals > 1 {
 
@@ -841,7 +841,7 @@ pub fn pairwise_mult(x: &Vec<Vec<Wrapping<u64>>>, ctx: &mut Context) -> Result<V
         }
 
         // batch multiply the values that got paired up
-        let mut products = multiply(&l_operands, &r_operands, &mut ctx)?;
+        let products = multiply(&l_operands, &r_operands, ctx)?;
 
         let mut values_to_process = vec![];
 
@@ -859,7 +859,7 @@ pub fn pairwise_mult(x: &Vec<Vec<Wrapping<u64>>>, ctx: &mut Context) -> Result<V
                 values_to_process.push(products[i - offest])
             }
         } else {
-            values_to_process = products.clone();
+            let values_to_process = products.clone(); // IDE says never used, but is used in next iter
         }
 
         num_of_vals = (num_of_vals / 2) + (num_of_vals % 2);

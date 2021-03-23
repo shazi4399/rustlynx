@@ -3,6 +3,25 @@ use super::super::super::Context;
 use std::num::Wrapping;
 use super::super::super::protocol;
 
+
+// ------------- added by David, should probably be merge with TreeNode, but I didn't write that and don't wanna mess with it
+pub struct SplitData {
+    pub split_points: Vec<Wrapping<u64>>,
+    pub feature_selection_vector: Vec<Vec<Wrapping<u64>>>,
+    pub discritized_vec: Vec<Vec<Vec<Wrapping<u64>>>>,
+}
+
+impl Clone for SplitData {
+    fn clone(&self) -> Self {
+        SplitData {
+            split_points: self.split_points.clone(),
+            feature_selection_vector: self.feature_selection_vector.clone(),
+            discritized_vec: self.discritized_vec.clone()
+        }
+    }
+}
+/// --------------
+
 #[derive(Default)]
 pub struct TreeNode {
     split_point: Wrapping<u64>,
@@ -13,6 +32,7 @@ pub struct TreeNode {
 #[derive(Default)]
 pub struct TrainingContext {
     instance_count: usize,
+    class_label_count: usize,
     attribute_count: usize, //attribute count in training context
     tree_count: usize,
     max_depth: usize,
@@ -24,23 +44,22 @@ pub fn run(ctx: &mut Context) -> Result<(), Box<dyn Error>> {
 }
 
 //Additive stares are Wrapping<u64>, binary are u128
-pub fn sid3t(input: Vec<Vec<u128>>, ctx: Context, train_ctx: TrainingContext) -> Result<Vec<Vec<TreeNode>>, Box<dyn Error>>{
+pub fn sid3t(input: Vec<Vec<u128>>, ctx: &mut Context, train_ctx: &mut TrainingContext) -> Result<Vec<Vec<TreeNode>>, Box<dyn Error>>{
 
     // VALUES NEEDED
 
     // A way to calculate how many nodes must be processed
     let number_of_nodes_to_process = 0;
     // Access to these values from ctx
-    let class_label_count = 0;
+    let class_label_count = train_ctx.class_label_count;
     let decimal_precision = 0;
-    let asymmetric_bit = 0;
+    let asymmetric_bit = ctx.num.asymm;
     // The n'th vector should be should run parallel to the data to zero out non-relevent rows.
     // Should probably be additively shared in Z_q right? Needs to be used for multiplicaiton
-    let layer_trans_bit_vecs: Vec<Vec<Wrapping<u64>>> = vec![];
+    let mut layer_trans_bit_vecs: Vec<Vec<Wrapping<u64>>> = vec![];
     // amount of rows in dataset (not active rows designated by the tbv, just rows)
-    let data_instance_count = 0;
+    let data_instance_count = train_ctx.instance_count;
 
-    // STEP 1: find most frequent classification
     let mut classifications: Vec<Vec<Wrapping<u64>>> = vec![]; //ctx.dt_data.class_values.clone();
 
     // AND each discritized vector per node with all of the classifications
@@ -54,13 +73,13 @@ pub fn sid3t(input: Vec<Vec<u128>>, ctx: Context, train_ctx: TrainingContext) ->
         }
     }
 
-    classifications_flattened = classifications_flattened.iter().map(|x| truncate_local(*x, decimal_precision, asymmetric_bit)).collect();
+    classifications_flattened = classifications_flattened.iter().map(|x| truncate_local(*x, decimal_precision, asymmetric_bit as u8)).collect();
 
-    let and_results = protocol::multiply(&classifications_flattened, &trans_bit_vecs_flattened, &mut ctx).unwrap(); 
+    let and_results = protocol::multiply(&classifications_flattened, &trans_bit_vecs_flattened, ctx)?; 
 
     let tbv_and_classes_flat = &mut and_results.clone();
 
-    let frequencies_flat_unsummed: Vec<Wrapping<u64>> = protocol::multiply(&tbv_and_classes_flat.clone(), &tbv_and_classes_flat.clone(), &mut ctx).unwrap();
+    let frequencies_flat_unsummed: Vec<Wrapping<u64>> = protocol::multiply(&tbv_and_classes_flat.clone(), &tbv_and_classes_flat.clone(), ctx)?;
     
     let mut frequencies_flat: Vec<Wrapping<u64>> = vec![];
 
@@ -70,6 +89,32 @@ pub fn sid3t(input: Vec<Vec<u128>>, ctx: Context, train_ctx: TrainingContext) ->
                                     (n * class_label_count + i + 1) * data_instance_count].to_vec().iter().sum());
         }
     }
+
+    // STEP 1: find most frequent classification
+    let frequencies_argmax = most_frequent_class(&frequencies_flat.clone(), ctx, train_ctx);
+
+    // STEP 2: max_depth exit condition
+
+    // STEP 3: Apply class to node
+
+    // STEP 4: GINI impurity
+
+    let gini_argmax = gini_impurity(&and_results.clone(), ctx, train_ctx);
+
+    // STEP 5: Create data structures for next layer based on step 4
+
+    let placeholder = vec![vec![]];
+    Ok(placeholder)
+}
+
+
+pub fn most_frequent_class(frequencies_flat: &Vec<Wrapping<u64>>, ctx: &mut Context, train_ctx: &mut TrainingContext) -> Vec<Vec<Wrapping<u64>>> {
+
+
+    let class_label_count = train_ctx.class_label_count;
+    let number_of_nodes_to_process = 0;
+    let asymmetric_bit = ctx.num.asymm;
+
 
     // for each set of frequencies logically partitioned by the nodes, find the most frequent classification.
     let mut current_length_freq = class_label_count;
@@ -85,7 +130,7 @@ pub fn sid3t(input: Vec<Vec<u128>>, ctx: Context, train_ctx: TrainingContext) ->
     loop {
 
         let odd_length = (current_length_freq % 2) == 1;
-    
+
         let mut forgotten_values = vec![];
 
         let mut current_values = vec![];
@@ -111,9 +156,9 @@ pub fn sid3t(input: Vec<Vec<u128>>, ctx: Context, train_ctx: TrainingContext) ->
             r_operands.push(current_values[2 * v + 1]);
         }
 
-        let xor_l_geq_r = protocol::batch_geq(&l_operands, &r_operands, &mut ctx);
+        let xor_l_geq_r = protocol::batch_geq(&l_operands, &r_operands, ctx).unwrap();
         // read this as "left is greater than or equal to right." value in array will be [1] if true, [0] if false.
-        let l_geq_r = protocol::xor_share_to_additive(&xor_l_geq_r, ctx, 1);
+        let l_geq_r = protocol::z2_to_zq(&xor_l_geq_r, ctx).unwrap();
         // read this is "left is less than right"
         let l_lt_r: Vec<Wrapping<u64>> = l_geq_r.iter().map(|x| -x + Wrapping(asymmetric_bit as u64)).collect();
 
@@ -144,7 +189,7 @@ pub fn sid3t(input: Vec<Vec<u128>>, ctx: Context, train_ctx: TrainingContext) ->
         // EXIT CONDITION
         if (current_length_freq/2) + (current_length_freq % 2) == 1 {break;}
 
-        let comparison_results = protocol::multiply(&values, &assignments, &mut ctx);
+        let comparison_results = protocol::multiply(&values, &assignments, ctx).unwrap();
 
         new_values = vec![];
 
@@ -168,7 +213,7 @@ pub fn sid3t(input: Vec<Vec<u128>>, ctx: Context, train_ctx: TrainingContext) ->
     for v in (1..past_assignments_freq.len()).rev() {
 
         if past_assignments_freq[v].len() == past_assignments_freq[v - 1].len() {
-            past_assignments_freq[v - 1] = protocol::multiply(&past_assignments_freq[v - 1].clone(), &past_assignments_freq[v], &mut ctx);
+            past_assignments_freq[v - 1] = protocol::multiply(&past_assignments_freq[v - 1].clone(), &past_assignments_freq[v], ctx).unwrap();
             continue;
         }
 
@@ -181,7 +226,7 @@ pub fn sid3t(input: Vec<Vec<u128>>, ctx: Context, train_ctx: TrainingContext) ->
             extended_past_assignment_v.push(past_assignments_freq[v][w]);
             extended_past_assignment_v.push(past_assignments_freq[v][w]);
         }
-        past_assignments_freq[v - 1] = protocol::multiply(&past_assignments_freq[v - 1].clone(), &extended_past_assignment_v, &mut ctx);
+        past_assignments_freq[v - 1] = protocol::multiply(&past_assignments_freq[v - 1].clone(), &extended_past_assignment_v, ctx).unwrap();
     }
 
     // un-flatten arg_max
@@ -189,21 +234,11 @@ pub fn sid3t(input: Vec<Vec<u128>>, ctx: Context, train_ctx: TrainingContext) ->
         frequencies_argmax.push(past_assignments_freq[0][n * class_label_count.. (n + 1) * class_label_count].to_vec());
     }
 
-    // STEP 2: max_depth exit condition
-
-    // STEP 3: Apply class to node
-
-    // STEP 4: GINI impurity
-
-    // STEP 5: Create data structures for next layer based on step 4
-
-    let placeholder = vec![vec![]];
-    Ok(placeholder)
+    frequencies_argmax
 }
 
 
-
-pub fn gini_impurity(u_decimal: Vec<Wrapping<u64>>, ctx: Context, train_ctx: TrainingContext) -> Vec<Vec<Wrapping<u64>>> {
+pub fn gini_impurity(u_decimal: &Vec<Wrapping<u64>>, ctx: &mut Context, train_ctx: &mut TrainingContext) -> Vec<Vec<Wrapping<u64>>> {
 
     // VALUES NEEDED
 
@@ -218,6 +253,8 @@ pub fn gini_impurity(u_decimal: Vec<Wrapping<u64>>, ctx: Context, train_ctx: Tra
     let alpha = Wrapping(1);
     // amount of rows in dataset (not active rows designated by the tbv, just rows)
     let data_instance_count = 0;
+    // subset of data containing OHE data
+    let mut data_subset: Vec<SplitData<>> = vec![];
 
     // PHASE 3: FIND GINI INDEX OF FEATURE ON ITS SPLIT
 
@@ -240,7 +277,13 @@ pub fn gini_impurity(u_decimal: Vec<Wrapping<u64>>, ctx: Context, train_ctx: Tra
     // 2. predict the i-th class value
     // 3. and have the j-th value of the k-th attribute
 
+
+    // NOTE: Work on more meaningful names...
     let mut u_decimal_vectors = vec![];
+
+    let mut u_decimal_extended = vec![];
+
+    let mut discretized_sets_vectors = vec![];
 
     let mut discretized_sets = vec![vec![Wrapping(0)]; bin_count];
     //let mut discretized_sets_negation = vec![];
@@ -249,65 +292,64 @@ pub fn gini_impurity(u_decimal: Vec<Wrapping<u64>>, ctx: Context, train_ctx: Tra
 
     // make vectors of active rows and and discretized sets parrallel to prepare for
     // batch multiplication in order to find frequencies of classes
-    for n in 0..number_of_nodes_to_process {
-        for k in 0..feat_count {
-            for i in 0..class_label_count {
-                for j in 0.. bin_count {
+    for n in 0.. number_of_nodes_to_process {
+        for k in 0.. feat_count {
+            for i in 0.. class_label_count {
 
-                    let mut u_decimal_clone = u_decimal[(n * class_label_count + i) * data_instance_count.. 
+                let mut u_decimal_clone = u_decimal[(n * class_label_count + i) * data_instance_count.. 
                     (n * class_label_count + i + 1) * data_instance_count].to_vec();
-    
-                    u_decimal_vectors.append(&mut u_decimal_clone);
-    
-                    discretized_sets[j].append(&mut data_subset[n].discritized_vec[k].val[j].clone());
+
+                u_decimal_extended.append(&mut u_decimal_clone);
+
+                for j in 0.. bin_count {
+                                                // subset for the n'th tree, discretized by the k'th split,
+                                                // where j is the j'th column of an OHE matrix
+                    discretized_sets[j].append(&mut data_subset[n].discritized_vec[k][j].clone());
+
                 }
             }
         }
     }
 
-    // double the vector. First half will be for values >= split, second half will be < split
     let mut u_decimal_vectors_clone = u_decimal_vectors.clone();
-    u_decimal_vectors.append(&mut u_decimal_vectors_clone);
 
-    discretized_sets.append(&mut discretized_sets_negation);
+    for j in 0.. bin_count {
+        discretized_sets_vectors.append(&mut discretized_sets[j].clone());
+        u_decimal_vectors.append(&mut u_decimal_extended.clone());
+
+    }
+
+    // Remenent of the past, helps me see how to code for j vals instead of 2.
+
+    // // double the vector. First half will be for values >= split, second half will be < split
+    // let mut u_decimal_vectors_clone = u_decimal_vectors.clone();
+    // u_decimal_vectors.append(&mut u_decimal_vectors_clone);
+
+    // discretized_sets.append(&mut discretized_sets_negation);
 
     let batched_un_summed_frequencies =
-        batch_multiply(&u_decimal_vectors, &discretized_sets, ctx);
+        protocol::multiply(&u_decimal_vectors, &discretized_sets_vectors, ctx).unwrap();
 
-    let total_number_of_rows = ctx.dt_data.instance_count;
+    let total_number_of_rows = train_ctx.instance_count;
 
-    let number_of_xs = batched_un_summed_frequencies.len() / (2 * total_number_of_rows);
+    let number_of_xs = batched_un_summed_frequencies.len() / (bin_count * total_number_of_rows);
 
     for v in 0..number_of_xs {
-        let dp_result_geq_value: Wrapping<u64> = batched_un_summed_frequencies[v * total_number_of_rows..
-        (v + 1) * total_number_of_rows]
-        .to_vec().iter().sum();
+        
+        for j in 0.. bin_count {
 
-        let dp_result_lt_value: Wrapping<u64> =
-            batched_un_summed_frequencies[(v + number_of_xs) * total_number_of_rows..
-            (v + 1 + number_of_xs) * total_number_of_rows]
-            .to_vec().iter().sum();
+            // Sum up "total_number_of_rows" values to obtain frequency of classification for a particular subset
+            // of data split a particular way dictated by things like the random feature chosen, and its split.
+            let dp_result = batched_un_summed_frequencies
+                [(v + number_of_xs * j) * total_number_of_rows.. 
+                (v + 1 + number_of_xs * j) * total_number_of_rows].to_vec().iter().sum();
 
-        //x_partitioned[n][k][i][j == 1]
-        x_partitioned[v / (attr_count * class_value_count)][(v / class_value_count) % attr_count]
-            [v % class_value_count][1] = dp_result_geq_value;
-        //y_partitioned[n][k][j == 1]
-        y_partitioned[v / (attr_count * class_value_count)][(v / class_value_count) % attr_count][1] +=
-            dp_result_geq_value;
+            x_partitioned[v / (feat_count * class_label_count)][(v / class_label_count) % feat_count]
+                [v % class_label_count][j] = dp_result;
 
-        //x_partitioned[n][k][i][j == 0]
-        x_partitioned[v / (attr_count * class_value_count)][(v / class_value_count) % attr_count]
-            [v % class_value_count][0] = dp_result_lt_value;
-        //y_partitioned[n][k][j == 0]
-        y_partitioned[v / (attr_count * class_value_count)][(v / class_value_count) % attr_count][0] +=
-            dp_result_lt_value;
+            y_partitioned[v / (feat_count * class_label_count)][(v / class_label_count) % feat_count][j] +=
+                dp_result;
 
-        if dp_result_lt_value.0 == 0 {
-            println!("WARNING! LEFT CHILD EMPTY")
-        }
-
-        if dp_result_geq_value.0 == 0 {
-            println!("WARNING! RIGHT CHILD EMPTY")
         }
 
     }
@@ -316,73 +358,99 @@ pub fn gini_impurity(u_decimal: Vec<Wrapping<u64>>, ctx: Context, train_ctx: Tra
 
     println!("Calculating y values and x^2 values"); // STEP THIRTEEN (13) OF ALGORITHM
     for n in 0..number_of_nodes_to_process {
-        for k in 0..attr_count {
+        for k in 0..feat_count {
             y_partitioned[n][k][0] =
-                alpha * y_partitioned[n][k][0] + Wrapping(ctx.asymmetric_bit as u64);
+                alpha * y_partitioned[n][k][0] + Wrapping(asymmetric_bit as u64);
             y_partitioned[n][k][1] =
-                alpha * y_partitioned[n][k][1] + Wrapping(ctx.asymmetric_bit as u64);
+                alpha * y_partitioned[n][k][1] + Wrapping(asymmetric_bit as u64);
 
             // will be used to find x^2
-            for i in 0..class_value_count {
+            for i in 0..class_label_count {
                 all_x_values.append(&mut x_partitioned[n][k][i].clone());
             }
         }
     }
 
-    let all_x_values_squared: Vec<Wrapping<u64>> = batch_multiply(&all_x_values.clone(), &all_x_values.clone(), ctx);
+    let all_x_values_squared: Vec<Wrapping<u64>> = protocol::multiply(&all_x_values.clone(), &all_x_values.clone(), ctx).unwrap();
 
     for v in 0..all_x_values_squared.len() / 2 {
-        x2[v / (attr_count * class_value_count)][(v / class_value_count) % attr_count]
-            [v % class_value_count][0] = all_x_values_squared[2 * v];
-        x2[v / (attr_count * class_value_count)][(v / class_value_count) % attr_count]
-            [v % class_value_count][1] =
-            all_x_values_squared[2 * v + 1];
+        for j in 0.. bin_count {
+            x2[v / (feat_count * class_label_count)][(v / class_label_count) % feat_count]
+            [v % class_label_count][j] = all_x_values_squared[bin_count * v + j];
+        }
     }
 
-    // At this point we have all of our x, x^2 and y values
-    let mut vector_of_sums_zero = vec![];
-    let mut vector_of_sums_one = vec![];
+    // very unsure about this section, have to debug
 
-    let mut y_value0 = vec![];
-    let mut y_value1 = vec![];
+    // At this point we have all of our x, x^2 and y values. Now we can start calculation gini numerators/denominators
+    let mut sum_of_x2_j =  vec![vec![vec![Wrapping(0); bin_count]; feat_count]; number_of_nodes_to_process];
+
+    let mut D_exclude_j = vec![vec![vec![Wrapping(0); bin_count]; feat_count]; number_of_nodes_to_process];
+    let mut D_include_j = vec![vec![Wrapping(0); bin_count]; number_of_nodes_to_process];
 
     // create vector of the 0 and 1 values for j to set us up for batch multiplicaiton.
     // also, sum all of the x^2 values over i, and push these sums over i to a vector
     // to batch multiply with the y_without_j values.
     for n in 0..number_of_nodes_to_process {
-        for k in 0..attr_count {
-            let mut sum_lt_values = Wrapping(0);
-            let mut sum_geq_values = Wrapping(0);
 
-            y_value0.push(Wrapping(y_partitioned[n][k][0].0));
-            y_value1.push(Wrapping(y_partitioned[n][k][1].0));
+        let mut y_vals_include_j = vec![vec![]; bin_count];
 
-            for i in 0..class_value_count {
-                sum_lt_values += x2[n][k][i][0];
-                sum_geq_values += x2[n][k][i][1];
+        for k in 0..feat_count {
+
+            let mut y_vals_exlude_j = vec![vec![]; bin_count];
+
+            for j in 0.. bin_count {
+                
+                // at the j'th index of the vector, we need to 
+                // push all values at indeces that are not equal to j onto it
+                // not 100% sure about this..
+                for not_j in 0.. bin_count {
+                    if j != not_j {
+                        y_vals_exlude_j[j].push(y_partitioned[n][k][not_j]);
+                    }
+                }
+
+                y_vals_include_j[j].push(y_partitioned[n][k][j]);
+
+                let mut sum_j_values = Wrapping(0);
+    
+                for i in 0..class_label_count {
+                    sum_j_values += x2[n][k][i][j];
+                }
+                sum_of_x2_j[n][k][j] = sum_j_values;
             }
-            vector_of_sums_zero.push(sum_lt_values);
-            vector_of_sums_one.push(sum_geq_values);
+            // can be far better optimized. Named 'D' after De'Hooghs variable
+            D_exclude_j[n][k] = protocol::pairwise_mult(&y_vals_exlude_j, ctx).unwrap();
+        }
+        D_include_j[n] = protocol::pairwise_mult(&y_vals_include_j, ctx).unwrap();
+    }
+
+    let mut D_exclude_j_flattend = vec![];
+    let mut D_include_j_flattend = vec![];
+    let mut sum_of_x2_j_flattend = vec![];
+
+    for n in 0.. number_of_nodes_to_process {
+        for k in 0.. feat_count {
+            D_exclude_j_flattend.append(&mut D_exclude_j[n][k]);
+            sum_of_x2_j_flattend.append(&mut sum_of_x2_j[n][k]);
+        }
+        D_include_j_flattend.append(&mut D_include_j[n]);
+    } 
+
+    let gini_numerators_values_flat_unsummed = protocol::multiply(&D_exclude_j_flattend, &sum_of_x2_j_flattend, ctx).unwrap();
+
+    for v in 0.. gini_numerators_values_flat_unsummed.len() / bin_count {
+        for j in 0.. bin_count {
+            gini_numerators[v] += gini_numerators_values_flat_unsummed[v * bin_count + j];
         }
     }
 
-    // gini numerators corresponding to j = 0
-    let gini_numerator_value_zero: Vec<Wrapping<u64>> = batch_multiply(&vector_of_sums_zero, &y_value1, ctx);
-    // gini numerators corresponding to j = 1
-    let gini_numerator_value_one: Vec<Wrapping<u64>> = batch_multiply(&vector_of_sums_one, &y_value0, ctx);
-
-    // create numerators
-    for v in 0..gini_numerator_value_one.len() {
-        gini_numerators[v] = gini_numerator_value_one[v] + gini_numerator_value_zero[v];
-
-    }
-    
     // create denominators
-    let gini_denominators: Vec<Wrapping<u64>> = batch_multiply(&y_value0, &y_value1, ctx);
+    let gini_denominators: Vec<Wrapping<u64>> = D_include_j_flattend.clone();
 
     /////////////////////////////////////////// COMPUTE ARGMAX ///////////////////////////////////////////
 
-    let mut current_length = attr_count;
+    let mut current_length = feat_count;
 
     let mut logical_partition_lengths = vec![];
 
@@ -429,7 +497,7 @@ pub fn gini_impurity(u_decimal: Vec<Wrapping<u64>>, ctx: Context, train_ctx: Tra
             current_denominators_flipped.push(current_denominators[2 * v]);
         }
 
-        let product = batch_multiply(&current_numerators, &current_denominators_flipped, ctx);
+        let product = protocol::multiply(&current_numerators, &current_denominators_flipped, ctx).unwrap();
 
         let mut l_operands = vec![];
         let mut r_operands = vec![];
@@ -441,12 +509,12 @@ pub fn gini_impurity(u_decimal: Vec<Wrapping<u64>>, ctx: Context, train_ctx: Tra
             r_operands.push(product[2 * v + 1]);
         }
 
-        let xor_l_geq_r = batch_compare_integer(&l_operands, &r_operands, ctx);  
+        let xor_l_geq_r = protocol::batch_geq(&l_operands, &r_operands, ctx).unwrap();  
 
         // read this as "left is greater than or equal to right." value in array will be 1 if true, 0 if false.
-        let l_geq_r = xor_share_to_additive(&xor_l_geq_r, ctx, 1);
+        let l_geq_r = protocol::z2_to_zq(&xor_l_geq_r, ctx).unwrap();
         // read this is "left is less than right"
-        let l_lt_r: Vec<Wrapping<u64>> = l_geq_r.iter().map(|x| -x + Wrapping(ctx.asymmetric_bit as u64)).collect();
+        let l_lt_r: Vec<Wrapping<u64>> = l_geq_r.iter().map(|x| -x + Wrapping(asymmetric_bit as u64)).collect();
 
         // grab the original values 
         let mut values = current_numerators.clone();
@@ -477,7 +545,7 @@ pub fn gini_impurity(u_decimal: Vec<Wrapping<u64>>, ctx: Context, train_ctx: Tra
 
         assignments.append(&mut assignments.clone());
 
-        let comparison_results = batch_multiply(&values, &assignments, ctx);
+        let comparison_results = protocol::multiply(&values, &assignments, ctx).unwrap();
 
         new_numerators = vec![];
         new_denominators = vec![];
@@ -506,7 +574,7 @@ pub fn gini_impurity(u_decimal: Vec<Wrapping<u64>>, ctx: Context, train_ctx: Tra
     for v in (1..past_assignments.len()).rev() {
 
         if past_assignments[v].len() == past_assignments[v - 1].len() {
-            past_assignments[v - 1] = batch_multiply(&past_assignments[v - 1].clone(), &past_assignments[v], ctx);
+            past_assignments[v - 1] = protocol::multiply(&past_assignments[v - 1].clone(), &past_assignments[v], ctx).unwrap();
             continue;
         }
 
@@ -519,21 +587,18 @@ pub fn gini_impurity(u_decimal: Vec<Wrapping<u64>>, ctx: Context, train_ctx: Tra
             extended_past_assignment_v.push(past_assignments[v][w]);
             extended_past_assignment_v.push(past_assignments[v][w]);
         }
-        past_assignments[v - 1] = batch_multiply(&past_assignments[v - 1].clone(), &extended_past_assignment_v, ctx);
+        past_assignments[v - 1] = protocol::multiply(&past_assignments[v - 1].clone(), &extended_past_assignment_v, ctx).unwrap();
     }
 
     // un-flatten arg_max
     for n in 0.. number_of_nodes_to_process {
-        if attr_count == 1 { // if there is only one attr count
+        if feat_count == 1 { // if there is only one attr count
             gini_arg_max.push(vec![Wrapping(asymmetric_bit)]);
         } else {
-            gini_arg_max.push(past_assignments[0][n * attr_count.. (n + 1) * attr_count].to_vec());
+            gini_arg_max.push(past_assignments[0][n * feat_count.. (n + 1) * feat_count].to_vec());
         }
     }
-
-
-
-
+    gini_arg_max
 }
 
 
