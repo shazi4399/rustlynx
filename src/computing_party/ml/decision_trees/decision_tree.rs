@@ -6,9 +6,9 @@ use super::super::super::protocol;
 
 #[derive(Default)]
 pub struct TreeNode {
-    split_point: Wrapping<u64>,
-    attribute_sel_vec: Vec<Wrapping<u64>>,
-    classification: Wrapping<u64>,
+    pub split_point: Wrapping<u64>,
+    pub attribute_sel_vec: Vec<Wrapping<u64>>,
+    pub classification: Wrapping<u64>,
 }
 
 impl Clone for TreeNode {
@@ -23,21 +23,22 @@ impl Clone for TreeNode {
 
 #[derive(Default)]
 pub struct TrainingContext {
-    instance_count: usize,
-    class_label_count: usize,
-    attribute_count: usize, //attribute count in training context
-    bin_count: usize,
-    tree_count: usize,
-    max_depth: usize,
+    pub instance_count: usize,
+    pub class_label_count: usize,
+    pub attribute_count: usize, //attribute count in training context
+    pub feature_count: usize,
+    pub bin_count: usize,
+    pub tree_count: usize,
+    pub max_depth: usize,
 }
 
 pub fn run(ctx: &mut Context) -> Result<(), Box<dyn Error>> {
-
     Ok(())
 }
 
 //Additive stares are Wrapping<u64>, binary are u128
-pub fn sid3t(input: &Vec<Vec<Vec<Wrapping<u64>>>>, class: &mut Vec<Vec<Vec<Wrapping<u64>>>>, ctx: &mut Context, train_ctx: &mut TrainingContext) -> Result<Vec<Vec<TreeNode>>, Box<dyn Error>>{
+pub fn sid3t(input: &Vec<Vec<Vec<Wrapping<u64>>>>, class: &mut Vec<Vec<Vec<Wrapping<u64>>>>, 
+    ctx: &mut Context, train_ctx: &mut TrainingContext) -> Result<Vec<Vec<TreeNode>>, Box<dyn Error>>{
 
     // VALUES NEEDED
 
@@ -135,7 +136,7 @@ pub fn sid3t(input: &Vec<Vec<Vec<Wrapping<u64>>>>, class: &mut Vec<Vec<Vec<Wrapp
         }
 
         // STEP 1: find most frequent classification
-        let frequencies_argmax = most_frequent_class(&frequencies_flat.clone(), ctx, train_ctx);
+        let frequencies_argmax = most_frequent_class(&frequencies_flat.clone(), number_of_nodes_to_process, ctx, train_ctx);
 
         // STEP 2: max_depth exit condition
 
@@ -153,11 +154,10 @@ pub fn sid3t(input: &Vec<Vec<Vec<Wrapping<u64>>>>, class: &mut Vec<Vec<Vec<Wrapp
 }
 
 
-pub fn most_frequent_class(frequencies_flat: &Vec<Wrapping<u64>>, ctx: &mut Context, train_ctx: &mut TrainingContext) -> Vec<Vec<Wrapping<u64>>> {
+pub fn most_frequent_class(frequencies_flat: &Vec<Wrapping<u64>>, number_of_nodes_to_process: usize, ctx: &mut Context, train_ctx: &mut TrainingContext) -> Vec<Vec<Wrapping<u64>>> {
 
 
     let class_label_count = train_ctx.class_label_count;
-    let number_of_nodes_to_process = 0;
     let asymmetric_bit = ctx.num.asymm;
 
 
