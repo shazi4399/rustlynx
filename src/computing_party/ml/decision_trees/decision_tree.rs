@@ -2,6 +2,7 @@ use std::error::Error;
 use super::super::super::Context;
 use std::num::Wrapping;
 use super::super::super::protocol;
+use super::super::super::super::util;
 
 
 #[derive(Default)]
@@ -118,7 +119,7 @@ pub fn sid3t(input: &Vec<Vec<Vec<Wrapping<u64>>>>, class: &mut Vec<Vec<Vec<Wrapp
         }
 
         // may or may not be needed
-        classifications_flattened = classifications_flattened.iter().map(|x| truncate_local(*x, decimal_precision, asymmetric_bit as u8)).collect();
+        classifications_flattened = classifications_flattened.iter().map(|x| util::truncate(*x, decimal_precision, asymmetric_bit)).collect();
 
         let and_results = protocol::multiply(&classifications_flattened, &trans_bit_vecs_flattened, ctx)?; 
 
@@ -144,7 +145,7 @@ pub fn sid3t(input: &Vec<Vec<Vec<Wrapping<u64>>>>, class: &mut Vec<Vec<Vec<Wrapp
 
         // STEP 4: GINI impurity
 
-        let gini_argmax = gini_impurity(&input, &and_results.clone(), ctx, train_ctx);
+        let gini_argmax = gini_impurity(&input, &and_results.clone(), number_of_nodes_to_process, ctx, train_ctx);
 
         // STEP 5: Create data structures for next layer based on step 4
     }
@@ -154,7 +155,8 @@ pub fn sid3t(input: &Vec<Vec<Vec<Wrapping<u64>>>>, class: &mut Vec<Vec<Vec<Wrapp
 }
 
 
-pub fn most_frequent_class(frequencies_flat: &Vec<Wrapping<u64>>, number_of_nodes_to_process: usize, ctx: &mut Context, train_ctx: &mut TrainingContext) -> Vec<Vec<Wrapping<u64>>> {
+pub fn most_frequent_class(frequencies_flat: &Vec<Wrapping<u64>>, 
+    number_of_nodes_to_process: usize, ctx: &mut Context, train_ctx: &mut TrainingContext) -> Vec<Vec<Wrapping<u64>>> {
 
 
     let class_label_count = train_ctx.class_label_count;
@@ -283,25 +285,22 @@ pub fn most_frequent_class(frequencies_flat: &Vec<Wrapping<u64>>, number_of_node
 }
 
 
-pub fn gini_impurity(input: &Vec<Vec<Vec<Wrapping<u64>>>>, u_decimal: &Vec<Wrapping<u64>>, ctx: &mut Context, train_ctx: &mut TrainingContext) -> Vec<Vec<Wrapping<u64>>> {
+pub fn gini_impurity(input: &Vec<Vec<Vec<Wrapping<u64>>>>, u_decimal: &Vec<Wrapping<u64>>, 
+    number_of_nodes_to_process: usize, ctx: &mut Context, train_ctx: &mut TrainingContext) -> Vec<Vec<Wrapping<u64>>> {
 
-    // VALUES NEEDED
-
-    // A way to calculate how many nodes must be processed
-    let number_of_nodes_to_process = 0;
     // Access to these values from ctx
-    let class_label_count = 0;
-    let decimal_precision = 0;
-    let asymmetric_bit = 0;
+    let class_label_count = train_ctx.class_label_count;
+    let decimal_precision = ctx.num.precision_frac;
+    let asymmetric_bit = ctx.num.asymm;
     let feat_count = train_ctx.feature_count;
     let bin_count = train_ctx.bin_count;
-    let alpha = Wrapping(1);
-    // amount of rows in dataset (not active rows designated by the tbv, just rows)
+
+    let alpha = Wrapping(1); // Need this from ctx
+
     let data_instance_count = train_ctx.instance_count;
-    // subset of data containing OHE data
 
     // unary vector parrallel to feauture with best random split
-    // will be a vector of n vectors with k unary values of [0] (except one value will be [1].
+    // will be a vector of n vectors with k unary values of [0] (except one value will be [1]).
     let mut gini_arg_max: Vec<Vec<Wrapping<u64>>> = vec![];
 
     let mut x_partitioned =
@@ -641,18 +640,4 @@ pub fn gini_impurity(input: &Vec<Vec<Vec<Wrapping<u64>>>>, u_decimal: &Vec<Wrapp
         }
     }
     gini_arg_max
-}
-
-
-// Consider moving?
-pub fn truncate_local(
-    x: Wrapping<u64>,
-    decimal_precision: u32,
-    asymmetric_bit: u8,
-) -> Wrapping<u64> {
-    if asymmetric_bit == 0 {
-        return -Wrapping((-x).0 >> decimal_precision);
-    }
-
-    Wrapping(x.0 >> decimal_precision)
 }
