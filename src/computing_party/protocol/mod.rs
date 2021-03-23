@@ -633,7 +633,7 @@ pub fn matmul(x: &Vec<Vec<Wrapping<u64>>>, y: &Vec<Vec<Wrapping<u64>>>, ctx: &mu
 pub fn minmax_batch(
     x_list: &Vec<Vec<Wrapping<u64>>>,
     ctx: &mut Context,
-) -> (Vec<Wrapping<u64>>, Vec<Wrapping<u64>>) {
+) -> Result<(Vec<Wrapping<u64>>, Vec<Wrapping<u64>>), Box<dyn Error>> {
     let asymmetric_bit = Wrapping(ctx.num.asymm as u64);
     // number of collums to process
     let n_star = x_list.len();
@@ -763,7 +763,7 @@ pub fn minmax_batch(
         pairs = n / 2;
     }
 
-    (mins, maxs)
+    Ok((mins, maxs))
 }
 
 

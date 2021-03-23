@@ -27,7 +27,6 @@ pub struct TrainingContext {
     pub instance_count: usize,
     pub class_label_count: usize,
     pub attribute_count: usize, //attribute count in training context
-    pub feature_count: usize,
     pub bin_count: usize,
     pub tree_count: usize,
     pub max_depth: usize,

@@ -1,0 +1,9 @@
+class_label_count =
+attribute_count =
+instance_count =
+feature_count =
+tree_count =
+max_depth =
+feature_count =
+data = "PATH"
+classes= "PATH"
