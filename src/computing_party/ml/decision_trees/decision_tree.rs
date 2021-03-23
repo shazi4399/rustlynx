@@ -4,29 +4,21 @@ use std::num::Wrapping;
 use super::super::super::protocol;
 
 
-// ------------- added by David, should probably be merge with TreeNode, but I didn't write that and don't wanna mess with it
-pub struct SplitData {
-    pub split_points: Vec<Wrapping<u64>>,
-    pub feature_selection_vector: Vec<Vec<Wrapping<u64>>>,
-    pub discritized_vec: Vec<Vec<Vec<Wrapping<u64>>>>,
-}
-
-impl Clone for SplitData {
-    fn clone(&self) -> Self {
-        SplitData {
-            split_points: self.split_points.clone(),
-            feature_selection_vector: self.feature_selection_vector.clone(),
-            discritized_vec: self.discritized_vec.clone()
-        }
-    }
-}
-/// --------------
-
 #[derive(Default)]
 pub struct TreeNode {
     split_point: Wrapping<u64>,
     attribute_sel_vec: Vec<Wrapping<u64>>,
     classification: Wrapping<u64>,
+}
+
+impl Clone for TreeNode {
+    fn clone(&self) -> Self {
+        TreeNode {
+            split_point: self.split_point.clone(),
+            attribute_sel_vec: self.attribute_sel_vec.clone(),
+            classification: self.classification.clone()
+        }
+    }
 }
 
 #[derive(Default)]
@@ -45,64 +37,116 @@ pub fn run(ctx: &mut Context) -> Result<(), Box<dyn Error>> {
 }
 
 //Additive stares are Wrapping<u64>, binary are u128
-pub fn sid3t(input: Vec<Vec<Vec<u128>>>, class: Vec<Vec<u128>>, ctx: &mut Context, train_ctx: &mut TrainingContext) -> Result<Vec<Vec<TreeNode>>, Box<dyn Error>>{
+pub fn sid3t(input: &Vec<Vec<Vec<Wrapping<u64>>>>, class: &mut Vec<Vec<Vec<Wrapping<u64>>>>, ctx: &mut Context, train_ctx: &mut TrainingContext) -> Result<Vec<Vec<TreeNode>>, Box<dyn Error>>{
 
     // VALUES NEEDED
 
-    // A way to calculate how many nodes must be processed
-    let number_of_nodes_to_process = 0;
-    // Access to these values from ctx
-    let class_label_count = train_ctx.class_label_count;
-    let decimal_precision = 0;
-    let asymmetric_bit = ctx.num.asymm;
-    // The n'th vector should be should run parallel to the data to zero out non-relevent rows.
-    // Should probably be additively shared in Z_q right? Needs to be used for multiplicaiton
-    let mut layer_trans_bit_vecs: Vec<Vec<Wrapping<u64>>> = vec![];
-    // amount of rows in dataset (not active rows designated by the tbv, just rows)
-    let data_instance_count = train_ctx.instance_count;
-
-    let mut classifications: Vec<Vec<Wrapping<u64>>> = vec![]; //ctx.dt_data.class_values.clone();
-
-    // AND each discritized vector per node with all of the classifications
-    let mut classifications_flattened = vec![];
-    let mut trans_bit_vecs_flattened = vec![];
-
-    for n in 0.. number_of_nodes_to_process {
-        for i in 0.. class_label_count {
-            classifications_flattened.append(&mut classifications[i].clone());
-            trans_bit_vecs_flattened.append(&mut layer_trans_bit_vecs[n].clone());
-        }
+    let asymmetric_bit = ctx.num.asymm as u64;
+    let feat_count = 0;//train_ctx.feat_count;
+    let class_value_count = train_ctx.class_label_count;
+    let instance_count = train_ctx.instance_count;
+    let tree_count = train_ctx.tree_count;
+    //let mut layer_data: Vec<LayerData> = vec![];
+    let mut treenodes: Vec<Vec<TreeNode>> = vec![vec![]; tree_count];
+    for t in 0..tree_count {
+        treenodes[t].push(TreeNode {
+            //classification_bit: Wrapping(0u64),
+            attribute_sel_vec: vec![],
+            classification: Wrapping(0),
+            split_point: Wrapping(0),
+            //valid_bit: 0,
+        });
     }
 
-    classifications_flattened = classifications_flattened.iter().map(|x| truncate_local(*x, decimal_precision, asymmetric_bit as u8)).collect();
+    println!("Initialized ensemble structure.");
 
-    let and_results = protocol::multiply(&classifications_flattened, &trans_bit_vecs_flattened, ctx)?; 
+    let mut ances_class_bits = vec![Wrapping(0u64); tree_count];
+    let mut layer_trans_bit_vecs = vec![vec![Wrapping(asymmetric_bit); instance_count]; tree_count];
 
-    let tbv_and_classes_flat = &mut and_results.clone();
+    let r = train_ctx.max_depth; // Should r just be max depth?
 
-    let frequencies_flat_unsummed: Vec<Wrapping<u64>> = protocol::multiply(&tbv_and_classes_flat.clone(), &tbv_and_classes_flat.clone(), ctx)?;
-    
-    let mut frequencies_flat: Vec<Wrapping<u64>> = vec![];
+    for layer in 0.. r {
+        let tree_count = tree_count;
+        let nodes_processed_until_layer = 2usize.pow((layer) as u32) - 1;
+        let nodes_to_process_per_tree = 2usize.pow(layer as u32);
 
-    for n in 0.. number_of_nodes_to_process {
-        for i in 0.. class_label_count {
-            frequencies_flat.push(frequencies_flat_unsummed[(n * class_label_count + i) * data_instance_count.. 
-                                    (n * class_label_count + i + 1) * data_instance_count].to_vec().iter().sum());
+        let max_depth = layer == train_ctx.max_depth - 1; // what does this do?
+        let number_of_nodes_to_process = (nodes_to_process_per_tree + nodes_processed_until_layer) * tree_count - nodes_processed_until_layer * tree_count;
+        if !max_depth /*&& !ctx.dt_training.discretize_per_tree*/ {
+
+            // for v in 0..layer_trans_bit_vecs.len() {
+            //     layer_data.push(LayerData { // Do not have layer data yet
+            //         trans_bit_vec: layer_trans_bit_vecs[v].clone(),
+            //         split_data: data_subset[v].clone(),
+            //     });
+            // }
         }
+        // else if ctx.dt_training.discretize_per_tree {
+        //     for t in 0 .. ctx.tree_count {
+        //         for n in 0 .. nodes_to_process_per_tree {
+        //             data_subset.push(data[t].clone());
+        //             layer_data.push(LayerData {
+        //                 trans_bit_vec: layer_trans_bit_vecs[t*nodes_to_process_per_tree + n].clone(),
+        //                 split_data: data[t].clone()
+        //             });
+        //         }
+        //     }
+        // }
+
+        // A way to calculate how many nodes must be processed
+        let number_of_nodes_to_process = 0;
+        // Access to these values from ctx
+        let class_label_count = train_ctx.class_label_count;
+        let decimal_precision = 0;
+        let asymmetric_bit = ctx.num.asymm;
+        // The n'th vector should be should run parallel to the data to zero out non-relevent rows.
+        // Should probably be additively shared in Z_q right? Needs to be used for multiplicaiton
+        let mut layer_trans_bit_vecs: Vec<Vec<Wrapping<u64>>> = vec![];
+        // amount of rows in dataset (not active rows designated by the tbv, just rows)
+        let data_instance_count = train_ctx.instance_count;
+
+        // AND each discritized vector per node with all of the classifications
+        let mut classifications_flattened = vec![];
+        let mut trans_bit_vecs_flattened = vec![];
+
+        for n in 0.. number_of_nodes_to_process {
+            for i in 0.. class_label_count {
+                classifications_flattened.append(&mut class[n][i].clone());
+                trans_bit_vecs_flattened.append(&mut layer_trans_bit_vecs[n].clone());
+            }
+        }
+
+        // may or may not be needed
+        classifications_flattened = classifications_flattened.iter().map(|x| truncate_local(*x, decimal_precision, asymmetric_bit as u8)).collect();
+
+        let and_results = protocol::multiply(&classifications_flattened, &trans_bit_vecs_flattened, ctx)?; 
+
+        let tbv_and_classes_flat = &mut and_results.clone();
+
+        let frequencies_flat_unsummed: Vec<Wrapping<u64>> = protocol::multiply(&tbv_and_classes_flat.clone(), &tbv_and_classes_flat.clone(), ctx)?;
+        
+        let mut frequencies_flat: Vec<Wrapping<u64>> = vec![];
+
+        for n in 0.. number_of_nodes_to_process {
+            for i in 0.. class_label_count {
+                frequencies_flat.push(frequencies_flat_unsummed[(n * class_label_count + i) * data_instance_count.. 
+                                        (n * class_label_count + i + 1) * data_instance_count].to_vec().iter().sum());
+            }
+        }
+
+        // STEP 1: find most frequent classification
+        let frequencies_argmax = most_frequent_class(&frequencies_flat.clone(), ctx, train_ctx);
+
+        // STEP 2: max_depth exit condition
+
+        // STEP 3: Apply class to node
+
+        // STEP 4: GINI impurity
+
+        let gini_argmax = gini_impurity(&input, &and_results.clone(), ctx, train_ctx);
+
+        // STEP 5: Create data structures for next layer based on step 4
     }
-
-    // STEP 1: find most frequent classification
-    let frequencies_argmax = most_frequent_class(&frequencies_flat.clone(), ctx, train_ctx);
-
-    // STEP 2: max_depth exit condition
-
-    // STEP 3: Apply class to node
-
-    // STEP 4: GINI impurity
-
-    let gini_argmax = gini_impurity(&and_results.clone(), ctx, train_ctx);
-
-    // STEP 5: Create data structures for next layer based on step 4
 
     let placeholder = vec![vec![]];
     Ok(placeholder)
@@ -239,7 +283,7 @@ pub fn most_frequent_class(frequencies_flat: &Vec<Wrapping<u64>>, ctx: &mut Cont
 }
 
 
-pub fn gini_impurity(u_decimal: &Vec<Wrapping<u64>>, ctx: &mut Context, train_ctx: &mut TrainingContext) -> Vec<Vec<Wrapping<u64>>> {
+pub fn gini_impurity(input: &Vec<Vec<Vec<Wrapping<u64>>>>, u_decimal: &Vec<Wrapping<u64>>, ctx: &mut Context, train_ctx: &mut TrainingContext) -> Vec<Vec<Wrapping<u64>>> {
 
     // VALUES NEEDED
 
@@ -249,15 +293,12 @@ pub fn gini_impurity(u_decimal: &Vec<Wrapping<u64>>, ctx: &mut Context, train_ct
     let class_label_count = 0;
     let decimal_precision = 0;
     let asymmetric_bit = 0;
-    let feat_count = 0;
-    let bin_count = 0;
+    let feat_count = train_ctx.feature_count;
+    let bin_count = train_ctx.bin_count;
     let alpha = Wrapping(1);
     // amount of rows in dataset (not active rows designated by the tbv, just rows)
-    let data_instance_count = 0;
+    let data_instance_count = train_ctx.instance_count;
     // subset of data containing OHE data
-    let mut data_subset: Vec<SplitData<>> = vec![];
-
-    // PHASE 3: FIND GINI INDEX OF FEATURE ON ITS SPLIT
 
     // unary vector parrallel to feauture with best random split
     // will be a vector of n vectors with k unary values of [0] (except one value will be [1].
@@ -302,12 +343,12 @@ pub fn gini_impurity(u_decimal: &Vec<Wrapping<u64>>, ctx: &mut Context, train_ct
 
                 u_decimal_extended.append(&mut u_decimal_clone);
 
-                for j in 0.. bin_count {
-                                                // subset for the n'th tree, discretized by the k'th split,
-                                                // where j is the j'th column of an OHE matrix
-                    discretized_sets[j].append(&mut data_subset[n].discritized_vec[k][j].clone());
 
+                for j in 0.. bin_count {
+                    // grabs column of data, right?
+                    discretized_sets[j].append(&mut input[n][k * bin_count + j].clone());
                 }
+
             }
         }
     }
