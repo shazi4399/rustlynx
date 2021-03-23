@@ -14,6 +14,7 @@ pub struct TreeNode {
 pub struct TrainingContext {
     instance_count: usize,
     attribute_count: usize, //attribute count in training context
+    bin_count: usize,
     tree_count: usize,
     max_depth: usize,
 }
@@ -24,7 +25,7 @@ pub fn run(ctx: &mut Context) -> Result<(), Box<dyn Error>> {
 }
 
 //Additive stares are Wrapping<u64>, binary are u128
-pub fn sid3t(input: Vec<Vec<u128>>, ctx: Context, train_ctx: TrainingContext) -> Result<Vec<Vec<TreeNode>>, Box<dyn Error>>{
+pub fn sid3t(input: Vec<Vec<Vec<u128>>>, class: Vec<Vec<u128>>, ctx: Context, train_ctx: TrainingContext) -> Result<Vec<Vec<TreeNode>>, Box<dyn Error>>{
 
     // VALUES NEEDED
 
