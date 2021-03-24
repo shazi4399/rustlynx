@@ -7,7 +7,7 @@ use super::super::super::super::util;
 
 #[derive(Default)]
 pub struct TreeNode {
-    pub split_point: Wrapping<u64>,
+    pub split_point: Vec<Wrapping<u64>>,
     pub attribute_sel_vec: Vec<Wrapping<u64>>,
     pub classification: Wrapping<u64>,
 }
@@ -37,8 +37,8 @@ pub fn run(ctx: &mut Context) -> Result<(), Box<dyn Error>> {
 }
 
 //Additive stares are Wrapping<u64>, binary are u128
-pub fn sid3t(input: &Vec<Vec<Vec<Wrapping<u64>>>>, class: &Vec<Vec<Vec<Wrapping<u64>>>>, 
-    ctx: &mut Context, train_ctx: &mut TrainingContext) -> Result<Vec<Vec<TreeNode>>, Box<dyn Error>>{
+pub fn sid3t(input: &Vec<Vec<Vec<Wrapping<u64>>>>, class: &Vec<Vec<Vec<Wrapping<u64>>>>, att_sel_vecs: &Vec<Vec<Vec<Wrapping<u64>>>>,
+    split_points: Vec<Vec<Vec<Wrapping<u64>>>>, ctx: &mut Context, train_ctx: &mut TrainingContext) -> Result<Vec<Vec<TreeNode>>, Box<dyn Error>>{
 
     // VALUES NEEDED
 
@@ -55,7 +55,7 @@ pub fn sid3t(input: &Vec<Vec<Vec<Wrapping<u64>>>>, class: &Vec<Vec<Vec<Wrapping<
         treenodes[t].push(TreeNode {
             attribute_sel_vec: vec![],
             classification: Wrapping(0),
-            split_point: Wrapping(0),
+            split_point: vec![],
         });
     }
 
@@ -129,7 +129,7 @@ pub fn sid3t(input: &Vec<Vec<Vec<Wrapping<u64>>>>, class: &Vec<Vec<Vec<Wrapping<
         }
 
         // STEP 1: find most frequent classification
-        let frequencies_argmax = most_frequent_class(&frequencies_flat.clone(), number_of_nodes_to_process, ctx, train_ctx);
+        let frequencies_argmax = most_frequent_class(&frequencies_flat.clone(), number_of_nodes_to_process, ctx, train_ctx)?;
 
         // STEP 2: max_depth exit condition
 
@@ -148,7 +148,7 @@ pub fn sid3t(input: &Vec<Vec<Vec<Wrapping<u64>>>>, class: &Vec<Vec<Vec<Wrapping<
 
 
 pub fn most_frequent_class(frequencies_flat: &Vec<Wrapping<u64>>, 
-    number_of_nodes_to_process: usize, ctx: &mut Context, train_ctx: &mut TrainingContext) -> Vec<Vec<Wrapping<u64>>> {
+    number_of_nodes_to_process: usize, ctx: &mut Context, train_ctx: &mut TrainingContext) -> Result<Vec<Vec<Wrapping<u64>>>, Box<dyn Error>>{
 
 
     let class_label_count = train_ctx.class_label_count;
@@ -273,7 +273,7 @@ pub fn most_frequent_class(frequencies_flat: &Vec<Wrapping<u64>>,
         frequencies_argmax.push(past_assignments_freq[0][n * class_label_count.. (n + 1) * class_label_count].to_vec());
     }
 
-    frequencies_argmax
+    Ok(frequencies_argmax)
 }
 
 
