@@ -38,7 +38,7 @@ pub fn run(ctx: &mut Context) -> Result<(), Box<dyn Error>> {
 
 //Additive stares are Wrapping<u64>, binary are u128
 pub fn sid3t(input: &Vec<Vec<Vec<Wrapping<u64>>>>, class: &Vec<Vec<Vec<Wrapping<u64>>>>, att_sel_vecs: &Vec<Vec<Vec<Wrapping<u64>>>>,
-    split_points: Vec<Vec<Vec<Wrapping<u64>>>>, ctx: &mut Context, train_ctx: &mut TrainingContext) -> Result<Vec<Vec<TreeNode>>, Box<dyn Error>>{
+    split_points: &Vec<Vec<Vec<Wrapping<u64>>>>, ctx: &mut Context, train_ctx: &mut TrainingContext) -> Result<Vec<Vec<TreeNode>>, Box<dyn Error>>{
 
     // VALUES NEEDED
 
@@ -284,7 +284,7 @@ pub fn gini_impurity(input: &Vec<Vec<Vec<Wrapping<u64>>>>, u_decimal: &Vec<Wrapp
     let class_label_count = train_ctx.class_label_count;
     let decimal_precision = ctx.num.precision_frac;
     let asymmetric_bit = ctx.num.asymm;
-    let feat_count = train_ctx.feature_count;
+    let feat_count = train_ctx.attribute_count;
     let bin_count = train_ctx.bin_count;
 
     let alpha = Wrapping(1); // Need this from ctx

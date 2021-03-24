@@ -21,7 +21,8 @@ pub struct XTContext {
 //Accepts rowwise data, columnwise classes
 //Outputs binary discretized sets according to random split points
 //THIS WILL CHANGE TO RETURNING A U128 BINARY VECTOR
-pub fn xt_preprocess(data: &Vec<Vec<Wrapping<u64>>>, xtctx: &XTContext, ctx: &mut Context) -> Result<Vec<Vec<Vec<Wrapping<u64>>>>, Box<dyn Error>> {
+pub fn xt_preprocess(data: &Vec<Vec<Wrapping<u64>>>, xtctx: &mut XTContext, ctx: &mut Context) -> 
+Result<(Vec<Vec<Vec<Wrapping<u64>>>>, Vec<Vec<Vec<Wrapping<u64>>>>, Vec<Vec<Vec<Wrapping<u64>>>>), Box<dyn Error>> {
     //assume data has already been loaded
     //only return the processed data. that is all that is required, I think.
     //PANIC MAYBE NEED FSVS AS WELL? TALK TO JAMES
@@ -33,7 +34,6 @@ pub fn xt_preprocess(data: &Vec<Vec<Wrapping<u64>>>, xtctx: &XTContext, ctx: &mu
     let decimal_precision = ctx.num.precision_frac;
     let asym = ctx.num.asymm;
 
-
     let minmax = minmax_batch(&util::transpose(data)?, ctx)?;
 
     let mins = minmax.0;
@@ -42,8 +42,10 @@ pub fn xt_preprocess(data: &Vec<Vec<Wrapping<u64>>>, xtctx: &XTContext, ctx: &mu
 
     let fsv_amount = xtctx.tc.tree_count * xtctx.feature_count;
     let column_major_arvs = create_selection_vectors(fsv_amount, xtctx.tc.attribute_count, ctx)?;
-    let mut column_major_arvs_flat_dup: Vec<Wrapping<u64>> = column_major_arvs.into_iter().flatten().collect();
-    column_major_arvs_flat_dup.extend(&column_major_arvs_flat_dup);
+    let final_column_major_arvs = two_dim_to_3_dim(&column_major_arvs, feature_count)?;
+    let column_major_arvs_flat: Vec<Wrapping<u64>> = column_major_arvs.clone().into_iter().flatten().collect();
+    let mut column_major_arvs_flat_dup = column_major_arvs_flat.clone();
+    column_major_arvs_flat_dup.append(&mut column_major_arvs_flat_dup.clone());
 
     let mut mins_concat = vec![];
     let mut maxes_concat = vec![];
@@ -118,21 +120,33 @@ pub fn xt_preprocess(data: &Vec<Vec<Wrapping<u64>>>, xtctx: &XTContext, ctx: &mu
     // let comp_extract_time = SystemTime::now();
     let comparison_results: Vec<Vec<Vec<Wrapping<u64>>>> = cmp_res.chunks(instance_count * feature_count).map(|x| x.chunks(instance_count).map(|x| x.to_vec()).collect()).collect();
     let neg_comparison_results: Vec<Vec<Vec<Wrapping<u64>>>> = cmp_res_neg.chunks(instance_count * feature_count).map(|x| x.chunks(instance_count).map(|x| x.to_vec()).collect()).collect();
-    let interleaved_complete_set = vec![];
+    let mut interleaved_complete_set = vec![];
     for i in 0 .. tree_count {
-        let interleaved_set = vec![];
+        let mut interleaved_set = vec![];
         for j in 0 .. feature_count {
-            interleaved_set.push(neg_comparison_results[i][j]);
-            interleaved_set.push(comparison_results[i][j]);
+            interleaved_set.push(neg_comparison_results[i][j].clone());
+            interleaved_set.push(comparison_results[i][j].clone());
         }
         interleaved_complete_set.push(interleaved_set);
     }
     // println!("comp_extract finished. Time taken: {:?}ms", comp_extract_time.elapsed().unwrap().as_millis());
 
     println!("Sets binarized.");
+
+    //get the split points for each set of arvs
+
+
     //Doubled for proper ohe
     xtctx.tc.attribute_count = 2 * xtctx.tc.attribute_count;
-    Ok(interleaved_complete_set)
+
+    let mut splits_extended = vec![];
+    for _i in 0 .. fsv_amount {
+        splits_extended.extend(&selected_splits);
+    }
+    let arv_splits:Vec<Vec<Wrapping<u64>>> = multiply(&splits_extended, &column_major_arvs_flat, ctx)?.chunks(attribute_count).map(|x| vec![x.iter().sum()]).collect();
+    let final_arv_splits = two_dim_to_3_dim(&arv_splits, feature_count)?;
+
+    Ok((interleaved_complete_set, final_column_major_arvs, final_arv_splits))
 }
 
 pub fn init(cfg_file: &String) -> Result<(XTContext, Vec<Vec<Wrapping<u64>>>, Vec<Vec<Vec<Wrapping<u64>>>>), Box<dyn Error>> {
@@ -154,7 +168,7 @@ pub fn init(cfg_file: &String) -> Result<(XTContext, Vec<Vec<Wrapping<u64>>>, Ve
     let mut classes = io::matrix_csv_to_wrapping_vec(&settings.get_str("classes")?)?;
 
     classes = util::transpose(&classes)?;
-    let dup_classes = vec![];
+    let mut dup_classes = vec![];
     for i in 0 .. tree_count {
         dup_classes.push(classes.clone());
     }
@@ -173,6 +187,18 @@ pub fn init(cfg_file: &String) -> Result<(XTContext, Vec<Vec<Wrapping<u64>>>, Ve
     };
 
     Ok((xt, data, dup_classes))
+}
+
+fn two_dim_to_3_dim(data: &Vec<Vec<Wrapping<u64>>>, group_size: usize) -> Result<Vec<Vec<Vec<Wrapping<u64>>>>, Box<dyn Error>>{
+    let mut result = vec![];
+    for i in 0.. data.len() / group_size {
+        let mut group = vec![];
+        for j in 0 .. group_size {
+            group.push(data[i * group_size + j].clone());
+        }
+        result.push(group);
+    }
+    return Ok(result);
 }
 
 //Not in ring
