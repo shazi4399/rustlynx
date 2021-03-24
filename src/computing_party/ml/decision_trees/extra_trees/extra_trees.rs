@@ -24,9 +24,12 @@ pub struct XTContext {
 pub fn xt_preprocess(data: &Vec<Vec<Wrapping<u64>>>, xtctx: &XTContext, ctx: &mut Context) -> Result<Vec<Vec<Vec<Wrapping<u64>>>>, Box<dyn Error>> {
     //assume data has already been loaded
     //only return the processed data. that is all that is required, I think.
+    //PANIC MAYBE NEED FSVS AS WELL? TALK TO JAMES
 
     let feature_count = xtctx.feature_count;
     let attribute_count = xtctx.tc.attribute_count;
+    let tree_count = xtctx.tc.tree_count;
+    let instance_count = xtctx.tc.instance_count;
     let decimal_precision = ctx.num.precision_frac;
     let asym = ctx.num.asymm;
 
@@ -77,52 +80,62 @@ pub fn xt_preprocess(data: &Vec<Vec<Wrapping<u64>>>, xtctx: &XTContext, ctx: &mu
         &data,
         &column_major_arvs,
         ctx,
-    );
+    )?;
     
     //println!("Matmul finished. Time taken: {:?}ms", matmultime.elapsed().unwrap().as_millis());
     //The splits have been found. The discretized datasets must now be made.
 
-    //the sets must be changed to column major.
-    let col_maj_time = SystemTime::now();
+    // the sets must be changed to column major.
+    // let col_maj_time = SystemTime::now();
     let mut sets_col: Vec<Vec<Vec<Wrapping<u64>>>> = vec![];
-    for i in 0 .. column_reduced_datasets.len() / ctx.dt_training.feature_count {
+    for i in 0 .. column_reduced_datasets.len() / feature_count {
         let mut set: Vec<Vec<Wrapping<u64>>> = vec![];
-        for j in 0 .. ctx.dt_training.feature_count {
-            set.push(column_reduced_datasets[i * ctx.dt_training.feature_count + j].clone());
+        for j in 0 .. feature_count {
+            set.push(column_reduced_datasets[i * feature_count + j].clone());
         }
         sets_col.push(set);
     }
-    println!("col_maj finished. Time taken: {:?}ms", col_maj_time.elapsed().unwrap().as_millis());
+    //println!("col_maj finished. Time taken: {:?}ms", col_maj_time.elapsed().unwrap().as_millis());
 
     //The sets are now column oriented. Next is to compare the contents to the chosen split point.
     let total_sets = sets_col.len();
-    println!("Binarizing sets.");
-    let set_compil = SystemTime::now();
-    let asym = Wrapping(ctx.asymmetric_bit as u64);
+    //println!("Binarizing sets.");
+    //let set_compil = SystemTime::now();
+    let asym = Wrapping(asym);
     let val_set = column_reduced_datasets.into_iter().flatten().collect();
     let mut split_set = vec![];
     for i in 0 .. total_sets {
-        for j in 0 .. ctx.dt_training.feature_count {
-            split_set.append(&mut vec![selected_splits[i * ctx.dt_training.feature_count + j]; ctx.dt_data.instance_count]);
+        for j in 0 .. feature_count {
+            split_set.append(&mut vec![selected_splits[i * feature_count + j]; instance_count]);
         }
     }
-    println!("set_compil finished. Time taken: {:?}ms", set_compil.elapsed().unwrap().as_millis());
-    let comp_time = SystemTime::now();
-    let cmp_res = xor_share_to_additive(&batch_compare(&val_set, &split_set, ctx), ctx, 1);
-    println!("comp finished. Time taken: {:?}ms", comp_time.elapsed().unwrap().as_millis());
+    // println!("set_compil finished. Time taken: {:?}ms", set_compil.elapsed().unwrap().as_millis());
+    //let comp_time = SystemTime::now();
+    let cmp_res = z2_to_zq(&batch_geq(&val_set, &split_set, ctx)?, ctx)?;
+    //println!("comp finished. Time taken: {:?}ms", comp_time.elapsed().unwrap().as_millis());
     let cmp_res_neg: Vec<Wrapping<u64>> = cmp_res.iter().map(|x| -x + asym).collect();
     
-    let comp_extract_time = SystemTime::now();
-    let comparison_results: Vec<Vec<Vec<Wrapping<u64>>>> = cmp_res.par_chunks(ctx.dt_data.instance_count * ctx.dt_training.feature_count).map(|x| x.chunks(ctx.dt_data.instance_count).map(|x| x.to_vec()).collect()).collect();
-    let neg_comparison_results: Vec<Vec<Vec<Wrapping<u64>>>> = cmp_res_neg.par_chunks(ctx.dt_data.instance_count * ctx.dt_training.feature_count).map(|x| x.chunks(ctx.dt_data.instance_count).map(|x| x.to_vec()).collect()).collect();
-    println!("comp_extract finished. Time taken: {:?}ms", comp_extract_time.elapsed().unwrap().as_millis());
+    // let comp_extract_time = SystemTime::now();
+    let comparison_results: Vec<Vec<Vec<Wrapping<u64>>>> = cmp_res.chunks(instance_count * feature_count).map(|x| x.chunks(instance_count).map(|x| x.to_vec()).collect()).collect();
+    let neg_comparison_results: Vec<Vec<Vec<Wrapping<u64>>>> = cmp_res_neg.chunks(instance_count * feature_count).map(|x| x.chunks(instance_count).map(|x| x.to_vec()).collect()).collect();
+    let interleaved_complete_set = vec![];
+    for i in 0 .. tree_count {
+        let interleaved_set = vec![];
+        for j in 0 .. feature_count {
+            interleaved_set.push(neg_comparison_results[i][j]);
+            interleaved_set.push(comparison_results[i][j]);
+        }
+        interleaved_complete_set.push(interleaved_set);
+    }
+    // println!("comp_extract finished. Time taken: {:?}ms", comp_extract_time.elapsed().unwrap().as_millis());
 
     println!("Sets binarized.");
-    let placeholder = vec![vec![vec![]]];
-    Ok(placeholder)
+    //Doubled for proper ohe
+    xtctx.tc.attribute_count = 2 * xtctx.tc.attribute_count;
+    Ok(interleaved_complete_set)
 }
 
-pub fn init(cfg_file: &String) -> Result<(XTContext, Vec<Vec<Wrapping<u64>>>, Vec<Vec<Wrapping<u64>>>), Box<dyn Error>> {
+pub fn init(cfg_file: &String) -> Result<(XTContext, Vec<Vec<Wrapping<u64>>>, Vec<Vec<Vec<Wrapping<u64>>>>), Box<dyn Error>> {
 	let mut settings = config::Config::default();
     settings
         .merge(config::File::with_name(cfg_file.as_str())).unwrap()
@@ -141,6 +154,10 @@ pub fn init(cfg_file: &String) -> Result<(XTContext, Vec<Vec<Wrapping<u64>>>, Ve
     let mut classes = io::matrix_csv_to_wrapping_vec(&settings.get_str("classes")?)?;
 
     classes = util::transpose(&classes)?;
+    let dup_classes = vec![];
+    for i in 0 .. tree_count {
+        dup_classes.push(classes.clone());
+    }
 
     let tc = TrainingContext {
         instance_count,
@@ -155,7 +172,7 @@ pub fn init(cfg_file: &String) -> Result<(XTContext, Vec<Vec<Wrapping<u64>>>, Ve
         feature_count
     };
 
-    Ok((xt, data, classes))
+    Ok((xt, data, dup_classes))
 }
 
 //Not in ring
@@ -179,7 +196,7 @@ pub fn create_selection_vectors(quant: usize, size: usize, ctx: &mut Context) ->
 pub fn create_random_ratios(quant: usize, ctx: &mut Context) -> Result<Vec<Wrapping<u64>>, Box<dyn Error> >{
     let seed = [1234usize];
     let mut rng = rand::StdRng::from_seed(&seed);
-    let upper_bound = u64::pow(2, ctx.num.precision_frac as u32);
+    let upper_bound = 1 << ctx.num.precision_frac;
 
     let mut results = vec![];
     for i in 0 .. quant {

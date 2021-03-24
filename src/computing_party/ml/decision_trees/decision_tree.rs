@@ -37,25 +37,25 @@ pub fn run(ctx: &mut Context) -> Result<(), Box<dyn Error>> {
 }
 
 //Additive stares are Wrapping<u64>, binary are u128
-pub fn sid3t(input: &Vec<Vec<Vec<Wrapping<u64>>>>, class: &mut Vec<Vec<Vec<Wrapping<u64>>>>, 
+pub fn sid3t(input: &Vec<Vec<Vec<Wrapping<u64>>>>, class: &Vec<Vec<Vec<Wrapping<u64>>>>, 
     ctx: &mut Context, train_ctx: &mut TrainingContext) -> Result<Vec<Vec<TreeNode>>, Box<dyn Error>>{
 
     // VALUES NEEDED
 
     let asymmetric_bit = ctx.num.asymm as u64;
     let feat_count = 0;//train_ctx.feat_count;
-    let class_value_count = train_ctx.class_label_count;
+    let class_label_count = train_ctx.class_label_count;
     let instance_count = train_ctx.instance_count;
     let tree_count = train_ctx.tree_count;
+    let max_depth = train_ctx.max_depth;
+    let decimal_precision = ctx.num.precision_frac;
     //let mut layer_data: Vec<LayerData> = vec![];
     let mut treenodes: Vec<Vec<TreeNode>> = vec![vec![]; tree_count];
     for t in 0..tree_count {
         treenodes[t].push(TreeNode {
-            //classification_bit: Wrapping(0u64),
             attribute_sel_vec: vec![],
             classification: Wrapping(0),
             split_point: Wrapping(0),
-            //valid_bit: 0,
         });
     }
 
@@ -64,15 +64,13 @@ pub fn sid3t(input: &Vec<Vec<Vec<Wrapping<u64>>>>, class: &mut Vec<Vec<Vec<Wrapp
     let mut ances_class_bits = vec![Wrapping(0u64); tree_count];
     let mut layer_trans_bit_vecs = vec![vec![Wrapping(asymmetric_bit); instance_count]; tree_count];
 
-    let r = train_ctx.max_depth; // Should r just be max depth?
-
-    for layer in 0.. r {
+    for layer in 0.. max_depth {
         let tree_count = tree_count;
         let nodes_processed_until_layer = 2usize.pow((layer) as u32) - 1;
         let nodes_to_process_per_tree = 2usize.pow(layer as u32);
 
-        let max_depth = layer == train_ctx.max_depth - 1; // what does this do?
-        let number_of_nodes_to_process = (nodes_to_process_per_tree + nodes_processed_until_layer) * tree_count - nodes_processed_until_layer * tree_count;
+        let max_depth = layer == train_ctx.max_depth - 1; // Are we at the final layer?
+        let number_of_nodes_to_process = nodes_to_process_per_tree * tree_count;
         if !max_depth /*&& !ctx.dt_training.discretize_per_tree*/ {
 
             // for v in 0..layer_trans_bit_vecs.len() {
@@ -95,21 +93,14 @@ pub fn sid3t(input: &Vec<Vec<Vec<Wrapping<u64>>>>, class: &mut Vec<Vec<Vec<Wrapp
         // }
 
         // A way to calculate how many nodes must be processed
-        let number_of_nodes_to_process = 0;
         // Access to these values from ctx
-        let class_label_count = train_ctx.class_label_count;
-        let decimal_precision = 0;
-        let asymmetric_bit = ctx.num.asymm;
         // The n'th vector should be should run parallel to the data to zero out non-relevent rows.
         // Should probably be additively shared in Z_q right? Needs to be used for multiplicaiton
-        let mut layer_trans_bit_vecs: Vec<Vec<Wrapping<u64>>> = vec![];
         // amount of rows in dataset (not active rows designated by the tbv, just rows)
-        let data_instance_count = train_ctx.instance_count;
 
         // AND each discritized vector per node with all of the classifications
         let mut classifications_flattened = vec![];
         let mut trans_bit_vecs_flattened = vec![];
-
         for n in 0.. number_of_nodes_to_process {
             for i in 0.. class_label_count {
                 classifications_flattened.append(&mut class[n][i].clone());
@@ -117,6 +108,8 @@ pub fn sid3t(input: &Vec<Vec<Vec<Wrapping<u64>>>>, class: &mut Vec<Vec<Vec<Wrapp
             }
         }
 
+        //---- SECTION TO BE TURNED INTO BITVECS
+        //DELETE THIS IF CLASSIFICATIONS ARE IN THE RING
         // may or may not be needed
         classifications_flattened = classifications_flattened.iter().map(|x| util::truncate(*x, decimal_precision, asymmetric_bit)).collect();
 
@@ -130,8 +123,8 @@ pub fn sid3t(input: &Vec<Vec<Vec<Wrapping<u64>>>>, class: &mut Vec<Vec<Vec<Wrapp
 
         for n in 0.. number_of_nodes_to_process {
             for i in 0.. class_label_count {
-                frequencies_flat.push(frequencies_flat_unsummed[(n * class_label_count + i) * data_instance_count.. 
-                                        (n * class_label_count + i + 1) * data_instance_count].to_vec().iter().sum());
+                frequencies_flat.push(frequencies_flat_unsummed[(n * class_label_count + i) * instance_count.. 
+                                        (n * class_label_count + i + 1) * instance_count].to_vec().iter().sum());
             }
         }
 
