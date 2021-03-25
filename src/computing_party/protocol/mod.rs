@@ -807,13 +807,12 @@ pub fn pairwise_mult(x: &Vec<Vec<Wrapping<u64>>>, ctx: &mut Context) -> Result<V
     if num_of_vals % 2 == 1 {
         for i in 0.. pairs * num_of_vecs {
 
-            if i % pairs == 0 && i != 0 {
+            if i % pairs == 0 {
                 values_to_process.push(vectors[offest][num_of_vals - 1]);
                 offest += 1;
-                continue;
             }
 
-            values_to_process.push(products[i - offest]);
+            values_to_process.push(products[i]);
         }
     } else {
         values_to_process = products.clone();
@@ -860,15 +859,14 @@ pub fn pairwise_mult(x: &Vec<Vec<Wrapping<u64>>>, ctx: &mut Context) -> Result<V
             let mut offest = 0;
             for i in 0.. pairs * num_of_vecs {
 
-                if i % pairs == 0 && i != 0 {
+                if i % pairs == 0 {
                     values_to_process.push(unprocessed_values[offest]);
                     offest += 1;
-                    continue;
                 }
-                values_to_process.push(products[i - offest])
+                values_to_process.push(products[i])
             }
         } else {
-            let values_to_process = products.clone(); // IDE says never used, but is used in next iter
+            let values_to_process = products.clone();
         }
 
         num_of_vals = (num_of_vals / 2) + (num_of_vals % 2);
