@@ -284,8 +284,8 @@ pub fn gini_impurity(input: &Vec<Vec<Vec<Wrapping<u64>>>>, u_decimal: &Vec<Wrapp
     let class_label_count = train_ctx.class_label_count;
     let decimal_precision = ctx.num.precision_frac;
     let asymmetric_bit = ctx.num.asymm;
-    let feat_count = train_ctx.attribute_count;
     let bin_count = train_ctx.bin_count;
+    let feat_count = train_ctx.attribute_count/bin_count;
 
     let alpha = Wrapping(1); // Need this from ctx
 
@@ -318,7 +318,7 @@ pub fn gini_impurity(input: &Vec<Vec<Vec<Wrapping<u64>>>>, u_decimal: &Vec<Wrapp
 
     let mut discretized_sets_vectors = vec![];
 
-    let mut discretized_sets = vec![vec![Wrapping(0)]; bin_count];
+    let mut discretized_sets = vec![vec![]; bin_count];
     //let mut discretized_sets_negation = vec![];
 
     println!("Calculating x values"); // STEP EIGHT (8) IN DE'HOOGHS ALGORITHM

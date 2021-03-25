@@ -78,11 +78,11 @@ Result<(Vec<Vec<Vec<Wrapping<u64>>>>, Vec<Vec<Vec<Wrapping<u64>>>>, Vec<Vec<Vec<
     // let w = ctx.dt_shares.matmul_ws.clone();
     
     //apply the CRVs to the dataset
-    let column_reduced_datasets = matmul(
+    let column_reduced_datasets = util::transpose(&matmul(
         &data,
         &column_major_arvs,
         ctx,
-    )?;
+    )?)?;
     
     //println!("Matmul finished. Time taken: {:?}ms", matmultime.elapsed().unwrap().as_millis());
     //The splits have been found. The discretized datasets must now be made.
@@ -137,7 +137,7 @@ Result<(Vec<Vec<Vec<Wrapping<u64>>>>, Vec<Vec<Vec<Wrapping<u64>>>>, Vec<Vec<Vec<
 
 
     //Doubled for proper ohe
-    xtctx.tc.attribute_count = 2 * xtctx.tc.attribute_count;
+    xtctx.tc.attribute_count = 2 * xtctx.feature_count;
 
     let mut splits_extended = vec![];
     for _i in 0 .. fsv_amount {
@@ -208,7 +208,7 @@ pub fn create_selection_vectors(quant: usize, size: usize, ctx: &mut Context) ->
     let (zero, one) = if ctx.num.asymm == 0 {(Wrapping(constants::TEST_CR_WRAPPING_SEL_VEC_U64_0.0), Wrapping(constants::TEST_CR_WRAPPING_SEL_VEC_U64_1.0))} 
     else {(Wrapping(constants::TEST_CR_WRAPPING_SEL_VEC_U64_0.1), Wrapping(constants::TEST_CR_WRAPPING_SEL_VEC_U64_1.1))};
 
-    let mut results = vec![vec![]; quant];
+    let mut results = vec![];
     for i in 0 .. quant {
         let mut sel_vec = vec![zero; size];
         let index: usize = rng.gen_range(0, size);

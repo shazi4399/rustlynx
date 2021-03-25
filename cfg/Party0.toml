@@ -30,8 +30,8 @@ precision_int  = 15
 debug = true							  
 
 [ml]
-phase = "inference"                      
-model = "naivebayes"           
+phase = "learning"                      
+model = "extratrees"           
 
 	[ml.naivebayes]
 	learning_cfg = "cfg/ml/naivebayes/learning0.toml"

@@ -27,8 +27,8 @@ precision_int  = 15
 debug = true							   #true doesn't interact with TI
 
 [ml]
-phase = "inference"                      #or, "inference"
-model = "naivebayes"           
+phase = "learning"                      #or, "inference"
+model = "extratrees"           
 
 	[ml.naivebayes]
 	learning_cfg = "cfg/ml/naivebayes/learning1.toml"

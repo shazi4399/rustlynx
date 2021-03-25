@@ -622,7 +622,16 @@ pub fn matmul(x: &Vec<Vec<Wrapping<u64>>>, y: &Vec<Vec<Wrapping<u64>>>, ctx: &mu
     let rev_y = rev_y_box?;
 
     if ctx.num.asymm == 1 {
-        let result = rev_x.iter().map(|x_row| y.iter().map(|y_col| x_row.iter().zip(y_col.iter()).fold(Wrapping(0u64), |acc, (x_j, y_i)|  acc + (x_j * y_i))).collect()).collect();
+        let mut result = vec![];
+        for i in 0 .. x.len() {
+            let mut row = vec![];
+            for j in 0 .. y.len() {
+                let entry: Wrapping<u64> = x[i].iter().zip(y[j].iter()).map(|(x_ij, y_ji)| x_ij * y_ji).sum();
+                row.push(entry);
+            }
+            result.push(row);
+        }
+        // let result = rev_x.iter().map(|x_row| y.iter().map(|y_col| x_row.iter().zip(y_col.iter()).fold(Wrapping(0u64), |acc, (x_j, y_i)|  acc + (x_j * y_i))).collect()).collect();
         return Ok(result);
     } else {
         let result = vec![vec![Wrapping(0u64); rev_y.len()]; rev_x.len()];
