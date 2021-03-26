@@ -826,7 +826,7 @@ pub fn pairwise_mult(x: &Vec<Vec<Wrapping<u64>>>, ctx: &mut Context) -> Result<V
         let mut l_operands: Vec<Wrapping<u64>> = Vec::new();
         let mut r_operands: Vec<Wrapping<u64>> = Vec::new();
 
-        let odd_length = ((num_of_vals % 2) == 1) as usize;
+        let odd_length = num_of_vals % 2; // 1 if true 0 if false
 
         let mut offest = 0;
 
@@ -839,7 +839,7 @@ pub fn pairwise_mult(x: &Vec<Vec<Wrapping<u64>>>, ctx: &mut Context) -> Result<V
             l_operands.push(values_to_process[2 * i + offest * odd_length]);
             r_operands.push(values_to_process[2 * i + 1 + offest * odd_length]);
 
-            if (i + 1) % pairs == 0 && i != 0 && odd_length == 1 {
+            if (i + 1) % pairs == 0 && odd_length == 1 {
 
                 unprocessed_values.push(values_to_process[2 * (i + 1) + offest * odd_length]);
                 offest += 1;
