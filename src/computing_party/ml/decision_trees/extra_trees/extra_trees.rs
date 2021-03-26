@@ -161,6 +161,7 @@ pub fn init(cfg_file: &String) -> Result<(XTContext, Vec<Vec<Wrapping<u64>>>, Ve
     let feature_count: usize = settings.get_int("feature_count")? as usize;
     let tree_count: usize = settings.get_int("tree_count")? as usize;
     let max_depth: usize = settings.get_int("max_depth")? as usize;
+    let epsilon: f64 = settings.get_int("epsilon")? as f64;
 
     let bin_count = 2usize;
 
@@ -180,6 +181,7 @@ pub fn init(cfg_file: &String) -> Result<(XTContext, Vec<Vec<Wrapping<u64>>>, Ve
         bin_count,
         tree_count,
         max_depth,
+        epsilon,
     };
     let xt = XTContext {
         tc,

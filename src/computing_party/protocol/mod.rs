@@ -875,6 +875,37 @@ pub fn pairwise_mult(x: &Vec<Vec<Wrapping<u64>>>, ctx: &mut Context) -> Result<V
     Ok(values_to_process)
 }
 
+//ripped from our version of XT. Appears to work for additively shared values of 1 and 0.
+pub fn xor(
+    x_list: &Vec<Wrapping<u64>>,
+    y_list: &Vec<Wrapping<u64>>,
+    ctx: &mut Context,
+) -> Result<Vec<Wrapping<u64>>, Box<dyn Error>>  {
+    shared_or(x_list, y_list, ctx, Wrapping(2u64))
+}
+
+pub fn or(
+    x_list: &Vec<Wrapping<u64>>,
+    y_list: &Vec<Wrapping<u64>>,
+    ctx: &mut Context,
+) -> Result<Vec<Wrapping<u64>>, Box<dyn Error>>  {
+    shared_or(x_list, y_list, ctx, Wrapping(1u64))
+}
+
+fn shared_or(
+    x_list: &Vec<Wrapping<u64>>,
+    y_list: &Vec<Wrapping<u64>>,
+    ctx: &mut Context,
+    mult: Wrapping<u64>,
+) -> Result<Vec<Wrapping<u64>>, Box<dyn Error>> {
+    let product = multiply(x_list, y_list, ctx)?;
+    let mut res = vec![Wrapping(0u64); product.len()];
+    // TODO: Put in threads
+    for i in 0..product.len() {
+        res[i] = x_list[i] + y_list[i] - (mult * product[i]); // mod prime % Wrapping(2u64);
+    }
+    Ok(res)
+}
 
 
  /* 
