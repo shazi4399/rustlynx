@@ -50,7 +50,6 @@ pub fn sid3t(input: &Vec<Vec<Vec<Wrapping<u64>>>>, class: &Vec<Vec<Vec<Wrapping<
     let class_label_count = train_ctx.class_label_count;
     let instance_count = train_ctx.instance_count;
     let tree_count = train_ctx.tree_count;
-    let max_depth = train_ctx.max_depth;
     let decimal_precision = ctx.num.precision_frac;
     let bin_count = train_ctx.bin_count;
     let feat_count = attribute_count / bin_count; //How many features are represented within the subset
@@ -69,7 +68,7 @@ pub fn sid3t(input: &Vec<Vec<Vec<Wrapping<u64>>>>, class: &Vec<Vec<Vec<Wrapping<
     let mut ances_class_bits = vec![Wrapping(0u64); tree_count];
     let mut layer_trans_bit_vecs = vec![vec![Wrapping(asymmetric_bit); instance_count]; tree_count];
 
-    for layer in 0.. max_depth {
+    for layer in 0.. train_ctx.max_depth {
         let tree_count = tree_count;
         let nodes_to_process_per_tree = bin_count.pow(layer as u32);
 
@@ -145,6 +144,7 @@ pub fn sid3t(input: &Vec<Vec<Vec<Wrapping<u64>>>>, class: &Vec<Vec<Vec<Wrapping<
             // chosen_classifications.push();
             // chosen_classifications.push(dot_product(&mfcsv, &indices, ctx, ctx.decimal_precision, false, false)); //don;t need truncation because frequencies_argmax is additively shared non ring zeroes and ones
         }
+
         if max_depth {
             
             let mut chosen_classifications = vec![];
