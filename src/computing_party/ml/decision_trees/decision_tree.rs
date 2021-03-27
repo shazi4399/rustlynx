@@ -258,7 +258,7 @@ pub fn sid3t(input: &Vec<Vec<Vec<Wrapping<u64>>>>, class: &Vec<Vec<Vec<Wrapping<
             }
         }
 
-        let gini_argmax = gini_impurity(&input, &and_results.clone(), number_of_nodes_to_process, ctx, train_ctx);
+        let gini_argmax = gini_impurity(&input_subsets, &and_results.clone(), number_of_nodes_to_process, ctx, train_ctx);
 
         // STEP 5: Create data structures for next layer based on step 4
 
