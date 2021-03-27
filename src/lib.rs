@@ -885,5 +885,27 @@ mod tests {
         }
     }
 
+    #[test]
+    fn _test_create_selection_vectors() {
+        use std::env;
+        use std::num::Wrapping;
+        use std::time::SystemTime;
+        use super::util;
+        use super::computing_party::protocol;
+        use super::computing_party::init;
+        use super::computing_party::ml::decision_trees::extra_trees::extra_trees;
+
+        let test_path = "test/files/computing_party_protocol_bit_extract";
+        let args: Vec<String> = env::args().collect();
+        let id = &args[args.len()-1];
+        let test_cfg = format!("{}/Party{}.toml", test_path, id); 
+        let mut ctx = init::runtime_context( &test_cfg ).unwrap();
+        let vecs = extra_trees::create_selection_vectors(1000, 100, &mut ctx).unwrap();
+        let open_vecs = protocol::open(&vecs.into_iter().flatten().collect(), &mut ctx);
+        let counts: Vec<usize> = open_vecs.iter().map(|x| x.iter().filter(|y| y.0 == 1u64).count()).collect();
+
+        assert_eq!(vec![1; 100], counts);
+
+    }
 
 }

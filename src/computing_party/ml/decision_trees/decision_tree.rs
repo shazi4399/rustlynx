@@ -134,7 +134,7 @@ pub fn sid3t(input: &Vec<Vec<Vec<Wrapping<u64>>>>, class: &Vec<Vec<Vec<Wrapping<
 
         // STEP 1: find most frequent classification
         let frequencies_argmax = most_frequent_class(&frequencies_flat.clone(), number_of_nodes_to_process, ctx, train_ctx)?;
-        let mut chosen_classifications = vec![];
+        let mut chosen_classifications: Vec<Wrapping<u64>> = vec![];
         // STEP 2: max_depth exit condition
         let mut indices: Vec<Wrapping<u64>> = (0u64 .. class_label_count as u64).map(|x| Wrapping(x << decimal_precision)).collect(); //put into ring, as they aren't always either 0 or 1
         for n in 0 .. number_of_nodes_to_process {
@@ -237,7 +237,7 @@ pub fn sid3t(input: &Vec<Vec<Vec<Wrapping<u64>>>>, class: &Vec<Vec<Vec<Wrapping<
         let mut chosen_split_points: Vec<Wrapping<u64>> = vec![]; //should be the associated value for the selection vector in best_attributes
         let mut chosen_classifications: Vec<Wrapping<u64>> = vec![]; //the most frequent classification at each node multiplied by the value calculated in this_layer_classification_bits\
 
-        let indices = (0u64 .. class_label_count as u64).map(|x| vec![Wrapping(x << decimal_precision); number_of_nodes_to_process]).flatten().collect();
+        let mut indices = (0u64 .. class_label_count as u64).map(|x| vec![Wrapping(x << decimal_precision); number_of_nodes_to_process]).flatten().collect();
         if asymmetric_bit != 1 {
             indices = vec![Wrapping(0u64); class_label_count];
         }
@@ -254,8 +254,8 @@ pub fn sid3t(input: &Vec<Vec<Vec<Wrapping<u64>>>>, class: &Vec<Vec<Vec<Wrapping<
         //choose the correct list of splits using the gini argmax vec
         //assemble the nodes
 
-        let gini_argmax_flat: Vec<Wrapping<u64>> = gini_argmax.iter().map(|x| x.iter().map(|y| vec![y; feat_count]).flatten().collect()).flatten().collect();
-        let fsvs_flat: Vec<Wrapping<u64>> = att_sel_vecs.iter().map(|x| x.iter().map(|y| vec![y; nodes_to_process_per_tree]).flatten().collect()).flatten().flatten().collect();
+        let gini_argmax_flat: Vec<Wrapping<u64>> = gini_argmax.iter().map(|x| x.iter().map(|y| vec![*y; feat_count]).flatten().collect::<Vec<Wrapping<u64>>>()).flatten().collect();
+        let fsvs_flat: Vec<Wrapping<u64>> = att_sel_vecs.iter().map(|x| x.iter().map(|y| vec![y.clone(); nodes_to_process_per_tree]).flatten().collect::<Vec<Vec<Wrapping<u64>>>>()).flatten().flatten().collect();
         let uncompressed_selected_fsvs = protocol::multiply(&gini_argmax_flat, &fsvs_flat, ctx)?;
 
         let mut selected_fsvs = vec![];
@@ -274,7 +274,7 @@ pub fn sid3t(input: &Vec<Vec<Vec<Wrapping<u64>>>>, class: &Vec<Vec<Vec<Wrapping<
             selected_fsvs.push(processed_fsv); //the corresponding fsv to the index of the gini argmax
         }
 
-        let selected_fsvs_exp: Vec<Wrapping<u64>> = selected_fsvs.iter().flat_map(|x| x.iter().map(|y| vec![vec![y; instance_count]; bin_count]).flatten().collect()).collect();
+        let selected_fsvs_exp: Vec<Wrapping<u64>> = selected_fsvs.iter().flat_map(|x| x.iter().map(|y| vec![vec![*y; instance_count]; bin_count]).flatten().collect::<Vec<Vec<Wrapping<u64>>>>()).flatten().collect();
         let mut flattened_dataset: Vec<Wrapping<u64>> = vec![];
         for i in 0 .. tree_count {
             for j in 0 .. nodes_to_process_per_tree {
@@ -306,7 +306,7 @@ pub fn sid3t(input: &Vec<Vec<Vec<Wrapping<u64>>>>, class: &Vec<Vec<Vec<Wrapping<
         }
         let new_tbvs_flat = protocol::multiply(&chosen_bins, &tbv_exp, ctx)?;
 
-        let selected_fsvs_exp: Vec<Wrapping<u64>> = selected_fsvs.iter().flat_map(|x| x.iter().map(|y| vec![y; bin_count]).flatten().collect()).collect();
+        let selected_fsvs_exp: Vec<Wrapping<u64>> = selected_fsvs.iter().flat_map(|x| x.iter().map(|y| vec![*y; bin_count]).flatten().collect::<Vec<Wrapping<u64>>>()).collect();
         
         let mut split_points_flat: Vec<Wrapping<u64>> = vec![];
         for i in 0 .. tree_count {
@@ -333,7 +333,7 @@ pub fn sid3t(input: &Vec<Vec<Vec<Wrapping<u64>>>>, class: &Vec<Vec<Vec<Wrapping<
                 treenodes[t].push(TreeNode {
                     attribute_sel_vec: selected_fsvs[t * nodes_to_process_per_tree + n].clone(),
                     classification: chosen_classifications_corrected[t * nodes_to_process_per_tree + n],
-                    split_point: splits[t * nodes_to_process_per_tree + n],
+                    split_point: splits[t * nodes_to_process_per_tree + n].clone(),
                 });
             }
         }
