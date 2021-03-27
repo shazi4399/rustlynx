@@ -26,6 +26,7 @@ impl Clone for TreeNode {
 pub struct TrainingContext {
     pub instance_count: usize,
     pub class_label_count: usize,
+    pub original_attr_count: usize,
     pub attribute_count: usize, //attribute count in training context
     pub bin_count: usize,
     pub tree_count: usize,
@@ -44,14 +45,15 @@ pub fn sid3t(input: &Vec<Vec<Vec<Wrapping<u64>>>>, class: &Vec<Vec<Vec<Wrapping<
     // VALUES NEEDED
 
     let asymmetric_bit = ctx.num.asymm as u64;
-    let attribute_count = train_ctx.attribute_count;
+    let original_attr_count = train_ctx.original_attr_count; //attribute count in orginal set (no bins)
+    let attribute_count = train_ctx.attribute_count; //individual total dataset columns (including bins)
     let class_label_count = train_ctx.class_label_count;
     let instance_count = train_ctx.instance_count;
     let tree_count = train_ctx.tree_count;
     let max_depth = train_ctx.max_depth;
     let decimal_precision = ctx.num.precision_frac;
     let bin_count = train_ctx.bin_count;
-    let feat_count = attribute_count / bin_count;
+    let feat_count = attribute_count / bin_count; //How many features are represented within the subset
     //let mut layer_data: Vec<LayerData> = vec![];
     let mut treenodes: Vec<Vec<TreeNode>> = vec![vec![]; tree_count];
     for t in 0..tree_count {
@@ -237,12 +239,12 @@ pub fn sid3t(input: &Vec<Vec<Vec<Wrapping<u64>>>>, class: &Vec<Vec<Vec<Wrapping<
         let mut chosen_split_points: Vec<Wrapping<u64>> = vec![]; //should be the associated value for the selection vector in best_attributes
         let mut chosen_classifications: Vec<Wrapping<u64>> = vec![]; //the most frequent classification at each node multiplied by the value calculated in this_layer_classification_bits\
 
-        let mut indices = (0u64 .. class_label_count as u64).map(|x| vec![Wrapping(x << decimal_precision); number_of_nodes_to_process]).flatten().collect();
+        let mut indices_exp = (0u64 .. class_label_count as u64).map(|x| vec![Wrapping(x << decimal_precision); number_of_nodes_to_process]).flatten().collect();
         if asymmetric_bit != 1 {
-            indices = vec![Wrapping(0u64); class_label_count * number_of_nodes_to_process];
+            indices_exp = vec![Wrapping(0u64); class_label_count * number_of_nodes_to_process];
         }
 
-        chosen_classifications = dot_product(&frequencies_argmax.clone().into_iter().flatten().collect(), &indices, class_label_count, ctx)?;
+        chosen_classifications = dot_product(&frequencies_argmax.clone().into_iter().flatten().collect(), &indices_exp, class_label_count, ctx)?;
         let chosen_classifications_corrected = protocol::multiply(&chosen_classifications, &this_layer_classifies, ctx)?;
         let next_layer_classification_bits = protocol::or(&this_layer_classifies, &ances_class_bits, ctx)?;
 
@@ -254,12 +256,31 @@ pub fn sid3t(input: &Vec<Vec<Vec<Wrapping<u64>>>>, class: &Vec<Vec<Vec<Wrapping<
         //choose the correct list of splits using the gini argmax vec
         //assemble the nodes
 
-        let gini_argmax_flat: Vec<Wrapping<u64>> = gini_argmax.iter().map(|x| x.iter().map(|y| vec![*y; feat_count]).flatten().collect::<Vec<Wrapping<u64>>>()).flatten().collect();
-        let fsvs_flat: Vec<Wrapping<u64>> = att_sel_vecs.iter().map(|x| x.iter().map(|y| vec![y.clone(); nodes_to_process_per_tree]).flatten().collect::<Vec<Vec<Wrapping<u64>>>>()).flatten().flatten().collect();
-        let uncompressed_selected_fsvs = protocol::multiply(&gini_argmax_flat, &fsvs_flat, ctx)?;
+        // let gini_argmax_flat: Vec<Wrapping<u64>> = gini_argmax.iter().map(|x| x.iter().map(|y| vec![*y; instance_count]).flatten().collect::<Vec<Wrapping<u64>>>()).flatten().collect();
+        let mut gini_argmax_flat_exp: Vec<Wrapping<u64>> = vec![];
+        for i in 0 .. tree_count {
+            for j in 0 .. nodes_to_process_per_tree {
+                for k in 0 .. feat_count {
+                    gini_argmax_flat_exp.append(&mut vec![gini_argmax[i * nodes_to_process_per_tree + j][k]; original_attr_count]);
+                }
+            }
+        }
 
-        let mut selected_fsvs = vec![];
-        for i in 0 .. nodes_to_process_per_tree {
+        //let fsvs_flat: Vec<Wrapping<u64>> = att_sel_vecs.iter().map(|x| vec![x.clone(); nodes_to_process_per_tree]).flatten().flatten().flatten().collect();
+        let mut fsvs_flat: Vec<Wrapping<u64>> = vec![];
+        for i in 0 .. tree_count {
+            for j in 0 .. nodes_to_process_per_tree {
+                let mut fsv = vec![];
+                for k in 0 .. feat_count {
+                    fsv.append(&mut att_sel_vecs[i][k].clone());
+                }
+                fsvs_flat.append(&mut fsv);
+            }
+        }
+        let uncompressed_selected_fsvs = protocol::multiply(&gini_argmax_flat_exp, &fsvs_flat, ctx)?;
+
+        let mut selected_fsvs: Vec<Vec<Wrapping<u64>>> = vec![];
+        for i in 0 .. number_of_nodes_to_process {
             let att_times_feat = attribute_count * feat_count;
             let mut fsvs_to_process = vec![];
             for j in 0 .. feat_count {
@@ -274,14 +295,32 @@ pub fn sid3t(input: &Vec<Vec<Vec<Wrapping<u64>>>>, class: &Vec<Vec<Vec<Wrapping<
             selected_fsvs.push(processed_fsv); //the corresponding fsv to the index of the gini argmax
         }
 
-        let selected_fsvs_exp: Vec<Wrapping<u64>> = selected_fsvs.iter().flat_map(|x| x.iter().map(|y| vec![vec![*y; instance_count]; bin_count]).flatten().collect::<Vec<Vec<Wrapping<u64>>>>()).flatten().collect();
-        let mut flattened_dataset: Vec<Wrapping<u64>> = vec![];
-        for i in 0 .. tree_count {
-            for j in 0 .. nodes_to_process_per_tree {
-                flattened_dataset.append(&mut input[i].clone().into_iter().flatten().collect());
+
+        let mut select_best_feat_vec = vec![];
+        for i in 0 .. number_of_nodes_to_process {
+            for j in 0 .. feat_count {
+                for k in 0 .. bin_count {
+                    select_best_feat_vec.append(&mut vec![gini_argmax[i][j]; instance_count]);
+                }
             }
         }
-        let selected_columns_flat = protocol::multiply(&selected_fsvs_exp, &flattened_dataset, ctx)?; 
+        let mut flattened_dataset = vec![];
+        for i in 0 .. tree_count {
+            for j in 0 .. nodes_to_process_per_tree {
+                for k in 0 .. attribute_count {
+                    flattened_dataset.append(&mut input[i][k].clone());
+                }
+            }
+        }
+
+        // let selected_fsvs_exp: Vec<Wrapping<u64>> = selected_fsvs.iter().flat_map(|x| x.iter().map(|y| vec![vec![*y; instance_count]; bin_count]).flatten().collect::<Vec<Vec<Wrapping<u64>>>>()).flatten().collect();
+        // let mut flattened_dataset: Vec<Wrapping<u64>> = vec![];
+        // for i in 0 .. tree_count {
+        //     for j in 0 .. nodes_to_process_per_tree {
+        //         flattened_dataset.append(&mut input[i].clone().into_iter().flatten().collect());
+        //     }
+        // }
+        let selected_columns_flat = protocol::multiply(&select_best_feat_vec, &flattened_dataset, ctx)?; 
         let mut chosen_bins: Vec<Wrapping<u64>> = vec![];
         for i in 0 .. number_of_nodes_to_process {
             let nps = instance_count * attribute_count; //number per set
@@ -301,12 +340,12 @@ pub fn sid3t(input: &Vec<Vec<Vec<Wrapping<u64>>>>, class: &Vec<Vec<Vec<Wrapping<
         let mut tbv_exp = vec![];
         for i in 0 .. tree_count {
             for j in 0 .. nodes_to_process_per_tree {
-                tbv_exp.append(&mut layer_trans_bit_vecs[i * nodes_to_process_per_tree + j].clone());
+                let tbv = layer_trans_bit_vecs[i * nodes_to_process_per_tree + j].clone();
+                tbv_exp.append(&mut vec![tbv; bin_count].into_iter().flatten().collect());
             }
         }
         let new_tbvs_flat = protocol::multiply(&chosen_bins, &tbv_exp, ctx)?;
-
-        let selected_fsvs_exp: Vec<Wrapping<u64>> = selected_fsvs.iter().flat_map(|x| x.iter().map(|y| vec![*y; bin_count]).flatten().collect::<Vec<Wrapping<u64>>>()).collect();
+        new_tbvs = new_tbvs_flat.chunks(instance_count).map(|x| x.to_vec()).collect();
         
         let mut split_points_flat: Vec<Wrapping<u64>> = vec![];
         for i in 0 .. tree_count {
@@ -315,16 +354,18 @@ pub fn sid3t(input: &Vec<Vec<Vec<Wrapping<u64>>>>, class: &Vec<Vec<Vec<Wrapping<
             }
         }
 
-        let chosen_split_points_uncompressed = protocol::multiply(&selected_fsvs_exp, &split_points_flat, ctx)?;
-        let mut splits = vec![];
+        let gini_argmax_flat = gini_argmax.clone().iter().map(|x| x.iter().map(|y| vec![*y; bin_count - 1]).flatten().collect::<Vec<Wrapping<u64>>>()).flatten().collect();
+        let chosen_split_points_uncompressed = protocol::multiply(&gini_argmax_flat, &split_points_flat, ctx)?;
+        let mut chosen_splits = vec![];
         for i in 0 .. number_of_nodes_to_process {
-            let mut bin = vec![Wrapping(0); bin_count];
+            let outer_iter = feat_count * (bin_count - 1);
+            let mut node_splits = vec![Wrapping(0u64); (bin_count - 1) * feat_count];
             for j in 0 .. feat_count {
-                for k in 0 .. bin_count {
-                    bin[k] += chosen_split_points_uncompressed[(i * feat_count * bin_count) + (j * bin_count) + k];
+                for k in 0 .. (bin_count - 1) {
+                    node_splits[j * (bin_count - 1) + k] += chosen_split_points_uncompressed[i * outer_iter + j * (bin_count - 1) + k];
                 }
             }
-            splits.push(bin);
+            chosen_splits.push(node_splits);
         }
         
         
@@ -333,7 +374,7 @@ pub fn sid3t(input: &Vec<Vec<Vec<Wrapping<u64>>>>, class: &Vec<Vec<Vec<Wrapping<
                 treenodes[t].push(TreeNode {
                     attribute_sel_vec: selected_fsvs[t * nodes_to_process_per_tree + n].clone(),
                     classification: chosen_classifications_corrected[t * nodes_to_process_per_tree + n],
-                    split_point: splits[t * nodes_to_process_per_tree + n].clone(),
+                    split_point: chosen_splits[t * nodes_to_process_per_tree + n].clone(),
                 });
             }
         }
