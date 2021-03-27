@@ -147,12 +147,7 @@ Result<(Vec<Vec<Vec<Wrapping<u64>>>>, Vec<Vec<Vec<Wrapping<u64>>>>, Vec<Vec<Vec<
     //Doubled for proper ohe
     xtctx.tc.attribute_count = 2 * xtctx.feature_count;
 
-    let mut splits_extended = vec![];
-    for _i in 0 .. fsv_amount {
-        splits_extended.extend(&selected_splits);
-    }
-    let arv_splits:Vec<Vec<Wrapping<u64>>> = multiply(&splits_extended, &column_major_arvs_flat, ctx)?.chunks(attribute_count).map(|x| vec![x.iter().sum()]).collect();
-    let final_arv_splits = two_dim_to_3_dim(&arv_splits, feature_count)?;
+    let final_arv_splits = two_dim_to_3_dim(&selected_splits.iter().map(|x| vec![*x]).collect(), feature_count)?;
 
     Ok((interleaved_complete_set, final_column_major_arvs, final_arv_splits))
 }
@@ -170,7 +165,7 @@ pub fn init(cfg_file: &String) -> Result<(XTContext, Vec<Vec<Wrapping<u64>>>, Ve
     let tree_count: usize = settings.get_int("tree_count")? as usize;
     let max_depth: usize = settings.get_int("max_depth")? as usize;
     let epsilon: f64 = settings.get_int("epsilon")? as f64;
-
+    let original_attr_count = attribute_count;
     let bin_count = 2usize;
 
     let data = io::matrix_csv_to_wrapping_vec(&settings.get_str("data")?)?;
@@ -186,6 +181,7 @@ pub fn init(cfg_file: &String) -> Result<(XTContext, Vec<Vec<Wrapping<u64>>>, Ve
         instance_count,
         class_label_count,
         attribute_count,
+        original_attr_count,
         bin_count,
         tree_count,
         max_depth,
