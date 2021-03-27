@@ -239,10 +239,10 @@ pub fn sid3t(input: &Vec<Vec<Vec<Wrapping<u64>>>>, class: &Vec<Vec<Vec<Wrapping<
 
         let mut indices = (0u64 .. class_label_count as u64).map(|x| vec![Wrapping(x << decimal_precision); number_of_nodes_to_process]).flatten().collect();
         if asymmetric_bit != 1 {
-            indices = vec![Wrapping(0u64); class_label_count];
+            indices = vec![Wrapping(0u64); class_label_count * number_of_nodes_to_process];
         }
 
-        chosen_classifications = dot_product(&gini_argmax.clone().into_iter().flatten().collect(), &indices, class_label_count, ctx)?;
+        chosen_classifications = dot_product(&frequencies_argmax.clone().into_iter().flatten().collect(), &indices, class_label_count, ctx)?;
         let chosen_classifications_corrected = protocol::multiply(&chosen_classifications, &this_layer_classifies, ctx)?;
         let next_layer_classification_bits = protocol::or(&this_layer_classifies, &ances_class_bits, ctx)?;
 

@@ -27,6 +27,14 @@ Result<(Vec<Vec<Vec<Wrapping<u64>>>>, Vec<Vec<Vec<Wrapping<u64>>>>, Vec<Vec<Vec<
     //only return the processed data. that is all that is required, I think.
     //PANIC MAYBE NEED FSVS AS WELL? TALK TO JAMES
 
+    // let vecs = create_selection_vectors(1000, 100, ctx).unwrap();
+    // let open_vecs = open(&vecs.into_iter().flatten().collect(), ctx);
+    // let counts: Vec<usize> = open_vecs.iter().map(|x| x.iter().filter(|y| y.0 == 1u64).count()).collect();
+    // println!("counts:{:?}", counts);
+    // assert_eq!(vec![1; 100], counts);
+
+    // println!("test passed");
+
     let feature_count = xtctx.feature_count;
     let attribute_count = xtctx.tc.attribute_count;
     let tree_count = xtctx.tc.tree_count;
