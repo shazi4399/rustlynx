@@ -254,6 +254,10 @@ pub fn sid3t(input: &Vec<Vec<Vec<Wrapping<u64>>>>, class: &Vec<Vec<Vec<Wrapping<
         //choose the correct list of splits using the gini argmax vec
         //assemble the nodes
 
+        // for i in 0.. gini_argmax.len() {
+        //     println!("{:?}", protocol::open(&gini_argmax[i].clone(), ctx))
+        // }
+
         let gini_argmax_flat: Vec<Wrapping<u64>> = gini_argmax.iter().map(|x| x.iter().map(|y| vec![*y; feat_count]).flatten().collect::<Vec<Wrapping<u64>>>()).flatten().collect();
         let fsvs_flat: Vec<Wrapping<u64>> = att_sel_vecs.iter().map(|x| x.iter().map(|y| vec![y.clone(); nodes_to_process_per_tree]).flatten().collect::<Vec<Vec<Wrapping<u64>>>>()).flatten().flatten().collect();
         let uncompressed_selected_fsvs = protocol::multiply(&gini_argmax_flat, &fsvs_flat, ctx)?;
@@ -656,9 +660,9 @@ pub fn gini_impurity(input: &Vec<Vec<Vec<Wrapping<u64>>>>, u_decimal: &Vec<Wrapp
                 sum_of_x2_j[n][k][j] = sum_j_values;
             }
             // can be far better optimized. Named 'D' after De'Hooghs variable
-            D_exclude_j[n][k] = protocol::pairwise_mult(&y_vals_exlude_j, ctx).unwrap();
+            D_exclude_j[n][k] = protocol::pairwise_mult_zq(&y_vals_exlude_j, ctx).unwrap();
         }
-        D_include_j[n] = protocol::pairwise_mult(&y_vals_include_j, ctx).unwrap();
+        D_include_j[n] = protocol::pairwise_mult_zq(&y_vals_include_j, ctx).unwrap();
     }
 
     let mut D_exclude_j_flattend = vec![];

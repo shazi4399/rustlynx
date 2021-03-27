@@ -779,7 +779,7 @@ pub fn minmax_batch(
 /** Multiplies a vector of a vectors values in a pairwise fashion, leading to log_2 communication complexity
  * dependent on the inner vector size multiplied by the outer vector size. Still needs testing.
  */
-pub fn pairwise_mult(x: &Vec<Vec<Wrapping<u64>>>, ctx: &mut Context) -> Result<Vec<Wrapping<u64>>, Box<dyn Error>> {
+pub fn pairwise_mult_zq(x: &Vec<Vec<Wrapping<u64>>>, ctx: &mut Context) -> Result<Vec<Wrapping<u64>>, Box<dyn Error>> {
 
     let vectors = x.clone();
 

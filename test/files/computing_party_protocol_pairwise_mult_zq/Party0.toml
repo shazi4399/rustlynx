@@ -1,0 +1,50 @@
+[net]
+
+	[net.local]
+	party_id   = 0
+	ip         = "127.0.0.1"
+	portrange  = "5000:6000"
+
+	[net.extern]
+	party_id  = 1
+	ip        = "127.0.0.1"
+	portrange = "6000:7000"
+
+	[net.ti]
+	ip   = "127.0.0.1"
+	port = 4000
+
+[sys]
+
+	[sys.threads]
+	optimise = false
+	offline = 16
+	online = 16
+
+
+[numbersystem]
+precision_frac = 10
+precision_int  = 15
+
+[correlatedrandomness]
+debug = true							  
+
+[ml]
+phase = "learning"                      
+model = "extratrees"           
+
+	[ml.naivebayes]
+	learning_cfg = "cfg/ml/naivebayes/learning0.toml"
+	inference_cfg = "cfg/ml/naivebayes/inference0.toml"
+
+	[ml.logisticregression]
+	learning_cfg = "cfg/ml/logisticregression/learning0.toml"
+	inference_cfg = "cfg/ml/logisticregression/inference0.toml"
+
+	[ml.extratrees]
+	learning_cfg = "cfg/ml/extratrees/learning0.toml"
+	inference_cfg = "cfg/ml/extratrees/inference0.toml"
+
+	[ml.randomforest]
+	learning_cfg = "cfg/ml/randomforest/learning0.toml"
+	inference_cfg = "cfg/ml/randomforest/inference0.toml"
