@@ -231,6 +231,33 @@ pub fn sid3t(input: &Vec<Vec<Vec<Wrapping<u64>>>>, class: &Vec<Vec<Vec<Wrapping<
         // STEP 4: GINI impurity
         //2d
         //nodes_to_process x feat_count
+
+        let mut inputs_flattened = vec![];
+        let mut trans_bit_vecs_flattened = vec![];
+        for t in 0 .. tree_count {
+            for m in 0 .. nodes_to_process_per_tree {
+                inputs_flattened.append(&mut input[t].clone().into_iter().flatten().collect());
+
+                for a in 0 .. attribute_count {
+                    trans_bit_vecs_flattened.append(&mut layer_trans_bit_vecs[t * nodes_to_process_per_tree + m].clone());
+                }
+
+            }
+        } 
+
+        let input_subsets_flattened = protocol::multiply(&inputs_flattened, &trans_bit_vecs_flattened, ctx)?; 
+
+        println!("{}", inputs_flattened.len());
+        println!("{}", trans_bit_vecs_flattened.len());
+
+        let mut input_subsets = vec![vec![vec![]; attribute_count]; number_of_nodes_to_process];
+
+        for n in 0 .. number_of_nodes_to_process {
+            for a in 0 .. attribute_count {
+                input_subsets[n][a].append(&mut input_subsets_flattened[n * instance_count .. (n + 1) * instance_count].to_vec());
+            }
+        }
+
         let gini_argmax = gini_impurity(&input, &and_results.clone(), number_of_nodes_to_process, ctx, train_ctx);
 
         // STEP 5: Create data structures for next layer based on step 4
