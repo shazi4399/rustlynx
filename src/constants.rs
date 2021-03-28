@@ -6,16 +6,6 @@ pub const SIZEOF_U16: usize = 1 << 1;
 pub const SIZEOF_U8: usize = 1;
 pub const BITLENGTH: usize = 64;
 
-pub const TEST_CR_WRAPPING_SEL_VEC_U64_0: (u64, u64) = (
-	0x91726f49cade6a19,
-	0x1726F49CADE6A1AC,
-);
-
-pub const TEST_CR_WRAPPING_SEL_VEC_U64_1: (u64, u64) = (
-	0x91726f49cade6a1a,
-	0x1726F49CADE6A1AC,
-);
-
 pub const TEST_CR_WRAPPING_U64_0: (u64, u64, u64) = (
 		0x91726f49cade6a1a,
 		0xe5b959fd785813fe,
