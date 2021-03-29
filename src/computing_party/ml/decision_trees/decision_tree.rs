@@ -679,7 +679,7 @@ pub fn gini_impurity(input: &Vec<Vec<Vec<Wrapping<u64>>>>, u_decimal: &Vec<Wrapp
                 // push all values at indeces that are not equal to j onto it
                 // not 100% sure about this..
                 for not_j in 0.. bin_count {
-                    if k == 0 && j != not_j {
+                    if j != not_j {
                         y_vals_exclude_j[j].push(y_partitioned[n][k][not_j]);
                     }
                 }
@@ -703,7 +703,6 @@ pub fn gini_impurity(input: &Vec<Vec<Vec<Wrapping<u64>>>>, u_decimal: &Vec<Wrapp
 
     //let D_exclude_j_flattend = protocol::pairwise_mult_zq(&D_exclude_j, ctx).unwrap(); what we should do?
     //let D_include_j_flattend = protocol::pairwise_mult_zq(&D_include_j, ctx).unwrap(); what we should do?
-
 
     let mut D_exclude_j_flattend = vec![];
     let mut D_include_j_flattend = vec![];
