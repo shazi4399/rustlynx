@@ -3,9 +3,10 @@ use super::super::super::Context;
 use std::num::Wrapping;
 use super::super::super::protocol;
 use super::super::super::super::util;
+use serde::{Serialize, Deserialize};
 
 
-#[derive(Default)]
+#[derive(Default, Serialize, Deserialize)]
 pub struct TreeNode {
     pub split_point: Vec<Wrapping<u64>>,
     pub attribute_sel_vec: Vec<Wrapping<u64>>,
@@ -32,6 +33,7 @@ pub struct TrainingContext {
     pub tree_count: usize,
     pub max_depth: usize,
     pub epsilon: f64,
+    pub save_location: String,
 }
 
 pub fn run(ctx: &mut Context) -> Result<(), Box<dyn Error>> {
@@ -41,8 +43,6 @@ pub fn run(ctx: &mut Context) -> Result<(), Box<dyn Error>> {
 //Additive stares are Wrapping<u64>, binary are u128
 pub fn sid3t(input: &Vec<Vec<Vec<Wrapping<u64>>>>, class: &Vec<Vec<Vec<Wrapping<u64>>>>, att_sel_vecs: &Vec<Vec<Vec<Wrapping<u64>>>>,
     split_points: &Vec<Vec<Vec<Wrapping<u64>>>>, ctx: &mut Context, train_ctx: &mut TrainingContext) -> Result<Vec<Vec<TreeNode>>, Box<dyn Error>>{
-
-    // VALUES NEEDED
 
     let asymmetric_bit = ctx.num.asymm as u64;
     let original_attr_count = train_ctx.original_attr_count; //attribute count in orginal set (no bins)
@@ -879,10 +879,11 @@ fn dot_product(x: &Vec<Wrapping<u64>>, y: &Vec<Wrapping<u64>>, sub_len: usize, c
     Ok(res)
 }
 
-pub fn reveal_tree(nodes: &Vec<TreeNode>, ctx: &mut Context) -> Result<(), Box<dyn Error>>{
+pub fn reveal_tree(nodes: &Vec<TreeNode>, ctx: &mut Context) -> Result<Vec<TreeNode>, Box<dyn Error>>{
     let mut classes = vec![];
     let mut split_points = vec![];
     let mut att_sel_vecs = vec![];
+    let mut rev_node = vec![];
     for i in 0..nodes.len() {
         //index changing is because dummy is in pos 0
         classes.push(nodes[i].classification);
@@ -891,11 +892,19 @@ pub fn reveal_tree(nodes: &Vec<TreeNode>, ctx: &mut Context) -> Result<(), Box<d
     }
     let classes_rev = protocol::open(&classes, ctx)?;
     println!("\n");
-    for i in 1..nodes.len() {
+    for i in 0..nodes.len() {
         let att_sel_vecs_rev =
             protocol::open(&att_sel_vecs[i], ctx)?;
             let split_points_rev = protocol::open(&split_points[i], ctx)?;
+        let mut attr = att_sel_vecs_rev.iter().position(|x| *x == Wrapping(1u64));
+        let attr_wrap: Wrapping<u64> = if attr.is_some() {Wrapping(attr.unwrap() as u64)} else {Wrapping(0)};
+
         println!("Node#{:?}, classification:{:?}, split_point:{:?}, att_sel_vec:{:?}", i , classes_rev[i], split_points_rev, att_sel_vecs_rev);
+        rev_node.push(TreeNode {
+            attribute_sel_vec: vec![attr_wrap],
+            classification: classes_rev[i],
+            split_point: split_points_rev
+        })
     }
-    Ok(())
+    Ok(rev_node)
 }

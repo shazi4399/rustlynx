@@ -6,4 +6,5 @@ max_depth = 4
 feature_count = 5
 epsilon = 0.05
 data = "data/Party1_breast/1X_train.csv"
-classes= "data/Party1_breast/1y_train.csv"
+classes = "data/Party1_breast/1y_train.csv"
+save_location = "treedata/Party1_trees.json"

@@ -7,3 +7,4 @@ feature_count = 5
 epsilon = 0.05
 data = "data/Party0_breast/1X_train.csv"
 classes= "data/Party0_breast/1y_train.csv"
+save_location = "treedata/Party0_trees.json"

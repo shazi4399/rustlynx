@@ -154,49 +154,6 @@ Result<(Vec<Vec<Vec<Wrapping<u64>>>>, Vec<Vec<Vec<Wrapping<u64>>>>, Vec<Vec<Vec<
     Ok((interleaved_complete_set, final_column_major_arvs, final_arv_splits))
 }
 
-pub fn init(cfg_file: &String) -> Result<(XTContext, Vec<Vec<Wrapping<u64>>>, Vec<Vec<Vec<Wrapping<u64>>>>), Box<dyn Error>> {
-	let mut settings = config::Config::default();
-    settings
-        .merge(config::File::with_name(cfg_file.as_str())).unwrap()
-        .merge(config::Environment::with_prefix("APP")).unwrap();
-
-    let class_label_count: usize = settings.get_int("class_label_count")? as usize;
-    let attribute_count: usize = settings.get_int("attribute_count")? as usize;
-    let instance_count: usize = settings.get_int("instance_count")? as usize;
-    let feature_count: usize = settings.get_int("feature_count")? as usize;
-    let tree_count: usize = settings.get_int("tree_count")? as usize;
-    let max_depth: usize = settings.get_int("max_depth")? as usize;
-    let epsilon: f64 = settings.get_int("epsilon")? as f64;
-    let original_attr_count = attribute_count;
-    let bin_count = 2usize;
-
-    let data = io::matrix_csv_to_wrapping_vec(&settings.get_str("data")?)?;
-    let mut classes = io::matrix_csv_to_wrapping_vec(&settings.get_str("classes")?)?;
-
-    classes = util::transpose(&classes)?;
-    let mut dup_classes = vec![];
-    for i in 0 .. tree_count {
-        dup_classes.push(classes.clone());
-    }
-
-    let tc = TrainingContext {
-        instance_count,
-        class_label_count,
-        attribute_count,
-        original_attr_count,
-        bin_count,
-        tree_count,
-        max_depth,
-        epsilon,
-    };
-    let xt = XTContext {
-        tc,
-        feature_count
-    };
-
-    Ok((xt, data, dup_classes))
-}
-
 fn two_dim_to_3_dim(data: &Vec<Vec<Wrapping<u64>>>, group_size: usize) -> Result<Vec<Vec<Vec<Wrapping<u64>>>>, Box<dyn Error>>{
     let mut result = vec![];
     for i in 0.. data.len() / group_size {

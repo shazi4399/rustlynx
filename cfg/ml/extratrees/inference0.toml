@@ -1,9 +1,7 @@
-class_label_count =
-attribute_count =
-instance_count =
-feature_count =
-tree_count =
-max_depth =
-feature_count =
-data = "PATH"
-classes= "PATH"
+class_label_count = 2
+attribute_count = 30
+instance_count = 455
+max_depth = 4
+data = "data/Party0_breast/1X_test.csv"
+classes = "data/Party0_breast/1y_test.csv"
+tree_location = "treedata/Party0_trees.json"
