@@ -668,14 +668,14 @@ pub fn gini_impurity(input: &Vec<Vec<Vec<Wrapping<u64>>>>, u_decimal: &Vec<Wrapp
     let mut sum_of_x2_j =  vec![vec![vec![Wrapping(0); bin_count]; feat_count]; number_of_nodes_to_process];
 
     let mut D_exclude_j = vec![vec![vec![Wrapping(0); bin_count]; feat_count]; number_of_nodes_to_process];
-    let mut D_include_j = vec![vec![Wrapping(0); bin_count]; number_of_nodes_to_process];
+    let mut D_include_j = vec![vec![]; number_of_nodes_to_process];
 
     // create vector of the 0 and 1 values for j to set us up for batch multiplicaiton.
     // also, sum all of the x^2 values over i, and push these sums over i to a vector
     // to batch multiply with the y_without_j values.
     for n in 0..number_of_nodes_to_process {
 
-        let mut y_vals_include_j = vec![vec![]; bin_count];
+        let mut y_vals_include_j = vec![vec![]; feat_count];
 
         for k in 0..feat_count {
 
@@ -692,7 +692,8 @@ pub fn gini_impurity(input: &Vec<Vec<Vec<Wrapping<u64>>>>, u_decimal: &Vec<Wrapp
                     }
                 }
 
-                y_vals_include_j[j].push(y_partitioned[n][k][j]);
+                y_vals_include_j[k].push(y_partitioned[n][k][j]);
+                
 
                 let mut sum_j_values = Wrapping(0);
     
@@ -703,10 +704,12 @@ pub fn gini_impurity(input: &Vec<Vec<Vec<Wrapping<u64>>>>, u_decimal: &Vec<Wrapp
             }
             // can be far better optimized. Named 'D' after De'Hooghs variable
             D_exclude_j[n][k] = protocol::pairwise_mult_zq(&y_vals_exclude_j, ctx).unwrap();
-            // println!("{:?}", protocol::open(&D_exclude_j[n][k], ctx)); //test
+            // println!("exclude {:?}", protocol::open(&D_exclude_j[n][k], ctx).unwrap()); //test
+            // 
             // D_exclude_j.append(y_vals_exclude_j); what we should do?
         }
         D_include_j[n] = protocol::pairwise_mult_zq(&y_vals_include_j, ctx).unwrap();
+        println!("include {:?}", protocol::open(&D_include_j[n], ctx).unwrap()); //test
         // D_include_j.append(y_vals_include_j); what we should do?
     }
 
@@ -727,6 +730,9 @@ pub fn gini_impurity(input: &Vec<Vec<Vec<Wrapping<u64>>>>, u_decimal: &Vec<Wrapp
 
     let gini_numerators_values_flat_unsummed = protocol::multiply(&D_exclude_j_flattend, &sum_of_x2_j_flattend, ctx).unwrap();
 
+    println!("{}", D_exclude_j_flattend.len()); //test
+    println!("{}", sum_of_x2_j_flattend.len()); //test
+
     for v in 0.. gini_numerators_values_flat_unsummed.len() / bin_count {
         for j in 0.. bin_count {
             gini_numerators[v] += gini_numerators_values_flat_unsummed[v * bin_count + j];
@@ -735,6 +741,9 @@ pub fn gini_impurity(input: &Vec<Vec<Vec<Wrapping<u64>>>>, u_decimal: &Vec<Wrapp
 
     // create denominators
     let gini_denominators: Vec<Wrapping<u64>> = D_include_j_flattend.clone();
+
+    println!("{}: {:?}", gini_numerators.len(), protocol::open(&gini_numerators, ctx).unwrap()); //test
+    println!("{}: {:?}", gini_denominators.len(), protocol::open(&gini_denominators, ctx).unwrap()); //test
 
     /////////////////////////////////////////// COMPUTE ARGMAX ///////////////////////////////////////////
 
