@@ -6,9 +6,13 @@ use super::super::decision_tree::*;
 use crate::io;
 use crate::util;
 use serde_json;
+use crate::computing_party::protocol;
 
 pub fn run(ctx: &mut Context) -> Result<(), Box<dyn Error>> {
     let (mut xt_ctx, data, classes) = init(&ctx.ml.cfg)?;
+    for i in 0 .. xt_ctx.tc.class_label_count {
+        println!("Class {:?}:\n{:?}", i, protocol::open(&classes[0][i], ctx)?);
+    }
     let (processed_data, arvs, splits) = xt_preprocess(&data, &mut xt_ctx, ctx)?;
     let trees = sid3t(&processed_data, &classes, &arvs, &splits, ctx, &mut xt_ctx.tc)?;
     io::write_to_file(&xt_ctx.tc.save_location, &serde_json::to_string(&trees)?)?;
@@ -45,6 +49,7 @@ pub fn init(cfg_file: &String) -> Result<(XTContext, Vec<Vec<Wrapping<u64>>>, Ve
     for i in 0 .. tree_count {
         dup_classes.push(classes.clone());
     }
+
 
     let tc = TrainingContext {
         instance_count,
