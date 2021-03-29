@@ -1,5 +1,6 @@
 use std::error::Error;
 use std::num::Wrapping;
+use std::io::Read;
 use super::super::super::Context;
 use super::decision_tree::TreeNode;
 use crate::computing_party::protocol;
@@ -18,6 +19,36 @@ pub fn run(ctx: &mut Context) -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
+
+pub fn classify_in_the_clear(transactions: &Vec<Vec<Wrapping<u64>>>, labels: &Vec<Wrapping<u64>>) 
+    -> Result<Vec<Vec<Wrapping<u64>>>, Box<dyn Error>> {
+
+        let mut file = std::fs::File::open("rustlynx\treedata\rev_trees.json").unwrap();
+        let mut contents = String::new();
+        file.read_to_string(&mut contents).unwrap();
+        
+        let mut ensemble: Vec<Vec<TreeNode>> = serde_json::from_str(&contents)?;
+
+        let mut correctly_classified = 0;
+        let total_rows =  transactions.len();
+
+        for row in transactions {
+
+            for tree in ensemble.clone() {
+
+                let depth = 63-(tree.len() - 1).leading_zeros() as i8; // log_2
+
+                println!("{}", depth);
+
+                
+
+            }
+
+        }
+
+
+        Ok(vec![])
+    }
 
 //BIG problem for efficiency in RF rn, need to figure that out
 //How do we know the first bin? double comparisons?
