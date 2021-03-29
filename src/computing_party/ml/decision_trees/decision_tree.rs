@@ -701,6 +701,8 @@ pub fn gini_impurity(input: &Vec<Vec<Vec<Wrapping<u64>>>>, u_decimal: &Vec<Wrapp
         // D_include_j.append(y_vals_include_j); what we should do?
     }
 
+    //let D_exclude_j_flattend = protocol::pairwise_mult_zq(&D_exclude_j, ctx).unwrap(); what we should do?
+    //let D_include_j_flattend = protocol::pairwise_mult_zq(&D_include_j, ctx).unwrap(); what we should do?
 
 
     let mut D_exclude_j_flattend = vec![];
