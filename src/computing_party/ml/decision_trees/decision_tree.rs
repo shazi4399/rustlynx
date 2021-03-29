@@ -730,8 +730,8 @@ pub fn gini_impurity(input: &Vec<Vec<Vec<Wrapping<u64>>>>, u_decimal: &Vec<Wrapp
 
     let gini_numerators_values_flat_unsummed = protocol::multiply(&D_exclude_j_flattend, &sum_of_x2_j_flattend, ctx).unwrap();
 
-    println!("{}", D_exclude_j_flattend.len()); //test
-    println!("{}", sum_of_x2_j_flattend.len()); //test
+    // println!("{}", D_exclude_j_flattend.len()); //test
+    // println!("{}", sum_of_x2_j_flattend.len()); //test
 
     for v in 0.. gini_numerators_values_flat_unsummed.len() / bin_count {
         for j in 0.. bin_count {
@@ -742,8 +742,8 @@ pub fn gini_impurity(input: &Vec<Vec<Vec<Wrapping<u64>>>>, u_decimal: &Vec<Wrapp
     // create denominators
     let gini_denominators: Vec<Wrapping<u64>> = D_include_j_flattend.clone();
 
-    println!("{}: {:?}", gini_numerators.len(), protocol::open(&gini_numerators, ctx).unwrap()); //test
-    println!("{}: {:?}", gini_denominators.len(), protocol::open(&gini_denominators, ctx).unwrap()); //test
+    // println!("{}: {:?}", gini_numerators.len(), protocol::open(&gini_numerators, ctx).unwrap()); //test
+    // println!("{}: {:?}", gini_denominators.len(), protocol::open(&gini_denominators, ctx).unwrap()); //test
 
     /////////////////////////////////////////// COMPUTE ARGMAX ///////////////////////////////////////////
 
