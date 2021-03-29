@@ -671,7 +671,7 @@ pub fn gini_impurity(input: &Vec<Vec<Vec<Wrapping<u64>>>>, u_decimal: &Vec<Wrapp
 
         for k in 0..feat_count {
 
-            let mut y_vals_exlude_j = vec![vec![]; bin_count];
+            let mut y_vals_exclude_j = vec![vec![]; bin_count];
 
             for j in 0.. bin_count {
                 
@@ -679,8 +679,8 @@ pub fn gini_impurity(input: &Vec<Vec<Vec<Wrapping<u64>>>>, u_decimal: &Vec<Wrapp
                 // push all values at indeces that are not equal to j onto it
                 // not 100% sure about this..
                 for not_j in 0.. bin_count {
-                    if j != not_j {
-                        y_vals_exlude_j[j].push(y_partitioned[n][k][not_j]);
+                    if k == 0 && j != not_j {
+                        y_vals_exclude_j[j].push(y_partitioned[n][k][not_j]);
                     }
                 }
 
@@ -694,10 +694,14 @@ pub fn gini_impurity(input: &Vec<Vec<Vec<Wrapping<u64>>>>, u_decimal: &Vec<Wrapp
                 sum_of_x2_j[n][k][j] = sum_j_values;
             }
             // can be far better optimized. Named 'D' after De'Hooghs variable
-            D_exclude_j[n][k] = protocol::pairwise_mult_zq(&y_vals_exlude_j, ctx).unwrap();
+            D_exclude_j[n][k] = protocol::pairwise_mult_zq(&y_vals_exclude_j, ctx).unwrap();
+            // D_exclude_j.append(y_vals_exclude_j); what we should do?
         }
         D_include_j[n] = protocol::pairwise_mult_zq(&y_vals_include_j, ctx).unwrap();
+        // D_include_j.append(y_vals_include_j); what we should do?
     }
+
+
 
     let mut D_exclude_j_flattend = vec![];
     let mut D_include_j_flattend = vec![];
