@@ -50,6 +50,7 @@ Result<(Vec<Vec<Vec<Wrapping<u64>>>>, Vec<Vec<Vec<Wrapping<u64>>>>, Vec<Vec<Vec<
 
     let fsv_amount = xtctx.tc.tree_count * xtctx.feature_count;
     let column_major_arvs = create_selection_vectors(fsv_amount, xtctx.tc.attribute_count, ctx)?;
+    column_major_arvs.iter().for_each(|x| println!("{:?}", open(x, ctx).unwrap()));
     let final_column_major_arvs = two_dim_to_3_dim(&column_major_arvs, feature_count)?;
     let column_major_arvs_flat: Vec<Wrapping<u64>> = column_major_arvs.clone().into_iter().flatten().collect();
     let mut column_major_arvs_flat_dup = column_major_arvs_flat.clone();
@@ -70,6 +71,7 @@ Result<(Vec<Vec<Vec<Wrapping<u64>>>>, Vec<Vec<Vec<Wrapping<u64>>>>, Vec<Vec<Vec<
     let selected_ranges: Vec<Wrapping<u64>> = selected_mins.iter().zip(selected_maxes.iter()).map(|(x, y)| y - x).collect();
 
     let random_ratios = create_random_ratios(selected_ranges.len(), ctx)?;
+    println!("RANDOM RATIOS:{:?}", open(&random_ratios, ctx));
     
     let range_times_ratio = multiply(&selected_ranges, &random_ratios, ctx)?;
     let selected_splits: Vec<Wrapping<u64>> = range_times_ratio.iter().zip(selected_mins.iter()).map(|(x, y)| util::truncate(*x, decimal_precision, asym) + y).collect();
@@ -211,17 +213,20 @@ fn two_dim_to_3_dim(data: &Vec<Vec<Wrapping<u64>>>, group_size: usize) -> Result
 pub fn create_selection_vectors(quant: usize, size: usize, ctx: &mut Context) -> Result<Vec<Vec<Wrapping<u64>>>, Box<dyn Error> >{
     let seed = [1234usize];
     let mut rng = rand::StdRng::from_seed(&seed);
-    let (zero, one) = if ctx.num.asymm == 0 {(Wrapping(constants::TEST_CR_WRAPPING_SEL_VEC_U64_0.0), Wrapping(constants::TEST_CR_WRAPPING_SEL_VEC_U64_1.0))} 
-    else {(Wrapping(constants::TEST_CR_WRAPPING_SEL_VEC_U64_0.1), Wrapping(constants::TEST_CR_WRAPPING_SEL_VEC_U64_1.1))};
 
-    let mut results = vec![];
+    let mut results: Vec<Vec<Wrapping<u64>>> = vec![];
     for i in 0 .. quant {
-        let mut sel_vec = vec![zero; size];
         let index: usize = rng.gen_range(0, size);
-        sel_vec[index] = one;
-        results.push(sel_vec);
+        let mut att_sel_vec = vec![];
+        for j in 0 .. size {
+            let val = if j == index {Wrapping(1)} else {Wrapping(0)};
+            let p0: Wrapping<u64> = Wrapping(rng.gen());
+            let p1: Wrapping<u64> = val - p0;
+            let ret = if ctx.num.asymm == 1 {p1} else {p0};
+            att_sel_vec.push(ret);
+        }
+        results.push(att_sel_vec);
     }
-
     Ok(results)
 }
 //in ring

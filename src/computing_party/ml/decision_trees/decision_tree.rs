@@ -74,26 +74,6 @@ pub fn sid3t(input: &Vec<Vec<Vec<Wrapping<u64>>>>, class: &Vec<Vec<Vec<Wrapping<
 
         let max_depth = layer == train_ctx.max_depth - 1; // Are we at the final layer?
         let number_of_nodes_to_process = nodes_to_process_per_tree * tree_count;
-        if !max_depth /*&& !ctx.dt_training.discretize_per_tree*/ {
-
-            // for v in 0..layer_trans_bit_vecs.len() {
-            //     layer_data.push(LayerData { // Do not have layer data yet
-            //         trans_bit_vec: layer_trans_bit_vecs[v].clone(),
-            //         split_data: data_subset[v].clone(),
-            //     });
-            // }
-        }
-        // else if ctx.dt_training.discretize_per_tree {
-        //     for t in 0 .. ctx.tree_count {
-        //         for n in 0 .. nodes_to_process_per_tree {
-        //             data_subset.push(data[t].clone());
-        //             layer_data.push(LayerData {
-        //                 trans_bit_vec: layer_trans_bit_vecs[t*nodes_to_process_per_tree + n].clone(),
-        //                 split_data: data[t].clone()
-        //             });
-        //         }
-        //     }
-        // }
 
         // A way to calculate how many nodes must be processed
         // Access to these values from ctx
@@ -119,6 +99,7 @@ pub fn sid3t(input: &Vec<Vec<Vec<Wrapping<u64>>>>, class: &Vec<Vec<Vec<Wrapping<
         //DELETE THIS IF CLASSIFICATIONS ARE IN THE RING
         // may or may not be needed
         classifications_flattened = classifications_flattened.iter().map(|x| util::truncate(*x, decimal_precision, asymmetric_bit)).collect();
+        println!("CLASSIFICATIONS FLATTENED: {:?}", protocol::open(&classifications_flattened, ctx));
 
         let and_results = protocol::multiply(&classifications_flattened, &trans_bit_vecs_flattened, ctx)?; 
 
@@ -138,7 +119,8 @@ pub fn sid3t(input: &Vec<Vec<Vec<Wrapping<u64>>>>, class: &Vec<Vec<Vec<Wrapping<
         let frequencies_argmax = most_frequent_class(&frequencies_flat.clone(), number_of_nodes_to_process, ctx, train_ctx)?;
         let mut chosen_classifications: Vec<Wrapping<u64>> = vec![];
         // STEP 2: max_depth exit condition
-        let mut indices: Vec<Wrapping<u64>> = (0u64 .. class_label_count as u64).map(|x| Wrapping(x << decimal_precision)).collect(); //put into ring, as they aren't always either 0 or 1
+        // let mut indices: Vec<Wrapping<u64>> = (0u64 .. class_label_count as u64).map(|x| Wrapping(x << decimal_precision)).collect(); //put into ring, as they aren't always either 0 or 1
+        let mut indices: Vec<Wrapping<u64>> = (0u64 .. class_label_count as u64).map(|x| Wrapping(x)).collect(); //put into ring, as they aren't always either 0 or 1
         for n in 0 .. number_of_nodes_to_process {
             let mfcsv = frequencies_argmax[n].clone();
             chosen_classifications.push(mfcsv.iter().zip(indices.iter()).map(|(x, y)| x * y).sum());
@@ -146,10 +128,7 @@ pub fn sid3t(input: &Vec<Vec<Vec<Wrapping<u64>>>>, class: &Vec<Vec<Vec<Wrapping<
             // chosen_classifications.push(dot_product(&mfcsv, &indices, ctx, ctx.decimal_precision, false, false)); //don;t need truncation because frequencies_argmax is additively shared non ring zeroes and ones
         }
 
-        if max_depth {
-            
-            let mut chosen_classifications = vec![];
-            
+        if max_depth {   
             // println!("ances_class_bits{:?}", reveal(&ances_class_bits, ctx, ctx.decimal_precision, false, false));
 
             let asym_exp = vec![Wrapping(asymmetric_bit); number_of_nodes_to_process];
@@ -228,8 +207,6 @@ pub fn sid3t(input: &Vec<Vec<Vec<Wrapping<u64>>>>, class: &Vec<Vec<Vec<Wrapping<
         // will be [0] if node does not classify data, [1] otherwise
         let this_layer_classifies = protocol::multiply(&protocol::or(&n_is_too_small, &is_constant_class, ctx)?, &ances_class_bits_neg, ctx)?;
 
-        let mut new_tbvs = vec![];
-
         // STEP 4: GINI impurity
         //2d
         //nodes_to_process x feat_count
@@ -239,11 +216,9 @@ pub fn sid3t(input: &Vec<Vec<Vec<Wrapping<u64>>>>, class: &Vec<Vec<Vec<Wrapping<
         for t in 0 .. tree_count {
             for m in 0 .. nodes_to_process_per_tree {
                 inputs_flattened.append(&mut input[t].clone().into_iter().flatten().collect());
-
                 for a in 0 .. attribute_count {
                     trans_bit_vecs_flattened.append(&mut layer_trans_bit_vecs[t * nodes_to_process_per_tree + m].clone());
                 }
-
             }
         } 
 
@@ -268,7 +243,7 @@ pub fn sid3t(input: &Vec<Vec<Vec<Wrapping<u64>>>>, class: &Vec<Vec<Vec<Wrapping<
         let mut chosen_split_points: Vec<Wrapping<u64>> = vec![]; //should be the associated value for the selection vector in best_attributes
         let mut chosen_classifications: Vec<Wrapping<u64>> = vec![]; //the most frequent classification at each node multiplied by the value calculated in this_layer_classification_bits\
 
-        let mut indices_exp = (0u64 .. class_label_count as u64).map(|x| vec![Wrapping(x << decimal_precision); number_of_nodes_to_process]).flatten().collect();
+        let mut indices_exp = (0u64 .. class_label_count as u64).map(|x| vec![Wrapping(x); number_of_nodes_to_process]).flatten().collect();
         if asymmetric_bit != 1 {
             indices_exp = vec![Wrapping(0u64); class_label_count * number_of_nodes_to_process];
         }
@@ -342,13 +317,6 @@ pub fn sid3t(input: &Vec<Vec<Vec<Wrapping<u64>>>>, class: &Vec<Vec<Vec<Wrapping<
             }
         }
 
-        // let selected_fsvs_exp: Vec<Wrapping<u64>> = selected_fsvs.iter().flat_map(|x| x.iter().map(|y| vec![vec![*y; instance_count]; bin_count]).flatten().collect::<Vec<Vec<Wrapping<u64>>>>()).flatten().collect();
-        // let mut flattened_dataset: Vec<Wrapping<u64>> = vec![];
-        // for i in 0 .. tree_count {
-        //     for j in 0 .. nodes_to_process_per_tree {
-        //         flattened_dataset.append(&mut input[i].clone().into_iter().flatten().collect());
-        //     }
-        // }
         let selected_columns_flat = protocol::multiply(&select_best_feat_vec, &flattened_dataset, ctx)?; 
         let mut chosen_bins: Vec<Wrapping<u64>> = vec![];
         for i in 0 .. number_of_nodes_to_process {
@@ -374,7 +342,7 @@ pub fn sid3t(input: &Vec<Vec<Vec<Wrapping<u64>>>>, class: &Vec<Vec<Vec<Wrapping<
             }
         }
         let new_tbvs_flat = protocol::multiply(&chosen_bins, &tbv_exp, ctx)?;
-        new_tbvs = new_tbvs_flat.chunks(instance_count).map(|x| x.to_vec()).collect();
+        let new_tbvs : Vec<Vec<Wrapping<u64>>> = new_tbvs_flat.chunks(instance_count).map(|x| x.to_vec()).collect();
         
         let mut split_points_flat: Vec<Wrapping<u64>> = vec![];
         for i in 0 .. tree_count {
@@ -913,4 +881,25 @@ fn dot_product(x: &Vec<Wrapping<u64>>, y: &Vec<Wrapping<u64>>, sub_len: usize, c
     let mut mult_res:Vec<Wrapping<u64>> = protocol::multiply(x, y, ctx)?;
     let res = mult_res.chunks(sub_len).map(|subvec| subvec.iter().sum()).collect();
     Ok(res)
+}
+
+pub fn reveal_tree(nodes: &Vec<TreeNode>, ctx: &mut Context) -> Result<(), Box<dyn Error>>{
+    let mut classes = vec![];
+    let mut split_points = vec![];
+    let mut att_sel_vecs = vec![];
+    for i in 0..nodes.len() {
+        //index changing is because dummy is in pos 0
+        classes.push(nodes[i].classification);
+        split_points.push(nodes[i].split_point.clone());
+        att_sel_vecs.push(nodes[i].attribute_sel_vec.clone());
+    }
+    let classes_rev = protocol::open(&classes, ctx)?;
+    println!("\n");
+    for i in 1..nodes.len() {
+        let att_sel_vecs_rev =
+            protocol::open(&att_sel_vecs[i], ctx)?;
+            let split_points_rev = protocol::open(&split_points[i], ctx)?;
+        println!("Node#{:?}, classification:{:?}, split_point:{:?}, att_sel_vec:{:?}", i , classes_rev[i], split_points_rev, att_sel_vecs_rev);
+    }
+    Ok(())
 }
