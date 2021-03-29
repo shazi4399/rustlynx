@@ -168,7 +168,7 @@ fn two_dim_to_3_dim(data: &Vec<Vec<Wrapping<u64>>>, group_size: usize) -> Result
 
 //Not in ring
 pub fn create_selection_vectors(quant: usize, size: usize, ctx: &mut Context) -> Result<Vec<Vec<Wrapping<u64>>>, Box<dyn Error> >{
-    let seed = [1234usize];
+    let seed = [12345usize];
     let mut rng = rand::StdRng::from_seed(&seed);
 
     let mut results: Vec<Vec<Wrapping<u64>>> = vec![];
@@ -188,7 +188,7 @@ pub fn create_selection_vectors(quant: usize, size: usize, ctx: &mut Context) ->
 }
 //in ring
 pub fn create_random_ratios(quant: usize, ctx: &mut Context) -> Result<Vec<Wrapping<u64>>, Box<dyn Error> >{
-    let seed = [1234usize];
+    let seed = [12345usize];
     let mut rng = rand::StdRng::from_seed(&seed);
     let upper_bound = 1 << ctx.num.precision_frac;
 

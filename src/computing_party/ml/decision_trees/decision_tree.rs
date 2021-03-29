@@ -99,7 +99,7 @@ pub fn sid3t(input: &Vec<Vec<Vec<Wrapping<u64>>>>, class: &Vec<Vec<Vec<Wrapping<
         //DELETE THIS IF CLASSIFICATIONS ARE IN THE RING
         // may or may not be needed
         classifications_flattened = classifications_flattened.iter().map(|x| util::truncate(*x, decimal_precision, asymmetric_bit)).collect();
-        println!("CLASSIFICATIONS FLATTENED: {:?}", protocol::open(&classifications_flattened, ctx));
+        // println!("CLASSIFICATIONS FLATTENED: {:?}", protocol::open(&classifications_flattened, ctx));
 
         let and_results = protocol::multiply(&classifications_flattened, &trans_bit_vecs_flattened, ctx)?; 
 
@@ -157,7 +157,7 @@ pub fn sid3t(input: &Vec<Vec<Vec<Wrapping<u64>>>>, class: &Vec<Vec<Vec<Wrapping<
 
         // let size_of_tbvs: Vec<Wrapping<u64>> = layer_trans_bit_vecs.iter().map(|x| Wrapping(dot_product(&x, &x, ctx, ctx.decimal_precision, false, false).0 << ctx.decimal_precision)).collect();
         //how many instances in each subset
-        let size_of_tbvs: Vec<Wrapping<u64>> = layer_trans_bit_vecs.iter().map(|x| x.iter().fold(Wrapping(0u64), |acc, val| acc + val) << decimal_precision).collect();
+        let size_of_tbvs: Vec<Wrapping<u64>> = layer_trans_bit_vecs.iter().map(|x| x.iter().fold(Wrapping(0u64), |acc, val| acc + val)).collect();
         let mut size_of_tbv_array = vec![];
         for v in 0 .. size_of_tbvs.len() {
             for _j in 0 .. class_label_count {
@@ -237,6 +237,11 @@ pub fn sid3t(input: &Vec<Vec<Vec<Wrapping<u64>>>>, class: &Vec<Vec<Vec<Wrapping<
 
         let gini_argmax = gini_impurity(&input_subsets, &and_results.clone(), number_of_nodes_to_process, ctx, train_ctx);
 
+        let gini_argmax_rev: Vec<Vec<Wrapping<u64>>> = gini_argmax.iter().map(|x| protocol::open(&x, ctx).unwrap()).collect();
+        for i in 0 .. number_of_nodes_to_process {
+            println!("GINI ARGMAX FOR NODE {:?}: ", gini_argmax_rev[i]);
+        }
+
         // STEP 5: Create data structures for next layer based on step 4
 
         let mut best_attributes: Vec<Vec<Wrapping<u64>>> = vec![]; //should be a vector containing selection vectors for the best attributes to split on for each node
@@ -285,14 +290,14 @@ pub fn sid3t(input: &Vec<Vec<Vec<Wrapping<u64>>>>, class: &Vec<Vec<Vec<Wrapping<
 
         let mut selected_fsvs: Vec<Vec<Wrapping<u64>>> = vec![];
         for i in 0 .. number_of_nodes_to_process {
-            let att_times_feat = attribute_count * feat_count;
+            let att_times_feat = original_attr_count * feat_count;
             let mut fsvs_to_process = vec![];
             for j in 0 .. feat_count {
-                fsvs_to_process.push(uncompressed_selected_fsvs[i * att_times_feat + j*(attribute_count) .. i * att_times_feat + (j+1)*(attribute_count)].to_vec());
+                fsvs_to_process.push(uncompressed_selected_fsvs[i * att_times_feat + j*(original_attr_count) .. i * att_times_feat + (j+1)*(original_attr_count)].to_vec());
             }
-            let mut processed_fsv = vec![Wrapping(0); attribute_count];
+            let mut processed_fsv = vec![Wrapping(0); original_attr_count];
             for j in 0 .. feat_count {
-                for k in 0 .. attribute_count {
+                for k in 0 .. original_attr_count {
                     processed_fsv[k] += fsvs_to_process[j][k];
                 }
             }
@@ -378,7 +383,7 @@ pub fn sid3t(input: &Vec<Vec<Vec<Wrapping<u64>>>>, class: &Vec<Vec<Vec<Wrapping<
         layer_trans_bit_vecs.clear(); //making sure that the layer_trans_bit_vecs have all been used so the data structure can be reused
         layer_trans_bit_vecs = new_tbvs.clone();
         ances_class_bits.clear();
-        for j in 0 .. next_layer_classification_bits.len() {
+        for j in 0 .. number_of_nodes_to_process {
             for k in 0 .. bin_count {
                 ances_class_bits.push(next_layer_classification_bits[j]);
             }

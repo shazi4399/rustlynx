@@ -43,7 +43,7 @@ pub fn runtime_context(cfg_file: &String) -> Result<Context, Box<dyn Error>>  {
 	let extern_user: User = parse_user_settings(&extern_id, &extern_ip, &extern_portrange)?;
 	let ti: Option<User> = parse_ti_settings(&ti_ip, &ti_port, &debug_cr)?;
 	let ml: MachineLearning = parse_ml_settings(&phase, &model, &settings)?;
-	let num: Numeric = parse_numeric_settings(&precision_frac, &precision_int, &local_id)?;
+	let num: Numeric = parse_numeric_settings(&precision_int, &precision_frac, &local_id)?;
 	let threading: Threading = parse_thread_settings(&optimise_threads, &offline_threads, &online_threads)?;
 	let cr: CorrelatedRandomness = parse_cr_settings(&debug_cr)?;
 
