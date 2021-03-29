@@ -3,6 +3,7 @@ extern crate csv;
 use std::error::Error;
 use std::num::Wrapping;
 use std::fs::File;
+use std::fs;
 
 pub fn single_col_csv_to_wrapping_vec(filename: &str) -> Result<Vec<Wrapping<u64>>, Box<dyn Error>> {
 
@@ -56,3 +57,7 @@ pub fn single_col_csv_to_u128_vec(filename: &str) -> Result<Vec<u128>, Box<dyn E
     Ok(vec)
 }
 
+pub fn write_to_file(filename: &str, data: &str) -> Result<(), Box<dyn Error>> {
+    fs::write(filename, data).expect("Problem Writing File");
+    Ok(())
+}
