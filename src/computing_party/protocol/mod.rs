@@ -787,6 +787,11 @@ pub fn pairwise_mult_zq(x: &Vec<Vec<Wrapping<u64>>>, ctx: &mut Context) -> Resul
     let num_of_vals = x[0].len();
     let pairs = num_of_vals/2;
 
+    // nothing to multiply
+    if num_of_vals <= 1 {
+        return Ok(x[0].clone());
+    }
+
     let mut l_operands: Vec<Wrapping<u64>> = Vec::new();
     let mut r_operands: Vec<Wrapping<u64>> = Vec::new();
 
