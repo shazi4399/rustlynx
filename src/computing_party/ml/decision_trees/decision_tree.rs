@@ -113,6 +113,8 @@ pub fn sid3t(input: &Vec<Vec<Vec<Wrapping<u64>>>>, class: &Vec<Vec<Vec<Wrapping<
             }
         } 
 
+        // STEP 1: find most frequent classification
+        
         //---- SECTION TO BE TURNED INTO BITVECS
         //DELETE THIS IF CLASSIFICATIONS ARE IN THE RING
         // may or may not be needed
@@ -133,7 +135,6 @@ pub fn sid3t(input: &Vec<Vec<Vec<Wrapping<u64>>>>, class: &Vec<Vec<Vec<Wrapping<
             }
         }
 
-        // STEP 1: find most frequent classification
         let frequencies_argmax = most_frequent_class(&frequencies_flat.clone(), number_of_nodes_to_process, ctx, train_ctx)?;
         let mut chosen_classifications: Vec<Wrapping<u64>> = vec![];
         // STEP 2: max_depth exit condition
@@ -172,6 +173,7 @@ pub fn sid3t(input: &Vec<Vec<Vec<Wrapping<u64>>>>, class: &Vec<Vec<Vec<Wrapping<
             }
             return Ok(treenodes);
         }
+
         // STEP 3: Apply class to node
 
         // let size_of_tbvs: Vec<Wrapping<u64>> = layer_trans_bit_vecs.iter().map(|x| Wrapping(dot_product(&x, &x, ctx, ctx.decimal_precision, false, false).0 << ctx.decimal_precision)).collect();
@@ -184,7 +186,7 @@ pub fn sid3t(input: &Vec<Vec<Vec<Wrapping<u64>>>>, class: &Vec<Vec<Vec<Wrapping<
             }
         }
 
-        // first, find out if class is constant
+        // first, find out if class is constant SHOULD USE EQUALITY
         let comparisons1 = protocol::batch_geq(&size_of_tbv_array, &frequencies_flat, ctx)?;
         let comparisons2 = protocol::batch_geq(&frequencies_flat, &size_of_tbv_array, ctx)?;
             
@@ -205,7 +207,7 @@ pub fn sid3t(input: &Vec<Vec<Vec<Wrapping<u64>>>>, class: &Vec<Vec<Vec<Wrapping<
         // }
 
         // let is_constant_class = xor_share_to_additive(&batch_compare(&contains_constant_class, &vec![Wrapping(asymmetric_bit); contains_constant_class.len()], ctx), ctx, 1);
-
+            
         let epsilon = train_ctx.epsilon;
 
         let total_size = Wrapping(
@@ -466,9 +468,9 @@ pub fn most_frequent_class(frequencies_flat: &Vec<Wrapping<u64>>,
             r_operands.push(current_values[2 * v + 1]);
         }
 
-        let xor_l_geq_r = protocol::batch_geq(&l_operands, &r_operands, ctx).unwrap();
         // read this as "left is greater than or equal to right." value in array will be [1] if true, [0] if false.
-        let l_geq_r = protocol::z2_to_zq(&xor_l_geq_r, ctx).unwrap();
+        let l_geq_r = protocol::z2_to_zq(&protocol::batch_geq(&l_operands, &r_operands, ctx).unwrap(), ctx).unwrap();
+        
         // read this is "left is less than right"
         let l_lt_r: Vec<Wrapping<u64>> = l_geq_r.iter().map(|x| -x + Wrapping(asymmetric_bit as u64)).collect();
 
@@ -579,7 +581,7 @@ pub fn gini_impurity(input: &Vec<Vec<Vec<Wrapping<u64>>>>, u_decimal: &Vec<Wrapp
     // Determine the number of transactions that are:
     // 1. in the current subset
     // 2. predict the i-th class value
-    // 3. and have the j-th value of the k-th attribute
+    // 3. and have the j-th value of the k-th attribute for each node n
 
 
     // NOTE: Work on more meaningful names...
@@ -813,10 +815,9 @@ pub fn gini_impurity(input: &Vec<Vec<Vec<Wrapping<u64>>>>, u_decimal: &Vec<Wrapp
             r_operands.push(product[2 * v + 1]);
         }
 
-        let xor_l_geq_r = protocol::batch_geq(&l_operands, &r_operands, ctx).unwrap();  
+        // read this as "left is greater than or equal to right." value in array will be [1] if true, [0] if false.
+        let l_geq_r = protocol::z2_to_zq(&protocol::batch_geq(&l_operands, &r_operands, ctx).unwrap(), ctx).unwrap();  
 
-        // read this as "left is greater than or equal to right." value in array will be 1 if true, 0 if false.
-        let l_geq_r = protocol::z2_to_zq(&xor_l_geq_r, ctx).unwrap();
         // read this is "left is less than right"
         let l_lt_r: Vec<Wrapping<u64>> = l_geq_r.iter().map(|x| -x + Wrapping(asymmetric_bit as u64)).collect();
 
@@ -824,7 +825,9 @@ pub fn gini_impurity(input: &Vec<Vec<Vec<Wrapping<u64>>>>, u_decimal: &Vec<Wrapp
         let mut values = current_numerators.clone();
         values.append(&mut current_denominators.clone());
 
+        // For the next iteration
         let mut assignments = vec![];
+        // For record keeping
         let mut gini_assignments = vec![];
 
         // alternate the left/right values to help to cancel out the original values
@@ -845,6 +848,7 @@ pub fn gini_impurity(input: &Vec<Vec<Vec<Wrapping<u64>>>>, u_decimal: &Vec<Wrapp
         logical_partition_lengths.push(current_length);
         past_assignments.push(gini_assignments); 
 
+        // EXIT CONDITION
         if 1 == (current_length/2) + (current_length % 2) {break;}
 
         assignments.append(&mut assignments.clone());
