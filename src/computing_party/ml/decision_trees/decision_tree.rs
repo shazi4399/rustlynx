@@ -224,14 +224,17 @@ pub fn sid3t(input: &Vec<Vec<Vec<Wrapping<u64>>>>, class: &Vec<Vec<Vec<Wrapping<
 
         let input_subsets_flattened = protocol::multiply(&inputs_flattened, &trans_bit_vecs_flattened, ctx)?; 
 
-        println!("{}", inputs_flattened.len());
-        println!("{}", trans_bit_vecs_flattened.len());
+        // println!("{}", number_of_nodes_to_process);
+        // println!("{}", attribute_count);
 
         let mut input_subsets = vec![vec![vec![]; attribute_count]; number_of_nodes_to_process];
 
         for n in 0 .. number_of_nodes_to_process {
             for a in 0 .. attribute_count {
-                input_subsets[n][a].append(&mut input_subsets_flattened[n * instance_count .. (n + 1) * instance_count].to_vec());
+                input_subsets[n][a].append(&mut input_subsets_flattened
+                    [(n * attribute_count) + a * instance_count .. (n * attribute_count) + (a + 1) * instance_count].to_vec());
+
+                //println!("{:?}", protocol::open(&input_subsets[n][a], ctx)); //test
             }
         }
 
@@ -526,7 +529,9 @@ pub fn most_frequent_class(frequencies_flat: &Vec<Wrapping<u64>>,
 pub fn gini_impurity(input: &Vec<Vec<Vec<Wrapping<u64>>>>, u_decimal: &Vec<Wrapping<u64>>, 
     number_of_nodes_to_process: usize, ctx: &mut Context, train_ctx: &mut TrainingContext) -> Vec<Vec<Wrapping<u64>>> {
 
-    // Access to these values from ctx
+
+    //println!("{:?}", protocol::open(&u_decimal, ctx)); //test
+
     let class_label_count = train_ctx.class_label_count;
     let decimal_precision = ctx.num.precision_frac;
     let asymmetric_bit = ctx.num.asymm;
@@ -590,6 +595,8 @@ pub fn gini_impurity(input: &Vec<Vec<Vec<Wrapping<u64>>>>, u_decimal: &Vec<Wrapp
         }
     }
 
+    //println!("{:?}", protocol::open(&discretized_sets[1], ctx)); //test
+
     let mut u_decimal_vectors_clone = u_decimal_vectors.clone();
 
     for j in 0.. bin_count {
@@ -606,8 +613,12 @@ pub fn gini_impurity(input: &Vec<Vec<Vec<Wrapping<u64>>>>, u_decimal: &Vec<Wrapp
 
     // discretized_sets.append(&mut discretized_sets_negation);
 
+    //let u_decimal_vectors = u_decimal_vectors.iter().map(|x| Wrapping(x.0 >> decimal_precision)).collect();
+
     let batched_un_summed_frequencies =
         protocol::multiply(&u_decimal_vectors, &discretized_sets_vectors, ctx).unwrap();
+
+    //println!("{:?}", protocol::open(&batched_un_summed_frequencies, ctx)); //test
 
     let total_number_of_rows = train_ctx.instance_count;
 
@@ -700,6 +711,7 @@ pub fn gini_impurity(input: &Vec<Vec<Vec<Wrapping<u64>>>>, u_decimal: &Vec<Wrapp
             }
             // can be far better optimized. Named 'D' after De'Hooghs variable
             D_exclude_j[n][k] = protocol::pairwise_mult_zq(&y_vals_exclude_j, ctx).unwrap();
+            println!("{:?}", protocol::open(&D_exclude_j[n][k], ctx)); //test
             // D_exclude_j.append(y_vals_exclude_j); what we should do?
         }
         D_include_j[n] = protocol::pairwise_mult_zq(&y_vals_include_j, ctx).unwrap();
@@ -723,6 +735,8 @@ pub fn gini_impurity(input: &Vec<Vec<Vec<Wrapping<u64>>>>, u_decimal: &Vec<Wrapp
 
     let gini_numerators_values_flat_unsummed = protocol::multiply(&D_exclude_j_flattend, &sum_of_x2_j_flattend, ctx).unwrap();
 
+    println!("{:?}", protocol::open(&D_exclude_j_flattend, ctx)); //test
+
     for v in 0.. gini_numerators_values_flat_unsummed.len() / bin_count {
         for j in 0.. bin_count {
             gini_numerators[v] += gini_numerators_values_flat_unsummed[v * bin_count + j];
@@ -731,6 +745,9 @@ pub fn gini_impurity(input: &Vec<Vec<Vec<Wrapping<u64>>>>, u_decimal: &Vec<Wrapp
 
     // create denominators
     let gini_denominators: Vec<Wrapping<u64>> = D_include_j_flattend.clone();
+
+    println!("{:?}", protocol::open(&gini_numerators, ctx)); //test
+    println!("{:?}", protocol::open(&gini_denominators, ctx));
 
     /////////////////////////////////////////// COMPUTE ARGMAX ///////////////////////////////////////////
 
