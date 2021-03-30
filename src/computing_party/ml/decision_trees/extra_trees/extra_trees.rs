@@ -24,8 +24,6 @@ pub struct XTContext {
 pub fn xt_preprocess(data: &Vec<Vec<Wrapping<u64>>>, xtctx: &mut XTContext, ctx: &mut Context) -> 
 Result<(Vec<Vec<Vec<Wrapping<u64>>>>, Vec<Vec<Vec<Wrapping<u64>>>>, Vec<Vec<Vec<Wrapping<u64>>>>), Box<dyn Error>> {
     //assume data has already been loaded
-    //only return the processed data. that is all that is required, I think.
-    //PANIC MAYBE NEED FSVS AS WELL? TALK TO JAMES
 
     // let vecs = create_selection_vectors(1000, 100, ctx).unwrap();
     // let open_vecs = open(&vecs.into_iter().flatten().collect(), ctx);
@@ -50,11 +48,12 @@ Result<(Vec<Vec<Vec<Wrapping<u64>>>>, Vec<Vec<Vec<Wrapping<u64>>>>, Vec<Vec<Vec<
 
     let fsv_amount = xtctx.tc.tree_count * xtctx.feature_count;
     let column_major_arvs = create_selection_vectors(fsv_amount, xtctx.tc.attribute_count, ctx)?;
-    column_major_arvs.iter().for_each(|x| println!("{:?}", open(x, ctx).unwrap()));
+    // column_major_arvs.iter().for_each(|x| println!("{:?}", open(x, ctx).unwrap()));
     let final_column_major_arvs = two_dim_to_3_dim(&column_major_arvs, feature_count)?;
     let column_major_arvs_flat: Vec<Wrapping<u64>> = column_major_arvs.clone().into_iter().flatten().collect();
     let mut column_major_arvs_flat_dup = column_major_arvs_flat.clone();
     column_major_arvs_flat_dup.append(&mut column_major_arvs_flat_dup.clone());
+    // column_major_arvs.iter().for_each(|x| println!("{:?}", open(x, ctx).unwrap()));
 
     let mut mins_concat = vec![];
     let mut maxes_concat = vec![];
@@ -71,7 +70,7 @@ Result<(Vec<Vec<Vec<Wrapping<u64>>>>, Vec<Vec<Vec<Wrapping<u64>>>>, Vec<Vec<Vec<
     let selected_ranges: Vec<Wrapping<u64>> = selected_mins.iter().zip(selected_maxes.iter()).map(|(x, y)| y - x).collect();
 
     let random_ratios = create_random_ratios(selected_ranges.len(), ctx)?;
-    println!("RANDOM RATIOS:{:?}", open(&random_ratios, ctx));
+    // println!("RANDOM RATIOS:{:?}", open(&random_ratios, ctx));
     
     let range_times_ratio = multiply(&selected_ranges, &random_ratios, ctx)?;
     let selected_splits: Vec<Wrapping<u64>> = range_times_ratio.iter().zip(selected_mins.iter()).map(|(x, y)| util::truncate(*x, decimal_precision, asym) + y).collect();
@@ -88,11 +87,14 @@ Result<(Vec<Vec<Vec<Wrapping<u64>>>>, Vec<Vec<Vec<Wrapping<u64>>>>, Vec<Vec<Vec<
     // let w = ctx.dt_shares.matmul_ws.clone();
     
     //apply the CRVs to the dataset
+    // column_major_arvs.iter().for_each(|x| println!("{:?}", open(x, ctx).unwrap()));
     let column_reduced_datasets = util::transpose(&matmul(
         &data,
         &column_major_arvs,
         ctx,
     )?)?;
+
+    column_reduced_datasets.iter().for_each(|x| println!("{:?}", open(&x, ctx).unwrap()));
     
     //println!("Matmul finished. Time taken: {:?}ms", matmultime.elapsed().unwrap().as_millis());
     //The splits have been found. The discretized datasets must now be made.
@@ -176,7 +178,7 @@ pub fn create_selection_vectors(quant: usize, size: usize, ctx: &mut Context) ->
         let index: usize = rng.gen_range(0, size);
         let mut att_sel_vec = vec![];
         for j in 0 .. size {
-            let val = if j == index {Wrapping(1)} else {Wrapping(0)};
+            let val = if j == index && ctx.num.asymm == 1 {Wrapping(1)} else {Wrapping(0)};
             let p0: Wrapping<u64> = Wrapping(rng.gen());
             let p1: Wrapping<u64> = val - p0;
             let ret = if ctx.num.asymm == 1 {p1} else {p0};

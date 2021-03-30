@@ -616,10 +616,8 @@ pub fn batch_geq(x: &Vec<Wrapping<u64>>, y: &Vec<Wrapping<u64>>, ctx: &mut Conte
 //x row-wize, y column-wise
 pub fn matmul(x: &Vec<Vec<Wrapping<u64>>>, y: &Vec<Vec<Wrapping<u64>>>, ctx: &mut Context) -> Result<Vec<Vec<Wrapping<u64>>>, Box<dyn Error>> {
 
-    let rev_x_box:Result<Vec<Vec<Wrapping<u64>>>, Box<dyn Error>>  = x.iter().map(|x_row| open(x_row, ctx)).collect();
-    let rev_x = rev_x_box?;
-    let rev_y_box:Result<Vec<Vec<Wrapping<u64>>>, Box<dyn Error>> = y.iter().map(|y_col| open(y_col, ctx)).collect();
-    let rev_y = rev_y_box?;
+    let rev_x: Vec<Vec<Wrapping<u64>>> = x.iter().map(|x_row| open(x_row, ctx).unwrap()).collect();
+    let rev_y: Vec<Vec<Wrapping<u64>>> = y.iter().map(|y_col| open(y_col, ctx).unwrap()).collect();
 
     if ctx.num.asymm == 1 {
         let mut result = vec![];
@@ -629,9 +627,9 @@ pub fn matmul(x: &Vec<Vec<Wrapping<u64>>>, y: &Vec<Vec<Wrapping<u64>>>, ctx: &mu
                 let entry: Wrapping<u64> = x[i].iter().zip(y[j].iter()).map(|(x_ij, y_ji)| x_ij * y_ji).sum();
                 row.push(entry);
             }
+            print!("{:?}", row);
             result.push(row);
         }
-        // let result = rev_x.iter().map(|x_row| y.iter().map(|y_col| x_row.iter().zip(y_col.iter()).fold(Wrapping(0u64), |acc, (x_j, y_i)|  acc + (x_j * y_i))).collect()).collect();
         return Ok(result);
     } else {
         let result = vec![vec![Wrapping(0u64); rev_y.len()]; rev_x.len()];
