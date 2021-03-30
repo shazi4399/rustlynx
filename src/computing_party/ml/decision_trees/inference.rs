@@ -3,6 +3,7 @@ use std::num::Wrapping;
 use std::io::Read;
 use super::super::super::Context;
 use super::decision_tree::TreeNode;
+use super::decision_tree::TrainingContext;
 use crate::computing_party::protocol;
 
 #[derive(Default)]
@@ -20,8 +21,10 @@ pub fn run(ctx: &mut Context) -> Result<(), Box<dyn Error>> {
 }
 
 
-pub fn classify_in_the_clear(transactions: &Vec<Vec<Wrapping<u64>>>, labels: &Vec<Wrapping<u64>>) 
+pub fn classify_in_the_clear(transactions: &Vec<Vec<Wrapping<u64>>>, labels: &Vec<Wrapping<u64>>, train_ctx: TrainingContext) 
     -> Result<Vec<Vec<Wrapping<u64>>>, Box<dyn Error>> {
+
+        let bin_count = train_ctx.bin_count;
 
         let mut file = std::fs::File::open("rustlynx\treedata\rev_trees.json").unwrap();
         let mut contents = String::new();
@@ -32,13 +35,35 @@ pub fn classify_in_the_clear(transactions: &Vec<Vec<Wrapping<u64>>>, labels: &Ve
         let mut correctly_classified = 0;
         let total_rows =  transactions.len();
 
-        for row in transactions {
+        let depth = (63-(ensemble[0].len() - 1).leading_zeros() as i8) as usize; // log_2
+
+        println!("{}", depth);
+
+        for transaction in transactions {
 
             for tree in ensemble.clone() {
 
-                let depth = 63-(tree.len() - 1).leading_zeros() as i8; // log_2
+                let mut current_node = 1;
 
-                println!("{}", depth);
+                for d in 0.. depth {
+
+                    let chosen_attr = tree[current_node].attribute_sel_vec[0].0 as usize;
+                    let splits = tree[current_node].split_point.clone();
+                    let classification = tree[current_node].classification.0 as usize;
+                    
+                    let val = transaction[chosen_attr];
+
+                    let mut bin = 0;
+                    for split in splits {
+                        if val < split {break};
+                        bin += 1;
+                    }
+
+                    current_node = bin_count * current_node + bin;
+
+                    // need to know the classification...
+
+                }
 
                 
 
