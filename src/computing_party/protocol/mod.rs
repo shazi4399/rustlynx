@@ -624,10 +624,10 @@ pub fn matmul(x: &Vec<Vec<Wrapping<u64>>>, y: &Vec<Vec<Wrapping<u64>>>, ctx: &mu
         for i in 0 .. x.len() {
             let mut row = vec![];
             for j in 0 .. y.len() {
-                let entry: Wrapping<u64> = x[i].iter().zip(y[j].iter()).map(|(x_ij, y_ji)| x_ij * y_ji).sum();
+                let entry: Wrapping<u64> = rev_x[i].iter().zip(rev_y[j].iter()).map(|(x_ij, y_ji)| x_ij * y_ji).sum();
                 row.push(entry);
             }
-            print!("{:?}", row);
+            print!("{:?}",row);
             result.push(row);
         }
         return Ok(result);
