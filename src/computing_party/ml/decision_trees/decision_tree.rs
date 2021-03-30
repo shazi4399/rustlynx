@@ -62,6 +62,7 @@ pub fn sid3t(input: &Vec<Vec<Vec<Wrapping<u64>>>>, class: &Vec<Vec<Vec<Wrapping<
             split_point: vec![],
         });
     }
+    // input.iter().for_each(|x| x.iter().for_each(|y| println!("{:?}", protocol::open(&y, ctx).unwrap())));
 
     println!("Initialized ensemble structure.");
 

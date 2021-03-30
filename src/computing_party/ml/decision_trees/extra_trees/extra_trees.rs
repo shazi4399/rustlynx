@@ -44,6 +44,9 @@ Result<(Vec<Vec<Vec<Wrapping<u64>>>>, Vec<Vec<Vec<Wrapping<u64>>>>, Vec<Vec<Vec<
 
     let mins = minmax.0;
     let maxes = minmax.1;
+
+    println!("MINS:{:?}", open(&mins, ctx));
+    println!("MAXES:{:?}", open(&maxes, ctx));
     println!("maxes and mins found.");
 
     let fsv_amount = xtctx.tc.tree_count * xtctx.feature_count;
@@ -57,23 +60,28 @@ Result<(Vec<Vec<Vec<Wrapping<u64>>>>, Vec<Vec<Vec<Wrapping<u64>>>>, Vec<Vec<Vec<
 
     let mut mins_concat = vec![];
     let mut maxes_concat = vec![];
-    for _i in 0 .. fsv_amount * feature_count {
+    for _i in 0 .. fsv_amount {
         mins_concat.extend(&mins);
         maxes_concat.extend(&maxes);
     }
     mins_concat.append(&mut maxes_concat); //consolidate into mins, now mins represents both mins and maxes
     //let split_select = SystemTime::now();
     let mul_min_max = multiply(&column_major_arvs_flat_dup, &mins_concat, ctx)?;
+    // println!("mul_min_max: {:?}", open(&mul_min_max, ctx));
     let selected_vals: Vec<Wrapping<u64>> = mul_min_max.chunks(attribute_count).map(|x| x.iter().fold(Wrapping(0), |acc, y| acc + y)).collect();
+    // println!("selected_vals: {:?}", open(&selected_vals, ctx));
 
     let (selected_mins, selected_maxes)= selected_vals.split_at(selected_vals.len()/2);
     let selected_ranges: Vec<Wrapping<u64>> = selected_mins.iter().zip(selected_maxes.iter()).map(|(x, y)| y - x).collect();
+    // println!("selected_ranges: {:?}", open(&selected_ranges, ctx));
 
     let random_ratios = create_random_ratios(selected_ranges.len(), ctx)?;
     // println!("RANDOM RATIOS:{:?}", open(&random_ratios, ctx));
     
     let range_times_ratio = multiply(&selected_ranges, &random_ratios, ctx)?;
+    // println!("range_times_ratio: {:?}", open(&range_times_ratio, ctx));
     let selected_splits: Vec<Wrapping<u64>> = range_times_ratio.iter().zip(selected_mins.iter()).map(|(x, y)| util::truncate(*x, decimal_precision, asym) + y).collect();
+    // println!("SELECTED SPLITS: {:?}", open(&selected_splits, ctx));
     //println!("split_select finished. Time taken: {:?}ms", split_select.elapsed().unwrap().as_millis());
 
     //println!("Matmul beginning.");
@@ -170,7 +178,7 @@ fn two_dim_to_3_dim(data: &Vec<Vec<Wrapping<u64>>>, group_size: usize) -> Result
 
 //Not in ring
 pub fn create_selection_vectors(quant: usize, size: usize, ctx: &mut Context) -> Result<Vec<Vec<Wrapping<u64>>>, Box<dyn Error> >{
-    let seed = [12345usize];
+    let seed = [1234usize];
     let mut rng = rand::StdRng::from_seed(&seed);
 
     let mut results: Vec<Vec<Wrapping<u64>>> = vec![];
@@ -190,7 +198,7 @@ pub fn create_selection_vectors(quant: usize, size: usize, ctx: &mut Context) ->
 }
 //in ring
 pub fn create_random_ratios(quant: usize, ctx: &mut Context) -> Result<Vec<Wrapping<u64>>, Box<dyn Error> >{
-    let seed = [12345usize];
+    let seed = [1234usize];
     let mut rng = rand::StdRng::from_seed(&seed);
     let upper_bound = 1 << ctx.num.precision_frac;
 
