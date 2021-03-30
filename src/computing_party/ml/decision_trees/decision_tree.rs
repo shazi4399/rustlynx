@@ -53,7 +53,6 @@ pub fn sid3t(input: &Vec<Vec<Vec<Wrapping<u64>>>>, class: &Vec<Vec<Vec<Wrapping<
     let decimal_precision = ctx.num.precision_frac;
     let bin_count = train_ctx.bin_count;
     let feat_count = attribute_count / bin_count; //How many features are represented within the subset
-    //let mut layer_data: Vec<LayerData> = vec![];
     let mut treenodes: Vec<Vec<TreeNode>> = vec![vec![]; tree_count];
     for t in 0..tree_count {
         treenodes[t].push(TreeNode {
@@ -364,10 +363,10 @@ pub fn sid3t(input: &Vec<Vec<Vec<Wrapping<u64>>>>, class: &Vec<Vec<Vec<Wrapping<
         let mut chosen_splits = vec![];
         for i in 0 .. number_of_nodes_to_process {
             let outer_iter = feat_count * (bin_count - 1);
-            let mut node_splits = vec![Wrapping(0u64); (bin_count - 1) * feat_count];
+            let mut node_splits = vec![Wrapping(0u64); bin_count - 1];
             for j in 0 .. feat_count {
                 for k in 0 .. (bin_count - 1) {
-                    node_splits[j * (bin_count - 1) + k] += chosen_split_points_uncompressed[i * outer_iter + j * (bin_count - 1) + k];
+                    node_splits[k] += chosen_split_points_uncompressed[i * outer_iter + j * (bin_count - 1) + k];
                 }
             }
             chosen_splits.push(node_splits);
