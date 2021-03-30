@@ -18,6 +18,7 @@ use std::time::SystemTime;
 pub fn multiply(x: &Vec<Wrapping<u64>>, y: &Vec<Wrapping<u64>>, ctx: &mut Context) 
     -> Result<Vec<Wrapping<u64>>, Box<dyn Error>> {
 
+    assert!(x.len() == y.len());
     let len = x.len();
     let asymm = Wrapping(ctx.num.asymm);
 
@@ -627,7 +628,6 @@ pub fn matmul(x: &Vec<Vec<Wrapping<u64>>>, y: &Vec<Vec<Wrapping<u64>>>, ctx: &mu
                 let entry: Wrapping<u64> = rev_x[i].iter().zip(rev_y[j].iter()).map(|(x_ij, y_ji)| x_ij * y_ji).sum();
                 row.push(entry);
             }
-            print!("{:?}",row);
             result.push(row);
         }
         return Ok(result);
