@@ -148,7 +148,7 @@ pub fn sid3t(input: &Vec<Vec<Vec<Wrapping<u64>>>>, class: &Vec<Vec<Vec<Wrapping<
                 for n in 0 .. nodes_to_process_per_tree {
                     treenodes[t].push(TreeNode {
                         attribute_sel_vec: vec![Wrapping(0u64); feat_count],
-                        classification: chosen_classifications_corrected[t * nodes_to_process_per_tree + n] >> decimal_precision,
+                        classification: chosen_classifications_corrected[t * nodes_to_process_per_tree + n],
                         split_point: vec![Wrapping(0)],
                     });
                 }
@@ -389,7 +389,7 @@ pub fn sid3t(input: &Vec<Vec<Vec<Wrapping<u64>>>>, class: &Vec<Vec<Vec<Wrapping<
             for n in 0 .. nodes_to_process_per_tree {
                 treenodes[t].push(TreeNode {
                     attribute_sel_vec: selected_fsvs[t * nodes_to_process_per_tree + n].clone(),
-                    classification: chosen_classifications_corrected[t * nodes_to_process_per_tree + n] >> decimal_precision,
+                    classification: chosen_classifications_corrected[t * nodes_to_process_per_tree + n],
                     split_point: chosen_splits[t * nodes_to_process_per_tree + n].clone(),
                 });
             }

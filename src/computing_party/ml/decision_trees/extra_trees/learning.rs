@@ -38,11 +38,11 @@ pub fn run(ctx: &mut Context) -> Result<(), Box<dyn Error>> {
     }
 
     
-    // let mut file = File::open("treedata/rev_trees.json")?;
-    // let mut contents = String::new();
-    // file.read_to_string(&mut contents)?;
+    let mut file = File::open("treedata/rev_trees.json")?;
+    let mut contents = String::new();
+    file.read_to_string(&mut contents)?;
 
-    // let trees: Vec<Vec<TreeNode>> = serde_json::from_str(&contents)?;
+    let trees: Vec<Vec<TreeNode>> = serde_json::from_str(&contents)?;
     let results = classify_in_the_clear(&trees, &test_data_open, &test_lab_open, infctx)?;
     
     println!("{}", results);
