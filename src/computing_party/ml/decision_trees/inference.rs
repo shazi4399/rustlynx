@@ -3,8 +3,6 @@ use std::num::Wrapping;
 use std::io::Read;
 use super::super::super::Context;
 use super::decision_tree::TreeNode;
-use super::decision_tree::TrainingContext;
-use crate::computing_party::protocol;
 
 #[derive(Default)]
 pub struct InferenceContext {
@@ -21,10 +19,10 @@ pub fn run(ctx: &mut Context) -> Result<(), Box<dyn Error>> {
 }
 
 
-pub fn classify_in_the_clear(transactions: &Vec<Vec<Wrapping<u64>>>, labels: &Vec<Wrapping<u64>>, train_ctx: TrainingContext) 
+pub fn classify_in_the_clear(transactions: &Vec<Vec<Wrapping<u64>>>, labels: &Vec<Wrapping<u64>>, infer_ctx: InferenceContext) 
     -> Result<f64, Box<dyn Error>> {
 
-        let bin_count = train_ctx.bin_count;
+        let bin_count = infer_ctx.bin_count;
 
         let mut file = std::fs::File::open("rustlynx\\treedata\\rev_trees.json").unwrap();
         let mut contents = String::new();
@@ -43,7 +41,7 @@ pub fn classify_in_the_clear(transactions: &Vec<Vec<Wrapping<u64>>>, labels: &Ve
 
         for transaction in transactions {
 
-            let mut votes = vec![0; train_ctx.class_label_count];
+            let mut votes = vec![0; infer_ctx.class_label_count];
 
             for tree in ensemble.clone() {
 
