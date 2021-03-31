@@ -3,8 +3,6 @@ use std::num::Wrapping;
 use std::io::Read;
 use super::super::super::Context;
 use super::decision_tree::TreeNode;
-use super::decision_tree::TrainingContext;
-use crate::computing_party::protocol;
 
 #[derive(Default)]
 pub struct InferenceContext {
@@ -21,12 +19,12 @@ pub fn run(ctx: &mut Context) -> Result<(), Box<dyn Error>> {
 }
 
 
-pub fn classify_in_the_clear(transactions: &Vec<Vec<Wrapping<u64>>>, labels: &Vec<Wrapping<u64>>, train_ctx: TrainingContext) 
-    -> Result<Vec<Vec<Wrapping<u64>>>, Box<dyn Error>> {
+pub fn classify_in_the_clear(transactions: &Vec<Vec<Wrapping<u64>>>, labels: &Vec<Wrapping<u64>>, infer_ctx: InferenceContext) 
+    -> Result<f64, Box<dyn Error>> {
 
-        let bin_count = train_ctx.bin_count;
+        let bin_count = infer_ctx.bin_count;
 
-        let mut file = std::fs::File::open("rustlynx\treedata\rev_trees.json").unwrap();
+        let mut file = std::fs::File::open("rustlynx\\treedata\\rev_trees.json").unwrap();
         let mut contents = String::new();
         file.read_to_string(&mut contents).unwrap();
         
@@ -39,7 +37,11 @@ pub fn classify_in_the_clear(transactions: &Vec<Vec<Wrapping<u64>>>, labels: &Ve
 
         println!("{}", depth);
 
+        let mut transaction_index = 0;
+
         for transaction in transactions {
+
+            let mut votes = vec![0; infer_ctx.class_label_count];
 
             for tree in ensemble.clone() {
 
@@ -49,7 +51,7 @@ pub fn classify_in_the_clear(transactions: &Vec<Vec<Wrapping<u64>>>, labels: &Ve
 
                     let chosen_attr = tree[current_node].attribute_sel_vec[0].0 as usize;
                     let splits = tree[current_node].split_point.clone();
-                    let classification = tree[current_node].classification.0 as usize;
+                    
                     
                     let val = transaction[chosen_attr];
 
@@ -61,18 +63,34 @@ pub fn classify_in_the_clear(transactions: &Vec<Vec<Wrapping<u64>>>, labels: &Ve
 
                     current_node = bin_count * current_node + bin;
 
-                    // need to know the classification...
+                    if d + 1 == depth {
+                        votes[tree[current_node].classification.0 as usize] += 1;
+                    }
 
                 }
-
                 
-
             }
+
+            let mut largest_index = 0;
+            let mut largest = votes[largest_index];
+
+            for i in 1.. votes.len() {
+                if largest < votes[i] {
+                    largest_index = i;
+                    largest = votes[i];
+                }
+            }
+
+            if labels[transaction_index].0 as usize == largest_index {
+                correctly_classified += 1;
+            }
+
+            transaction_index += 1;
 
         }
 
 
-        Ok(vec![])
+        Ok((correctly_classified as f64) / (total_rows as f64))
     }
 
 //BIG problem for efficiency in RF rn, need to figure that out
