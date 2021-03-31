@@ -121,7 +121,7 @@ fn parse_ml_settings(phase: &String, model: &String, settings: &config::Config) 
 		} else if phase == "inference" {
 			ml_phase = Some(MLPhase::Inference);
 			cfg = settings.get_str("ml.extratrees.inference_cfg")?;
-			callable = Some(super::ml::naive_bayes::inference::run);
+			callable = Some(super::ml::decision_trees::extra_trees::inference::run);
 		} else {
 			return Err("invalid ml.phase".into())
 		}	
@@ -130,11 +130,11 @@ fn parse_ml_settings(phase: &String, model: &String, settings: &config::Config) 
 		if phase == "learning" {
 			ml_phase = Some(MLPhase::Learning);
 			cfg = settings.get_str("ml.randomforest.learning_cfg")?;
-			callable = Some(super::ml::decision_trees::learning::run);
+			callable = Some(super::ml::decision_trees::random_forest::learning::run);
 		} else if phase == "inference" {
 			ml_phase = Some(MLPhase::Inference);
 			cfg = settings.get_str("ml.randomforest.inference_cfg")?;
-			callable = Some(super::ml::naive_bayes::inference::run);
+			callable = Some(super::ml::decision_trees::random_forest::inference::run);
 		} else {
 			return Err("invalid ml.phase".into())
 		}	
