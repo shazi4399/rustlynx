@@ -3,10 +3,12 @@ use std::num::Wrapping;
 use super::super::super::super::Context;
 use super::extra_trees::*;
 use super::super::decision_tree::*;
+use super::super::inference::classify_in_the_clear;
 use crate::io;
 use crate::util;
 use serde_json;
 use crate::computing_party::protocol;
+use super::inference;
 
 pub fn run(ctx: &mut Context) -> Result<(), Box<dyn Error>> {
     let (mut xt_ctx, data, classes) = init(&ctx.ml.cfg)?;
@@ -19,8 +21,12 @@ pub fn run(ctx: &mut Context) -> Result<(), Box<dyn Error>> {
     let mut rev_trees = vec![];
     trees.iter().for_each(|x| rev_trees.push(reveal_tree(x, ctx).unwrap()));
     if ctx.num.asymm == 1 {
-        io::write_to_file("treedata/rev_trees.json", &serde_json::to_string(&rev_trees)?)?;
+        io::write_to_file("treedata/rev_trees.json", &serde_json::to_string_pretty(&rev_trees)?)?;
     }
+    let path = format!("cfg/ml/extratrees/inference{}.toml", ctx.num.asymm);
+    let (_, test_data, test_lab, infctx) = inference::init(&path, true)?;
+    let results = classify_in_the_clear(&test_data, &test_lab, infctx)?;
+    
     Ok(())
 }
 
