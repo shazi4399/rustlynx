@@ -2,6 +2,8 @@ use std::error::Error;
 use std::num::Wrapping;
 use super::super::super::super::Context;
 use super::extra_trees::*;
+use std::fs::File;
+use std::io::prelude::*;
 use super::super::decision_tree::*;
 use super::super::inference::classify_in_the_clear;
 use crate::io;
@@ -24,9 +26,27 @@ pub fn run(ctx: &mut Context) -> Result<(), Box<dyn Error>> {
         io::write_to_file("treedata/rev_trees.json", &serde_json::to_string_pretty(&rev_trees)?)?;
     }
     let path = format!("cfg/ml/extratrees/inference{}.toml", ctx.num.asymm);
-    let (_, test_data, test_lab, infctx) = inference::init(&path, true)?;
-    let results = classify_in_the_clear(&test_data, &test_lab, infctx)?;
+    let (trees, test_data, test_lab, infctx) = inference::init(&path, true)?;
+
+    // --------------
+    // Done to streamline testing, in general, the inference should be seperate from the learning phase
+    let mut test_data_open = vec![];
+    let test_lab_open = protocol::open(&test_lab, ctx)?;
+
+    for row in test_data{
+        test_data_open.push(protocol::open(&row, ctx)?);
+    }
+
     
+    let mut file = File::open("treedata/rev_trees.json")?;
+    let mut contents = String::new();
+    file.read_to_string(&mut contents)?;
+
+    let trees: Vec<Vec<TreeNode>> = serde_json::from_str(&contents)?;
+    let results = classify_in_the_clear(&trees, &test_data_open, &test_lab_open, infctx)?;
+    
+    println!("{}", results);
+
     Ok(())
 }
 

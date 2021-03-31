@@ -3,7 +3,6 @@ use std::num::Wrapping;
 use std::io::Read;
 use super::super::super::Context;
 use super::decision_tree::TreeNode;
-
 #[derive(Default)]
 pub struct InferenceContext {
     pub instance_count: usize,
@@ -19,40 +18,35 @@ pub fn run(ctx: &mut Context) -> Result<(), Box<dyn Error>> {
 }
 
 
-pub fn classify_in_the_clear(transactions: &Vec<Vec<Wrapping<u64>>>, labels: &Vec<Wrapping<u64>>, infer_ctx: InferenceContext) 
+pub fn classify_in_the_clear(trees: &Vec<Vec<TreeNode>>, transactions: &Vec<Vec<Wrapping<u64>>>, labels: &Vec<Wrapping<u64>>, infer_ctx: InferenceContext) 
     -> Result<f64, Box<dyn Error>> {
 
         let bin_count = infer_ctx.bin_count;
 
-        let mut file = std::fs::File::open("rustlynx\\treedata\\rev_trees.json").unwrap();
-        let mut contents = String::new();
-        file.read_to_string(&mut contents).unwrap();
         
-        let mut ensemble: Vec<Vec<TreeNode>> = serde_json::from_str(&contents)?;
-
+        let mut ensemble = trees.clone();
         let mut correctly_classified = 0;
         let total_rows =  transactions.len();
 
-        let depth = (63-(ensemble[0].len() - 1).leading_zeros() as i8) as usize; // log_2
-
-        println!("{}", depth);
+        let depth = infer_ctx.max_depth - 1;
 
         let mut transaction_index = 0;
 
         for transaction in transactions {
 
             let mut votes = vec![0; infer_ctx.class_label_count];
+            let mut vote = 0;
 
+            let mut tree_count = -1;
             for tree in ensemble.clone() {
-
+                tree_count += 1;
                 let mut current_node = 1;
 
                 for d in 0.. depth {
 
                     let chosen_attr = tree[current_node].attribute_sel_vec[0].0 as usize;
                     let splits = tree[current_node].split_point.clone();
-                    
-                    
+             
                     let val = transaction[chosen_attr];
 
                     let mut bin = 0;
@@ -63,8 +57,11 @@ pub fn classify_in_the_clear(transactions: &Vec<Vec<Wrapping<u64>>>, labels: &Ve
 
                     current_node = bin_count * current_node + bin;
 
+                    vote += tree[current_node].classification.0 as usize;
+
+                    println!("{}", tree_count);
                     if d + 1 == depth {
-                        votes[tree[current_node].classification.0 as usize] += 1;
+                        votes[vote] += 1;
                     }
 
                 }
