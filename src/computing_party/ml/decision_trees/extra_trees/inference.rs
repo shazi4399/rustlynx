@@ -2,6 +2,7 @@ use std::error::Error;
 use super::super::super::super::Context;
 use std::num::Wrapping;
 use super::super::decision_tree::TreeNode;
+use super::super::inference::classify_in_the_clear;
 use super::super::inference::{InferenceContext,};
 use crate::io;
 use crate::util;
@@ -9,10 +10,11 @@ use crate::util;
 pub fn run(ctx: &mut Context) -> Result<(), Box<dyn Error>> {
     let (trees, data, labels, inf_ctx) = init(&ctx.ml.cfg)?;
     //batch_classify(&data, &trees, inf_ctx, ctx);
+    let acc = classify_in_the_clear(&data, &labels, inf_ctx);
     Ok(())
 }
 
-pub fn init(cfg_file: &String) -> Result<(Vec<Vec<TreeNode>>, Vec<Vec<Wrapping<u64>>>, Vec<Vec<Wrapping<u64>>>, InferenceContext), Box<dyn Error>> {
+pub fn init(cfg_file: &String) -> Result<(Vec<Vec<TreeNode>>, Vec<Vec<Wrapping<u64>>>, Vec<Wrapping<u64>>, InferenceContext), Box<dyn Error>> {
     let mut settings = config::Config::default();
     settings
         .merge(config::File::with_name(cfg_file.as_str())).unwrap()
@@ -29,6 +31,7 @@ pub fn init(cfg_file: &String) -> Result<(Vec<Vec<TreeNode>>, Vec<Vec<Wrapping<u
     let mut classes = io::matrix_csv_to_wrapping_vec(&settings.get_str("classes")?)?;
 
     classes = util::transpose(&classes)?;
+    let classes_single_col = classes[0].clone();
 
     let ic = InferenceContext {
         instance_count,
@@ -38,5 +41,5 @@ pub fn init(cfg_file: &String) -> Result<(Vec<Vec<TreeNode>>, Vec<Vec<Wrapping<u
         max_depth,
     };
 
-    Ok((trees, data, classes, ic))
+    Ok((trees, data, classes_single_col, ic))
 }
