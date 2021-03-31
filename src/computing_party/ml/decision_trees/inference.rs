@@ -35,12 +35,11 @@ pub fn classify_in_the_clear(trees: &Vec<Vec<TreeNode>>, transactions: &Vec<Vec<
         for transaction in transactions {
 
             let mut votes = vec![0; infer_ctx.class_label_count];
-            let mut vote = 0;
-
-            let mut tree_count = -1;
 
             for tree in ensemble {
-                tree_count += 1;
+
+                let mut vote = 0;
+                
                 let mut current_node = 1;
 
                 for d in 0.. depth {
@@ -58,7 +57,6 @@ pub fn classify_in_the_clear(trees: &Vec<Vec<TreeNode>>, transactions: &Vec<Vec<
 
                     current_node = bin_count * current_node + bin;
 
-                    println!("{}", tree[current_node].classification.0 as usize);
                     vote += tree[current_node].classification.0 as usize;
 
                     if d + 1 == depth {
