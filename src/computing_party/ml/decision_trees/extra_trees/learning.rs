@@ -31,19 +31,22 @@ pub fn run(ctx: &mut Context) -> Result<(), Box<dyn Error>> {
     // --------------
     // Done to streamline testing, in general, the inference should be seperate from the learning phase
     let mut test_data_open = vec![];
+
     let test_lab_open = protocol::open(&test_lab, ctx)?;
+
+    let test_lab_open_trunc: Vec<u64> = test_lab_open.iter().map(|x| x.0 >> ctx.num.precision_frac).collect();
 
     for row in test_data{
         test_data_open.push(protocol::open(&row, ctx)?);
     }
 
     
-    let mut file = File::open("treedata/rev_trees.json")?;
-    let mut contents = String::new();
-    file.read_to_string(&mut contents)?;
+    //let mut file = File::open("treedata/rev_trees.json")?;
+    // let mut contents = String::new();
+    // file.read_to_string(&mut contents)?;
 
-    let trees: Vec<Vec<TreeNode>> = serde_json::from_str(&contents)?;
-    let results = classify_in_the_clear(&trees, &test_data_open, &test_lab_open, infctx)?;
+    // let trees: Vec<Vec<TreeNode>> = serde_json::from_str(&contents)?;
+    let results = classify_in_the_clear(&trees, &test_data_open, &test_lab_open_trunc, infctx)?;
     
     println!("{}", results);
 

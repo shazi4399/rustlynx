@@ -11,7 +11,7 @@ use crate::util;
 pub fn run(ctx: &mut Context) -> Result<(), Box<dyn Error>> {
     let (trees, data, labels, inf_ctx) = init(&ctx.ml.cfg, false)?;
     //batch_classify(&data, &trees, inf_ctx, ctx);
-    let acc = classify_in_the_clear(&trees, &data, &labels, inf_ctx);
+    // let acc = classify_in_the_clear(&trees, &data, &labels, inf_ctx);
     Ok(())
 }
 
@@ -32,7 +32,7 @@ pub fn init(cfg_file: &String, no_tree_load:bool) -> Result<(Vec<Vec<TreeNode>>,
     let mut classes = io::matrix_csv_to_wrapping_vec(&settings.get_str("classes")?)?;
 
     classes = util::transpose(&classes)?;
-    let classes_single_col = classes[0].clone();
+    let classes_single_col = classes[1].clone();
 
     let ic = InferenceContext {
         instance_count,

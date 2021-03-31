@@ -18,7 +18,7 @@ pub fn run(ctx: &mut Context) -> Result<(), Box<dyn Error>> {
 }
 
 
-pub fn classify_in_the_clear(trees: &Vec<Vec<TreeNode>>, transactions: &Vec<Vec<Wrapping<u64>>>, labels: &Vec<Wrapping<u64>>, infer_ctx: InferenceContext) 
+pub fn classify_in_the_clear(trees: &Vec<Vec<TreeNode>>, transactions: &Vec<Vec<Wrapping<u64>>>, labels: &Vec<u64>, infer_ctx: InferenceContext) 
     -> Result<f64, Box<dyn Error>> {
 
         let bin_count = infer_ctx.bin_count;
@@ -78,7 +78,8 @@ pub fn classify_in_the_clear(trees: &Vec<Vec<TreeNode>>, transactions: &Vec<Vec<
                 }
             }
 
-            if labels[transaction_index].0 as usize == largest_index {
+            println!("{:?}", labels[transaction_index]);
+            if labels[transaction_index] as usize == largest_index {
                 correctly_classified += 1;
             }
 
