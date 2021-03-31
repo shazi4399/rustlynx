@@ -117,6 +117,7 @@ pub fn sid3t(input: &Vec<Vec<Vec<Wrapping<u64>>>>, class: &Vec<Vec<Vec<Wrapping<
         }
 
         let frequencies_argmax = most_frequent_class(&frequencies_flat.clone(), number_of_nodes_to_process, ctx, train_ctx)?;
+        // frequencies_argmax.iter().for_each(|x| println!("frequencies_argmax{:?}", protocol::open(&x, ctx).unwrap()));
         let mut chosen_classifications: Vec<Wrapping<u64>> = vec![];
         // STEP 2: max_depth exit condition
         // let mut indices: Vec<Wrapping<u64>> = (0u64 .. class_label_count as u64).map(|x| Wrapping(x << decimal_precision)).collect(); //put into ring, as they aren't always either 0 or 1
@@ -129,18 +130,20 @@ pub fn sid3t(input: &Vec<Vec<Vec<Wrapping<u64>>>>, class: &Vec<Vec<Vec<Wrapping<
         }
 
         if max_depth {   
-            // println!("ances_class_bits{:?}", reveal(&ances_class_bits, ctx, ctx.decimal_precision, false, false));
+            // println!("chosen_classifications{:?}", protocol::open(&chosen_classifications, ctx)?);
+            // println!("ances_class_bits{:?}", protocol::open(&ances_class_bits, ctx)?);
 
-            let asym_exp = vec![Wrapping(asymmetric_bit); number_of_nodes_to_process];
+            // let asym_exp = vec![Wrapping(asymmetric_bit); number_of_nodes_to_process];
 
-            let ances_xor_asym = protocol::xor(&ances_class_bits, &asym_exp, ctx)?;
+            let ances_class_bits_neg = ances_class_bits.iter().map(|x| -x + Wrapping(asymmetric_bit)).collect();
+            // println!("ances_class_bits_neg{:?}", protocol::open(&ances_class_bits_neg, ctx)?);
             // println!("ances_xor_asym{:?}", reveal(&ances_xor_asym, ctx, ctx.decimal_precision, false, false));
 
-            let this_layer_classifies = protocol::multiply(&ances_xor_asym, &vec![Wrapping(asymmetric_bit); number_of_nodes_to_process], ctx)?; //because we always want to try to classify as a leaf
+            // let this_layer_classifies = protocol::multiply(&ances_xor_asym, &vec![Wrapping(asymmetric_bit); number_of_nodes_to_process], ctx)?; //because we always want to try to classify as a leaf
             // println!("this_layer_classifies{:?}", reveal(&this_layer_classifies, ctx, ctx.decimal_precision, false, false));
 
-            let chosen_classifications_corrected = protocol::multiply(&chosen_classifications, &this_layer_classifies, ctx)?;
-            // println!("chosen_classifications_corrected{:?}", reveal(&chosen_classifications_corrected, ctx, ctx.decimal_precision, true, false));
+            let chosen_classifications_corrected = protocol::multiply(&chosen_classifications, &ances_class_bits_neg, ctx)?;
+            println!("chosen_classifications_corrected{:?}", protocol::open(&chosen_classifications_corrected, ctx)?);
             for t in 0 .. tree_count {
                 for n in 0 .. nodes_to_process_per_tree {
                     treenodes[t].push(TreeNode {
@@ -173,8 +176,14 @@ pub fn sid3t(input: &Vec<Vec<Vec<Wrapping<u64>>>>, class: &Vec<Vec<Vec<Wrapping<
             &protocol::z2_to_zq(&comparisons1, ctx)?,
             &protocol::z2_to_zq(&comparisons2, ctx)?,
             ctx)?;
+
         
-        let is_constant_class: Vec<Wrapping<u64>> = equality_array.chunks(class_label_count).map(|x| x.into_iter().sum()).collect();
+
+
+        // println!("equality_array: {:?}", protocol::open(&equality_array, ctx)?);
+        let is_constant_class_sum: Vec<Wrapping<u64>> = equality_array.chunks(class_label_count).map(|x| x.into_iter().sum()).collect();
+        let is_constant_class: Vec<Wrapping<u64>> =protocol::z2_to_zq(&protocol::batch_geq(&is_constant_class_sum, &vec![Wrapping(asymmetric_bit); is_constant_class_sum.len()], ctx)?, ctx)?;
+        // println!("is_constant_class: {:?}", protocol::open(&is_constant_class, ctx)?);
         // will come out to be [1] if it is, [0] otherwise
         // let mut contains_constant_class = vec![];
         // for v in 0 .. size_of_tbvs.len() {
@@ -202,10 +211,13 @@ pub fn sid3t(input: &Vec<Vec<Vec<Wrapping<u64>>>>, class: &Vec<Vec<Vec<Wrapping<
         let n_is_too_small = protocol::z2_to_zq(
             &protocol::batch_geq(&total_size_array, &size_of_tbv_array, ctx)?,
             ctx)?;
+        // println!("n_is_too_small: {:?}", protocol::open(&n_is_too_small, ctx)?);
         let ances_class_bits_neg = ances_class_bits.iter().map(|x| -x + Wrapping(asymmetric_bit)).collect();
+        // println!("ances_class_bits_neg: {:?}", protocol::open(&ances_class_bits_neg, ctx)?);
 
         // will be [0] if node does not classify data, [1] otherwise
         let this_layer_classifies = protocol::multiply(&protocol::or(&n_is_too_small, &is_constant_class, ctx)?, &ances_class_bits_neg, ctx)?;
+        // println!("this_layer_classifies: {:?}", protocol::open(&this_layer_classifies, ctx)?);
 
         // STEP 4: GINI impurity
         //2d
@@ -240,9 +252,9 @@ pub fn sid3t(input: &Vec<Vec<Vec<Wrapping<u64>>>>, class: &Vec<Vec<Vec<Wrapping<
         let gini_argmax = gini_impurity(&input_subsets, &and_results.clone(), number_of_nodes_to_process, ctx, train_ctx);
 
         let gini_argmax_rev: Vec<Vec<Wrapping<u64>>> = gini_argmax.iter().map(|x| protocol::open(&x, ctx).unwrap()).collect();
-        for i in 0 .. number_of_nodes_to_process {
-            println!("GINI ARGMAX FOR NODE {:?}: ", gini_argmax_rev[i]);
-        }
+        // for i in 0 .. number_of_nodes_to_process {
+        //     println!("GINI ARGMAX FOR NODE {:?}: ", gini_argmax_rev[i]);
+        // }
 
         // STEP 5: Create data structures for next layer based on step 4
 
@@ -256,8 +268,11 @@ pub fn sid3t(input: &Vec<Vec<Vec<Wrapping<u64>>>>, class: &Vec<Vec<Vec<Wrapping<
         }
 
         chosen_classifications = dot_product(&frequencies_argmax.clone().into_iter().flatten().collect(), &indices_exp, class_label_count, ctx)?;
+        // println!("chosen_classifications: {:?}", protocol::open(&chosen_classifications, ctx)?);
         let chosen_classifications_corrected = protocol::multiply(&chosen_classifications, &this_layer_classifies, ctx)?;
+        // println!("chosen_classifications_corrected: {:?}", protocol::open(&chosen_classifications_corrected, ctx)?);
         let next_layer_classification_bits = protocol::or(&this_layer_classifies, &ances_class_bits, ctx)?;
+        // println!("next_layer_classification_bits: {:?}", protocol::open(&next_layer_classification_bits, ctx)?);
 
         //for each node to process
         //
@@ -306,7 +321,6 @@ pub fn sid3t(input: &Vec<Vec<Vec<Wrapping<u64>>>>, class: &Vec<Vec<Vec<Wrapping<
             selected_fsvs.push(processed_fsv); //the corresponding fsv to the index of the gini argmax
         }
 
-
         let mut select_best_feat_vec = vec![];
         for i in 0 .. number_of_nodes_to_process {
             for j in 0 .. feat_count {
@@ -329,17 +343,15 @@ pub fn sid3t(input: &Vec<Vec<Vec<Wrapping<u64>>>>, class: &Vec<Vec<Vec<Wrapping<
         for i in 0 .. number_of_nodes_to_process {
             let nps = instance_count * attribute_count; //number per set
             let bin_indexer = instance_count * bin_count;
-            let mut bins = vec![];
-            for j in 0 .. bin_count {
-                let mut bin = vec![Wrapping(0); instance_count];
-                for k in 0 .. feat_count {
+            let mut bins = vec![vec![Wrapping(0); instance_count]; bin_count];
+            for j in 0 .. feat_count {
+                for k in 0 .. bin_count {
                     for l in 0 .. instance_count {
-                        bin[l] += selected_columns_flat[i*nps + k * bin_indexer + l];
+                        bins[k][l] += selected_columns_flat[i*nps + j* bin_indexer + k*instance_count + l];
                     }
                 }
-                bins.append(&mut bin);
             }
-            chosen_bins.append(&mut bins);
+            chosen_bins.append(&mut bins.into_iter().flatten().collect());
         }
         let mut tbv_exp = vec![];
         for i in 0 .. tree_count {
@@ -350,6 +362,7 @@ pub fn sid3t(input: &Vec<Vec<Vec<Wrapping<u64>>>>, class: &Vec<Vec<Vec<Wrapping<
         }
         let new_tbvs_flat = protocol::multiply(&chosen_bins, &tbv_exp, ctx)?;
         let new_tbvs : Vec<Vec<Wrapping<u64>>> = new_tbvs_flat.chunks(instance_count).map(|x| x.to_vec()).collect();
+        // new_tbvs.iter().for_each(|x| println!("new_tbvs: {:?}", protocol::open(&x, ctx).unwrap()));
         
         let mut split_points_flat: Vec<Wrapping<u64>> = vec![];
         for i in 0 .. tree_count {
@@ -371,7 +384,6 @@ pub fn sid3t(input: &Vec<Vec<Vec<Wrapping<u64>>>>, class: &Vec<Vec<Vec<Wrapping<
             }
             chosen_splits.push(node_splits);
         }
-        
         
         for t in 0 .. tree_count {
             for n in 0 .. nodes_to_process_per_tree {
@@ -709,7 +721,7 @@ pub fn gini_impurity(input: &Vec<Vec<Vec<Wrapping<u64>>>>, u_decimal: &Vec<Wrapp
             // D_exclude_j.append(y_vals_exclude_j); what we should do?
         }
         D_include_j[n] = protocol::pairwise_mult_zq(&y_vals_include_j, ctx).unwrap();
-        println!("include {:?}", protocol::open(&D_include_j[n], ctx).unwrap()); //test
+        // println!("include {:?}", protocol::open(&D_include_j[n], ctx).unwrap()); //test
         // D_include_j.append(y_vals_include_j); what we should do?
     }
 
