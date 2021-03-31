@@ -26,7 +26,7 @@ pub fn classify_in_the_clear(transactions: &Vec<Vec<Wrapping<u64>>>, labels: &Ve
 
         let bin_count = train_ctx.bin_count;
 
-        let mut file = std::fs::File::open("rustlynx\treedata\rev_trees.json").unwrap();
+        let mut file = std::fs::File::open("rustlynx\\treedata\\rev_trees.json").unwrap();
         let mut contents = String::new();
         file.read_to_string(&mut contents).unwrap();
         
