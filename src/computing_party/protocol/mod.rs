@@ -8,6 +8,7 @@ use std::error::Error;
 use std::num::Wrapping;
 use std::cmp;
 use std::time::SystemTime;
+use crate::computing_party::ml::decision_trees::random_forest::random_forest::{BATCH_SIZE, BUF_SIZE};
 
 /*
     Input: two vectors x, y of n secret shares in Z_2^64
@@ -775,7 +776,365 @@ pub fn minmax_batch(
     Ok((mins, maxs))
 }
 
+pub fn batch_bitwise_and_submodule(x_list: [u64; BATCH_SIZE],
+                                   y_list: [u64; BATCH_SIZE],
+                                   tx_len: usize,
+                                   ctx: &mut Context) -> [u64; BATCH_SIZE] {
+    let asymmetric_bit = ctx.num.asymm as u64;
+    let inversion_mask: u64 = (-Wrapping(asymmetric_bit)).0;
 
+    let mut in_stream = ctx.net.external.tcp.as_ref().unwrap()[i].istream.try_clone()
+        .expect("rustlynx::computing_party::protocol::multiply: failed cloning tcp istream");
+    let mut o_stream = ctx.net.external.tcp.as_ref().unwrap()[i].ostream.try_clone()
+        .expect("rustlynx::computing_party::protocol::multiply: failed cloning tcp ostream");
+
+    let mut u_list = [0u64; BATCH_SIZE];
+    let mut v_list = [0u64; BATCH_SIZE];
+    let mut w_list = [0u64; BATCH_SIZE];
+    let mut d_list = [0u64; BATCH_SIZE];
+    let mut e_list = [0u64; BATCH_SIZE];
+    let mut z_list = [0u64; BATCH_SIZE];
+
+    {
+        for i in 0..tx_len {
+
+            //let (u, v, w) = corr_rand_xor.pop().unwrap();
+            let (u, v, w) = if asymmetric_bit == 1 { CR_BIN_1 } else { CR_BIN_0 };
+
+            u_list[i] = u;
+            v_list[i] = v;
+            w_list[i] = w;
+
+            d_list[i] = x_list[i] ^ u;
+            e_list[i] = y_list[i] ^ v;
+        }
+    }
+
+    let mut tx_buf = Xbuffer { u8_buf: [0u8; BUF_SIZE] };
+    let mut rx_buf = Xbuffer { u8_buf: [0u8; BUF_SIZE] };
+
+    for i in (0..2 * tx_len).step_by(2) {
+        let d = d_list[i / 2];
+        let e = e_list[i / 2];
+
+        unsafe {
+            tx_buf.u64_buf[i] = d;
+            tx_buf.u64_buf[i + 1] = e;
+        }
+    }
+
+    if asymmetric_bit == 1u64 {
+        let mut bytes_written = 0;
+        while bytes_written < BUF_SIZE {
+            let current_bytes = unsafe {
+                o_stream.write(&tx_buf.u8_buf[bytes_written..]).unwrap()
+            };
+            bytes_written += current_bytes;
+        }
+
+        let mut bytes_read = 0;
+        while bytes_read < BUF_SIZE {
+            let current_bytes = unsafe {
+                match in_stream.read(&mut rx_buf.u8_buf[bytes_read..]) {
+                    Ok(size) => size,
+                    Err(_) => panic!("couldn't read"),
+                }
+            };
+            bytes_read += current_bytes;
+        }
+    } else {
+        let mut bytes_read = 0;
+        while bytes_read < BUF_SIZE {
+            let current_bytes = unsafe {
+                match in_stream.read(&mut rx_buf.u8_buf[bytes_read..]) {
+                    Ok(size) => size,
+                    Err(_) => panic!("couldn't read"),
+                }
+            };
+            bytes_read += current_bytes;
+        }
+
+        let mut bytes_written = 0;
+        while bytes_written < BUF_SIZE {
+            let current_bytes = unsafe {
+                o_stream.write(&tx_buf.u8_buf[bytes_written..]).unwrap()
+            };
+            bytes_written += current_bytes;
+        }
+    }
+
+    for i in (0..2 * tx_len).step_by(2) {
+        let d = d_list[i / 2] ^ unsafe { rx_buf.u64_buf[i] };
+        let e = e_list[i / 2] ^ unsafe { rx_buf.u64_buf[i + 1] };
+
+        let u = u_list[i / 2];
+        let v = v_list[i / 2];
+        let w = w_list[i / 2];
+
+        z_list[i / 2] = w ^ (d & v) ^ (u & e) ^ (d & e & inversion_mask);
+    }
+
+    z_list
+}
+
+pub fn batch_bitwise_and(x_list: &Vec<u64>,
+                         y_list: &Vec<u64>,
+                         ctx: &mut Context,
+                         invert_output: bool) -> Vec<u64> {
+    let len = (*x_list).len();
+    let mut z_list: Vec<u64> = vec![0u64; len];
+
+    let mut remainder = len;
+    let mut index = 0;
+    while remainder > BATCH_SIZE {
+        let mut x_sublist = [0u64; BATCH_SIZE];
+        let mut y_sublist = [0u64; BATCH_SIZE];
+
+        x_sublist.clone_from_slice(&(x_list[BATCH_SIZE * index..BATCH_SIZE * (index + 1)]));
+        y_sublist.clone_from_slice(&(y_list[BATCH_SIZE * index..BATCH_SIZE * (index + 1)]));
+
+        let z_sublist = batch_bitwise_and_submodule(x_sublist, y_sublist, BATCH_SIZE, ctx);
+
+        z_list[BATCH_SIZE * index..BATCH_SIZE * (index + 1)].clone_from_slice(&z_sublist);
+
+        remainder -= BATCH_SIZE;
+        index += 1;
+    }
+
+    let mut x_sublist = [0u64; BATCH_SIZE];
+    let mut y_sublist = [0u64; BATCH_SIZE];
+
+    x_sublist[0..remainder].clone_from_slice(&(x_list[BATCH_SIZE * index..]));
+    y_sublist[0..remainder].clone_from_slice(&(y_list[BATCH_SIZE * index..]));
+
+    let z_sublist = batch_bitwise_and_submodule(x_sublist, y_sublist, remainder, ctx);
+
+    z_list[BATCH_SIZE * index..].clone_from_slice(&(z_sublist[..remainder]));
+
+    if invert_output {
+        let inversion_mask = (-Wrapping((*ctx).num.asymm as u64)).0;
+        for i in 0..len {
+            z_list[i] ^= inversion_mask;
+        }
+    }
+
+    z_list
+}
+
+pub fn batch_bit_extract(x_additive_list : &Vec<Wrapping<u64>>,
+                         bit_pos         : usize,
+                         ctx             : &mut Context) -> Vec<u64> {
+
+    assert!(0 <= bit_pos && bit_pos < 64);
+    let len = x_additive_list.len();
+
+    if bit_pos == 0 {
+        return x_additive_list.iter().map(|x| 1 & x.0).collect();
+    }
+
+    let propogate: Vec<u64> = x_additive_list.iter().map(|x| x.0).collect();
+    let mut p_layer = propogate.clone();
+    let mut g_layer = if ctx.num.asymm == 0 {
+        batch_bitwise_and(&propogate, &vec![0u64; len], ctx, false)
+    } else {
+        batch_bitwise_and(&vec![0u64; len], &propogate, ctx, false)
+    };
+
+    let mut matrices = bit_pos;
+    while matrices > 1 {
+
+        let pairs = matrices / 2;
+        let remainder = matrices % 2;
+
+        let mut p      = vec![0u64 ; len];
+        let mut p_next = vec![0u64 ; len];
+        let mut g      = vec![0u64 ; len];
+        let mut g_next = vec![0u64 ; len];
+
+        for j in 0..len {
+            for i in 0..pairs {
+                p[j] |= ((p_layer[j] >> (2 * i) as u64) & 1) << i as u64;
+                g[j] |= ((g_layer[j] >> (2 * i) as u64) & 1) << i as u64;
+                p_next[j] |= ((p_layer[j] >> (2 * i + 1) as u64) & 1) << i as u64;
+                g_next[j] |= ((g_layer[j] >> (2 * i + 1) as u64) & 1) << i as u64;
+            }
+        }
+
+        let mut l_ops = p_next.clone();
+        l_ops.append(&mut p_next);
+
+        let mut r_ops = p.clone();
+        r_ops.append(&mut g);
+
+        let matmul = batch_bitwise_and(&l_ops, &r_ops, ctx, false);
+
+        // let l_ops = utility::compactify_bit_vector( &l_ops, pairs as usize );
+        // let r_ops = utility::compactify_bit_vector( &r_ops, pairs as usize );
+        // let matmul = batch_bitwise_and(&l_ops, &r_ops, ctx, false);
+        // let matmul = utility::decompactify_bit_vector(&matmul, pairs as usize, 2*len);
+
+        let mut p_layer_next = vec![0u64 ; len];
+        let mut g_layer_next = vec![0u64 ; len];
+
+        for j in 0..len {
+            for i in 0..pairs {
+                p_layer_next[j] |= ((matmul[j] >> i as u64) & 1) << i as u64;
+                g_layer_next[j] |= (((g_next[j] >> i as u64) ^ (matmul[j + len] >> i as u64)) & 1) << i as u64;
+            }
+
+            if remainder == 1 {
+                p_layer_next[j] |= ((p_layer[j] >> (matrices - 1) as u64) & 1) << pairs as u64;
+                g_layer_next[j] |= ((g_layer[j] >> (matrices - 1) as u64) & 1) << pairs as u64;
+            }
+        }
+
+        p_layer = p_layer_next;
+        g_layer = g_layer_next;
+        matrices = pairs + remainder;
+    }
+
+    g_layer.iter().zip(&propogate).map(|(&g, &p)| 1 & (g ^ (p >> bit_pos as u64)) ).collect()
+
+}
+
+pub fn batch_compare(x_list : &Vec<Wrapping<u64>>,
+                     y_list : &Vec<Wrapping<u64>>,
+                     ctx    : &mut Context) -> Vec<u64> {
+
+    let diff_dc  = batch_bit_extract(
+        &x_list.iter().zip(y_list.iter()).map(|(&x, &y)| (x-y)).collect(),
+        (ctx.num.precision_frac + ctx.num.precision_int + 1) as usize,
+        ctx
+    );
+
+    diff_dc.iter().map(|&z| z ^ ctx.num.asymm as u64).collect()
+
+}
+
+pub fn truncate_local(x: Wrapping<u64>,
+                      decimal_precision: u32,
+                      asymmetric_bit: u8) -> Wrapping<u64> {
+    if asymmetric_bit == 0 {
+        return -Wrapping((-x).0 >> decimal_precision as u64);
+    }
+
+    Wrapping(x.0 >> decimal_precision as u64)
+}
+
+pub fn convert_integer_to_bits(x: u64, bit_length: usize) -> Vec<u8> {
+    let mut result = Vec::new();
+    let binary_str = format!("{:b}", x);
+    let reversed_binary_vec: Vec<char> = binary_str.chars().rev().collect();
+    for item in &reversed_binary_vec {
+        let item_u8: u8 = format!("{}", item).parse().unwrap();
+        result.push(item_u8);
+    }
+    if bit_length > reversed_binary_vec.len() {
+        let mut temp = vec![0u8; bit_length - reversed_binary_vec.len()];
+        result.append(&mut temp);
+    } else {
+        result = result[0..bit_length].to_vec();
+    }
+    result
+}
+
+pub fn discretize_into_ohe_batch(x_list: &Vec<Vec<Wrapping<u64>>>,
+                           buckets: usize,
+                           ctx: &mut Context) -> (Vec<Vec<Vec<Wrapping<u64>>>>,Vec<Vec<Wrapping<u64>>>) {
+
+    let n = x_list.len();
+    let m = x_list[0].len();
+    let minmax = minmax_batch(&x_list, ctx)?;
+    let mins = minmax.0;
+    let maxs = minmax.1;
+
+    let mut ranges:Vec<Wrapping<u64>> = Vec::new();
+    for i in 0..n{
+        ranges.push(maxs[i]-mins[i]);
+    }
+
+    let mut height_markers: Vec<Vec<Wrapping<u64>>> = Vec::new();
+    let mut height_ratio_ring_vec:Vec<Wrapping<u64>> = Vec::new();
+    for i in 1..buckets {
+        let height_ratio = (i as f64) / (buckets as f64);
+        let height_ratio_ring = Wrapping((height_ratio * 2f64.powf(ctx.num.precision_frac as f64)) as u64);
+        //	println!("height_ratio: {}, height_ratio_ring: {}", height_ratio,height_ratio_ring);
+        height_ratio_ring_vec.push(height_ratio_ring);
+    }
+    for i in 0..n{
+        let mut height_marker_vector:Vec<Wrapping<u64>> = Vec::new();
+        for j in 1..buckets {
+            height_marker_vector.push(
+                mins[i] + truncate_local(
+                    height_ratio_ring_vec[j] * ranges[i],
+                    ctx.num.precision_frac as u32,
+                    ctx.num.asymm as u8,
+                ));
+        }
+        height_markers.push(height_marker_vector);
+    }
+
+
+    //println!("height_markers: {:5?}", reveal(&height_markers, ctx, ctx.decimal_precision, true));
+
+    let mut l_operands: Vec<Wrapping<u64>> = Vec::new();
+    let mut r_operands: Vec<Wrapping<u64>> = Vec::new();
+    for i in 0..n {
+        for j in 0..m{
+            for k in 0..(buckets - 1) {
+                l_operands.push(x_list[i][j]);
+                r_operands.push(height_markers[i][k]);
+            }
+        }
+    }
+
+    let e = batch_compare( &l_operands, &r_operands, ctx );
+
+    let mut e_mat = vec![ vec![vec![0u64 ; buckets-1];m] ; n];
+    for i in 0..n {
+        for j in 0..m{
+            for k in 0..buckets-1 {
+                e_mat[i][j][k] = e[(buckets-1)*i*j + k];
+            }
+        }
+
+    }
+
+    let mut l_operands: Vec<u64> = Vec::new();
+    let mut r_operands: Vec<u64> = Vec::new();
+
+    for i in 0..n {
+        for j in 0..m{
+            l_operands.push(ctx.num.asymm as u64);
+            r_operands.push((ctx.num.asymm as u64) ^ e_mat[i][j][0]);
+
+            for k in 0..(buckets-2) {
+
+                l_operands.push( e_mat[i][j][k] );
+                r_operands.push( (ctx.num.asymm as u64) ^ e_mat[i][j][k+1] );
+            }
+
+            l_operands.push(ctx.num.asymm as u64);
+            r_operands.push(e_mat[i][j][buckets-2]);
+        }
+    }
+
+    let f = batch_bitwise_and(&l_operands, &r_operands, ctx, false);
+    let mut x_discrete_ohe: Vec<Vec<Vec<Wrapping<u64>>>> = Vec::new();
+    for i in 0..n{
+        let mut row:Vec<Vec<Wrapping<u64>>> = Vec::new();
+        for j in 0..m{
+            let mut col:Vec<Wrapping<u64>> = Vec::new();
+            for k in 0..buckets{
+                col.push(Wrapping(f[i*j*buckets + k]));
+            }
+            row.push(col);
+        }
+        x_discrete_ohe.push(row);
+    }
+
+    (x_discrete_ohe,height_markers)
+}
 /** Multiplies a vector of a vectors values in a pairwise fashion, leading to log_2 communication complexity
  * dependent on the inner vector size multiplied by the outer vector size. Still needs testing.
  */
