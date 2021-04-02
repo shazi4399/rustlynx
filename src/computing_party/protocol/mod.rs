@@ -782,6 +782,11 @@ pub fn pairwise_mult_zq(x: &Vec<Vec<Wrapping<u64>>>, ctx: &mut Context) -> Resul
     let vectors = x.clone();
 
     let num_of_vecs = x.len();
+
+    if num_of_vecs < 1 {
+        return Ok(vec![]);
+    }
+
     let num_of_vals = x[0].len();
     let pairs = num_of_vals/2;
 
@@ -794,7 +799,6 @@ pub fn pairwise_mult_zq(x: &Vec<Vec<Wrapping<u64>>>, ctx: &mut Context) -> Resul
                 result.push(*val);
             }
         }
-
         return Ok(result);
     }
 
@@ -850,7 +854,7 @@ pub fn pairwise_mult_zq(x: &Vec<Vec<Wrapping<u64>>>, ctx: &mut Context) -> Resul
             l_operands.push(values_to_process[2 * i + offest * odd_length]);
             r_operands.push(values_to_process[2 * i + 1 + offest * odd_length]);
 
-            if (i + 1) % pairs == 0 && odd_length == 1 {
+            if odd_length == 1 && (i + 1) % pairs == 0 {
 
                 unprocessed_values.push(values_to_process[2 * (i + 1) + offest * odd_length]);
                 offest += 1;
@@ -860,9 +864,12 @@ pub fn pairwise_mult_zq(x: &Vec<Vec<Wrapping<u64>>>, ctx: &mut Context) -> Resul
         }
 
         // batch multiply the values that got paired up
+
         let products = multiply(&l_operands, &r_operands, ctx)?;
 
-        let mut values_to_process = vec![];
+        //println!("\n\n\n {:?} \n\n\n", open(&products, ctx));
+
+        values_to_process = vec![];
 
         // if true, tack on unprocessed values to the end of the logically partitioned vectors 
         // that were not processed in previous round of multiplicaiton
@@ -877,12 +884,15 @@ pub fn pairwise_mult_zq(x: &Vec<Vec<Wrapping<u64>>>, ctx: &mut Context) -> Resul
                 values_to_process.push(products[i])
             }
         } else {
-            let values_to_process = products.clone();
+            for val in products {
+                values_to_process.push(val);
+            }
         }
 
         num_of_vals = (num_of_vals / 2) + (num_of_vals % 2);
         pairs = num_of_vals / 2;
     }
+
     Ok(values_to_process)
 }
 
