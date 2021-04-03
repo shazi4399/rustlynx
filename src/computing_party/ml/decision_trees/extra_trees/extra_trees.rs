@@ -1,4 +1,4 @@
-use std::error::Error;
+use std::{error::Error};
 use super::super::super::super::Context;
 use super::super::decision_tree::TrainingContext;
 use std::num::Wrapping;
@@ -40,6 +40,10 @@ Result<(Vec<Vec<Vec<Wrapping<u64>>>>, Vec<Vec<Vec<Wrapping<u64>>>>, Vec<Vec<Vec<
     let decimal_precision = ctx.num.precision_frac;
     let asym = ctx.num.asymm;
 
+    let USE_PREGENERATED_SPLITS_AND_SELECTIONS = true;
+    let ARV_PATH = "arvs.csv";
+    let SPLITS_PATH = "splits.csv";
+
     let minmax = minmax_batch(&util::transpose(data)?, ctx)?;
 
     let mins = minmax.0;
@@ -52,7 +56,7 @@ Result<(Vec<Vec<Vec<Wrapping<u64>>>>, Vec<Vec<Vec<Wrapping<u64>>>>, Vec<Vec<Vec<
     let fsv_amount = xtctx.tc.tree_count * xtctx.feature_count;
     let column_major_arvs = create_selection_vectors(fsv_amount, xtctx.tc.attribute_count, ctx)?;
     // column_major_arvs.iter().for_each(|x| println!("{:?}", open(x, ctx).unwrap()));
-    let final_column_major_arvs = two_dim_to_3_dim(&column_major_arvs, feature_count)?;
+    let final_column_major_arvs = if USE_PREGENERATED_SPLITS_AND_SELECTIONS{two_dim_to_3_dim(&column_major_arvs, feature_count)?} else {load_arvs_from_file(ARV_PATH, ctx.num.asymm as usize, feature_count, attribute_count, tree_count)?};
     let column_major_arvs_flat: Vec<Wrapping<u64>> = column_major_arvs.clone().into_iter().flatten().collect();
     let mut column_major_arvs_flat_dup = column_major_arvs_flat.clone();
     column_major_arvs_flat_dup.append(&mut column_major_arvs_flat_dup.clone());
@@ -81,6 +85,7 @@ Result<(Vec<Vec<Vec<Wrapping<u64>>>>, Vec<Vec<Vec<Wrapping<u64>>>>, Vec<Vec<Vec<
     let range_times_ratio = multiply(&selected_ranges, &random_ratios, ctx)?;
     // println!("range_times_ratio: {:?}", open(&range_times_ratio, ctx));
     let selected_splits: Vec<Wrapping<u64>> = range_times_ratio.iter().zip(selected_mins.iter()).map(|(x, y)| util::truncate(*x, decimal_precision, asym) + y).collect();
+    
     // println!("SELECTED SPLITS: {:?}", open(&selected_splits, ctx));
     //println!("split_select finished. Time taken: {:?}ms", split_select.elapsed().unwrap().as_millis());
 
@@ -160,6 +165,9 @@ Result<(Vec<Vec<Vec<Wrapping<u64>>>>, Vec<Vec<Vec<Wrapping<u64>>>>, Vec<Vec<Vec<
     xtctx.tc.attribute_count = 2 * xtctx.feature_count;
 
     let final_arv_splits = two_dim_to_3_dim(&selected_splits.iter().map(|x| vec![*x]).collect(), feature_count)?;
+    if USE_PREGENERATED_SPLITS_AND_SELECTIONS {
+        let final_arv_splits = load_splits_from_file(SPLITS_PATH, ctx.num.asymm as usize, feature_count, tree_count, decimal_precision)?;
+    }
 
     Ok((interleaved_complete_set, final_column_major_arvs, final_arv_splits))
 }
@@ -209,4 +217,44 @@ pub fn create_random_ratios(quant: usize, ctx: &mut Context) -> Result<Vec<Wrapp
     }
 
     Ok(results)
+}
+
+fn load_arvs_from_file(path: &str, asym: usize, feature_count: usize, attribute_count: usize, tree_count: usize) -> Result<Vec<Vec<Vec<Wrapping<u64>>>>, Box<dyn Error>>{
+    if ! asym == 1 {
+       return Ok(vec![vec![vec![Wrapping(0); attribute_count]; feature_count]; tree_count]);
+    }
+    let mut ret = vec![];
+    let vals = io::matrix_csv_to_wrapping_vec(path)?;
+    for i in 0 .. vals.len() {
+        let mut fsv = vec![];
+        for j in 0 .. vals[i].len() {
+            let index = vals[i][j].0 as usize;
+            let mut sel_vec = vec![Wrapping(0); attribute_count];
+            sel_vec[index] = Wrapping(1);
+            fsv.push(sel_vec);
+        }
+        ret.push(fsv);
+    }
+    Ok(ret)
+}
+
+fn load_splits_from_file(path: &str, asym: usize, feature_count: usize, tree_count: usize, decimal_precision: usize) -> Result<Vec<Vec<Wrapping<u64>>>, Box<dyn Error>>{
+    let mut ratios = vec![vec![Wrapping(0); feature_count]; tree_count];
+    if !asym == 1 {
+        return Ok(ratios);
+    }
+    let float_ratios = io::matrix_csv_to_float_vec(path)?;
+    for i in 0 .. feature_count {
+        for j in 0 .. tree_count {
+            ratios[i][j] = float_to_fixed(float_ratios[i][j], decimal_precision)?;
+        }
+    }
+    Ok(ratios)
+}
+
+fn float_to_fixed(val: f64, decimal_precision: usize) -> Result<Wrapping<u64>, Box<dyn Error>> {
+    let ringmod = 2f64.powi(64);
+    let shift_val = 2f64.powi(decimal_precision as i32);
+    let res = if val < 0f64 {Wrapping((ringmod - (-1f64 * val * shift_val).floor()) as u64)} else {Wrapping((val*shift_val).floor() as u64)};
+    Ok(res)
 }

@@ -26,7 +26,7 @@ pub fn run(ctx: &mut Context) -> Result<(), Box<dyn Error>> {
         io::write_to_file("treedata/rev_trees.json", &serde_json::to_string_pretty(&rev_trees)?)?;
     }
     let path = format!("cfg/ml/extratrees/inference{}.toml", ctx.num.asymm);
-    let (trees, test_data, test_lab, infctx) = inference::init(&path, true)?;
+    let (_, test_data, test_lab, infctx) = inference::init(&path, true)?;
 
     // --------------
     // Done to streamline testing, in general, the inference should be seperate from the learning phase
