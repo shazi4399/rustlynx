@@ -244,8 +244,8 @@ fn load_splits_from_file(path: &str, asym: usize, feature_count: usize, tree_cou
         return Ok(ratios);
     }
     let float_ratios = io::matrix_csv_to_float_vec(path)?;
-    for i in 0 .. feature_count {
-        for j in 0 .. tree_count {
+    for i in 0 .. tree_count {
+        for j in 0 .. feature_count {
             ratios[i][j] = float_to_fixed(float_ratios[i][j], decimal_precision)?;
         }
     }
