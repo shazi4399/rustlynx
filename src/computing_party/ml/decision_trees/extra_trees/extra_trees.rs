@@ -41,8 +41,8 @@ Result<(Vec<Vec<Vec<Wrapping<u64>>>>, Vec<Vec<Vec<Wrapping<u64>>>>, Vec<Vec<Vec<
     let asym = ctx.num.asymm;
 
     let USE_PREGENERATED_SPLITS_AND_SELECTIONS = true;
-    let ARV_PATH = "arvs.csv";
-    let SPLITS_PATH = "splits.csv";
+    let ARV_PATH = "custom_randomness/arvs.csv";
+    let SPLITS_PATH = "custom_randomness/splits.csv";
 
     let minmax = minmax_batch(&util::transpose(data)?, ctx)?;
 
