@@ -56,7 +56,7 @@ Result<(Vec<Vec<Vec<Wrapping<u64>>>>, Vec<Vec<Vec<Wrapping<u64>>>>, Vec<Vec<Vec<
     let fsv_amount = xtctx.tc.tree_count * xtctx.feature_count;
     let column_major_arvs = create_selection_vectors(fsv_amount, xtctx.tc.attribute_count, ctx)?;
     // column_major_arvs.iter().for_each(|x| println!("{:?}", open(x, ctx).unwrap()));
-    let final_column_major_arvs = if USE_PREGENERATED_SPLITS_AND_SELECTIONS{two_dim_to_3_dim(&column_major_arvs, feature_count)?} else {load_arvs_from_file(ARV_PATH, ctx.num.asymm as usize, feature_count, attribute_count, tree_count)?};
+    let final_column_major_arvs = if !USE_PREGENERATED_SPLITS_AND_SELECTIONS{two_dim_to_3_dim(&column_major_arvs, feature_count)?} else {load_arvs_from_file(ARV_PATH, ctx.num.asymm as usize, feature_count, attribute_count, tree_count)?};
     let column_major_arvs_flat: Vec<Wrapping<u64>> = column_major_arvs.clone().into_iter().flatten().collect();
     let mut column_major_arvs_flat_dup = column_major_arvs_flat.clone();
     column_major_arvs_flat_dup.append(&mut column_major_arvs_flat_dup.clone());
@@ -220,7 +220,7 @@ pub fn create_random_ratios(quant: usize, ctx: &mut Context) -> Result<Vec<Wrapp
 }
 
 fn load_arvs_from_file(path: &str, asym: usize, feature_count: usize, attribute_count: usize, tree_count: usize) -> Result<Vec<Vec<Vec<Wrapping<u64>>>>, Box<dyn Error>>{
-    if ! asym == 1 {
+    if asym != 1 {
        return Ok(vec![vec![vec![Wrapping(0); attribute_count]; feature_count]; tree_count]);
     }
     let mut ret = vec![];
@@ -240,7 +240,7 @@ fn load_arvs_from_file(path: &str, asym: usize, feature_count: usize, attribute_
 
 fn load_splits_from_file(path: &str, asym: usize, feature_count: usize, tree_count: usize, decimal_precision: usize) -> Result<Vec<Vec<Wrapping<u64>>>, Box<dyn Error>>{
     let mut ratios = vec![vec![Wrapping(0); feature_count]; tree_count];
-    if !asym == 1 {
+    if asym != 1 {
         return Ok(ratios);
     }
     let float_ratios = io::matrix_csv_to_float_vec(path)?;
