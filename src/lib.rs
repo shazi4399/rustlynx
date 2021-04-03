@@ -1063,7 +1063,7 @@ mod tests {
         let mut rng = rand::thread_rng();
   
         // seems to break on my end when I populate the vector with multiple values. If you want to test, just put a different number in vec![]
-        for &len in vec![11].iter() { 
+        for &len in vec![211].iter() { 
 
             let mut input = vec![vec![Wrapping(0); len]; len];
             
@@ -1099,9 +1099,9 @@ mod tests {
             let output = protocol::minmax_batch(&input, &mut ctx).unwrap();
             let output = (protocol::open(&output.0, &mut ctx).unwrap(), protocol::open(&output.1, &mut ctx).unwrap());
     
-            println!("I: {:x?}", &input);
-            println!("O: {:x?}", &output);
-            println!("E: {:x?}", &expected);
+            // println!("I: {:x?}", &input);
+            // println!("O: {:x?}", &output);
+            // println!("E: {:x?}", &expected);
     
             assert_eq!(&output, &expected);
 
