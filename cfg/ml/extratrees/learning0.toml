@@ -1,7 +1,7 @@
 class_label_count = 2
 attribute_count = 30
 instance_count = 455
-tree_count = 1
+tree_count = 5
 max_depth = 2
 feature_count = 5
 epsilon = 0.05
