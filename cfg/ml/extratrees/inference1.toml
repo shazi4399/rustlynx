@@ -1,7 +1,7 @@
 class_label_count = 2
 attribute_count = 30
 instance_count = 455
-max_depth = 4
+max_depth = 2
 data = "data/Party1_breast/1X_test.csv"
 classes= "data/Party1_breast/1y_test.csv"
 tree_location = "treedata/Party1_trees.json"
