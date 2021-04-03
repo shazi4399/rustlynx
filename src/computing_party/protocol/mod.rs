@@ -659,9 +659,7 @@ pub fn minmax_batch(
     }
 
     let l_geq_r = batch_geq(&l_operands, &r_operands, ctx).unwrap();
-
-    let l_geq_r = z2_to_zq(&l_geq_r, ctx/*, 1*/).unwrap();
-
+    let l_geq_r = z2_to_zq(&l_geq_r, ctx).unwrap();
     let l_lt_r: Vec<Wrapping<u64>> = l_geq_r.iter().map(|x| -x + asymmetric_bit).collect();
 
     let mut values = l_operands.clone();
@@ -725,7 +723,7 @@ pub fn minmax_batch(
 
         let l_geq_r = batch_geq(&l_operands, &r_operands, ctx).unwrap();
 
-        let l_geq_r = z2_to_zq(&l_geq_r, ctx/*, 1*/).unwrap();
+        let l_geq_r = z2_to_zq(&l_geq_r, ctx).unwrap();
 
         let l_lt_r: Vec<Wrapping<u64>> = l_geq_r.iter().map(|x| -x + asymmetric_bit).collect();
 
@@ -766,6 +764,9 @@ pub fn minmax_batch(
         mins = new_mins;
         maxs = new_maxs;
 
+        // println!("min of pairs: {:5?}", reveal(&mins, ctx, ctx.decimal_precision, true ));
+        // println!("max of pairs: {:5?}", reveal(&maxs, ctx, ctx.decimal_precision, true ));
+
         n = (n / 2) + (n % 2);
         pairs = n / 2;
     }
@@ -782,6 +783,11 @@ pub fn pairwise_mult_zq(x: &Vec<Vec<Wrapping<u64>>>, ctx: &mut Context) -> Resul
     let vectors = x.clone();
 
     let num_of_vecs = x.len();
+
+    if num_of_vecs < 1 {
+        return Ok(vec![]);
+    }
+
     let num_of_vals = x[0].len();
     let pairs = num_of_vals/2;
 
@@ -794,7 +800,6 @@ pub fn pairwise_mult_zq(x: &Vec<Vec<Wrapping<u64>>>, ctx: &mut Context) -> Resul
                 result.push(*val);
             }
         }
-
         return Ok(result);
     }
 
@@ -850,7 +855,7 @@ pub fn pairwise_mult_zq(x: &Vec<Vec<Wrapping<u64>>>, ctx: &mut Context) -> Resul
             l_operands.push(values_to_process[2 * i + offest * odd_length]);
             r_operands.push(values_to_process[2 * i + 1 + offest * odd_length]);
 
-            if (i + 1) % pairs == 0 && odd_length == 1 {
+            if odd_length == 1 && (i + 1) % pairs == 0 {
 
                 unprocessed_values.push(values_to_process[2 * (i + 1) + offest * odd_length]);
                 offest += 1;
@@ -860,9 +865,12 @@ pub fn pairwise_mult_zq(x: &Vec<Vec<Wrapping<u64>>>, ctx: &mut Context) -> Resul
         }
 
         // batch multiply the values that got paired up
+
         let products = multiply(&l_operands, &r_operands, ctx)?;
 
-        let mut values_to_process = vec![];
+        //println!("\n\n\n {:?} \n\n\n", open(&products, ctx));
+
+        values_to_process = vec![];
 
         // if true, tack on unprocessed values to the end of the logically partitioned vectors 
         // that were not processed in previous round of multiplicaiton
@@ -877,12 +885,15 @@ pub fn pairwise_mult_zq(x: &Vec<Vec<Wrapping<u64>>>, ctx: &mut Context) -> Resul
                 values_to_process.push(products[i])
             }
         } else {
-            let values_to_process = products.clone();
+            for val in products {
+                values_to_process.push(val);
+            }
         }
 
         num_of_vals = (num_of_vals / 2) + (num_of_vals % 2);
         pairs = num_of_vals / 2;
     }
+
     Ok(values_to_process)
 }
 

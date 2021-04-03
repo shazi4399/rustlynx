@@ -24,7 +24,7 @@ pub fn classify_in_the_clear(trees: &Vec<Vec<TreeNode>>, transactions: &Vec<Vec<
         let bin_count = infer_ctx.bin_count;
 
         
-        let mut ensemble = trees.clone();
+        let ensemble = trees;
         let mut correctly_classified = 0;
         let total_rows =  transactions.len();
 
@@ -35,18 +35,18 @@ pub fn classify_in_the_clear(trees: &Vec<Vec<TreeNode>>, transactions: &Vec<Vec<
         for transaction in transactions {
 
             let mut votes = vec![0; infer_ctx.class_label_count];
-            let mut vote = 0;
 
-            let mut tree_count = -1;
-            for tree in ensemble.clone() {
-                tree_count += 1;
+            for tree in ensemble {
+
+                let mut vote = 0;
+                
                 let mut current_node = 1;
 
                 for d in 0.. depth {
 
                     let chosen_attr = tree[current_node].attribute_sel_vec[0].0 as usize;
                     let splits = tree[current_node].split_point.clone();
-             
+
                     let val = transaction[chosen_attr];
 
                     let mut bin = 0;
@@ -59,7 +59,6 @@ pub fn classify_in_the_clear(trees: &Vec<Vec<TreeNode>>, transactions: &Vec<Vec<
 
                     vote += tree[current_node].classification.0 as usize;
 
-                    println!("{}", tree_count);
                     if d + 1 == depth {
                         votes[vote] += 1;
                     }
@@ -78,7 +77,6 @@ pub fn classify_in_the_clear(trees: &Vec<Vec<TreeNode>>, transactions: &Vec<Vec<
                 }
             }
 
-            println!("{:?}", labels[transaction_index]);
             if labels[transaction_index] as usize == largest_index {
                 correctly_classified += 1;
             }

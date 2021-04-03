@@ -46,9 +46,9 @@ pub fn run(ctx: &mut Context) -> Result<(), Box<dyn Error>> {
     // file.read_to_string(&mut contents)?;
 
     // let trees: Vec<Vec<TreeNode>> = serde_json::from_str(&contents)?;
-    let results = classify_in_the_clear(&trees, &test_data_open, &test_lab_open_trunc, infctx)?;
+    let results = classify_in_the_clear(&rev_trees, &test_data_open, &test_lab_open_trunc, infctx)?;
     
-    println!("{}", results);
+    println!("{} %", results * 100.0);
 
     Ok(())
 }

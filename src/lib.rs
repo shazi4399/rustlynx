@@ -923,82 +923,190 @@ mod tests {
 
         let args: Vec<String> = env::args().collect();
 
-        println!("{:?}", args);
+        println!("ARGS HERE {:?}", args);
 
         let id = &args[args.len()-1];
         let test_cfg = format!("{}/Party{}.toml", test_path, id); 
         let mut ctx = init::runtime_context( &test_cfg ).unwrap();
         
         /* connect */
-        //assert!( init::connection( &mut ctx ).is_ok() );
+        assert!( init::connection( &mut ctx ).is_ok() );
         
-        // /* empty vec test */
-        // let empty_vec = Vec::<Wrapping<u64>>::new();
-        // assert_eq!(empty_vec, protocol::pairwise_mult_zq(&vec![], &mut ctx).unwrap());
-        
-        // /* known results */
-        // let input = if ctx.num.asymm == 0 
-        // { vec![vec![Wrapping(1), Wrapping(2)], vec![Wrapping(3), Wrapping(4)], vec![Wrapping(5), Wrapping(6)]] } else 
-        // { vec![vec![Wrapping(0), Wrapping(0)], vec![Wrapping(0), Wrapping(0)], vec![Wrapping(0), Wrapping(0)]] };
-        // let expected = [Wrapping(2), Wrapping(12), Wrapping(30)]; 
-        // let output = protocol::pairwise_mult_zq(&input, &mut ctx).unwrap();
-        // let output = protocol::open(&output, &mut ctx).unwrap();
+        /* empty vec test */
+        let empty_vec = Vec::<Wrapping<u64>>::new();
+        assert_eq!(empty_vec, protocol::pairwise_mult_zq(&vec![], &mut ctx).unwrap());
+
+        /* known results */
+        let input = if ctx.num.asymm == 0 
+        { vec![vec![Wrapping(1), Wrapping(2)], vec![Wrapping(3), Wrapping(4)], vec![Wrapping(5), Wrapping(6)]] } else 
+        { vec![vec![Wrapping(0), Wrapping(0)], vec![Wrapping(0), Wrapping(0)], vec![Wrapping(0), Wrapping(0)]] };
+        let expected = [Wrapping(2), Wrapping(12), Wrapping(30)]; 
+        let output = protocol::pairwise_mult_zq(&input, &mut ctx).unwrap();
+        let output = protocol::open(&output, &mut ctx).unwrap();
 
         // println!("I: {:x?}", &input);
         // println!("O: {:x?}", &output);
         // println!("E: {:x?}", &expected);
 
-        // assert_eq!(&output, &expected);
+        assert_eq!(&output, &expected);
 
+        /* known results */
+        let input = if ctx.num.asymm == 0 
+        { vec![vec![Wrapping(1), Wrapping(2), Wrapping(1)], vec![Wrapping(3), Wrapping(4), Wrapping(1)], vec![Wrapping(5), Wrapping(6), Wrapping(1)]] } else 
+        { vec![vec![Wrapping(0), Wrapping(0), Wrapping(0)], vec![Wrapping(0), Wrapping(0), Wrapping(0)], vec![Wrapping(0), Wrapping(0), Wrapping(0)]] };
+        let expected = [Wrapping(2), Wrapping(12), Wrapping(30)]; 
+        let output = protocol::pairwise_mult_zq(&input, &mut ctx).unwrap();
+        let output = protocol::open(&output, &mut ctx).unwrap();
+
+        // println!("I: {:x?}", &input);
+        // println!("O: {:x?}", &output);
+        // println!("E: {:x?}", &expected);
+
+        assert_eq!(&output, &expected);
+
+
+        /* known results */
+        let input = if ctx.num.asymm == 0 
+        { vec![vec![Wrapping(1), Wrapping(2), Wrapping(1), Wrapping(2), Wrapping(1)], vec![Wrapping(3), Wrapping(4), Wrapping(1), Wrapping(4), Wrapping(1)], vec![Wrapping(5), Wrapping(6), Wrapping(1), Wrapping(6), Wrapping(1)]] } else 
+        { vec![vec![Wrapping(0), Wrapping(0), Wrapping(0), Wrapping(0), Wrapping(0)], vec![Wrapping(0), Wrapping(0), Wrapping(0), Wrapping(0), Wrapping(0)], vec![Wrapping(0), Wrapping(0), Wrapping(0), Wrapping(0), Wrapping(0)]] };
+        let expected = [Wrapping(4), Wrapping(12 * 4), Wrapping(30 * 6)]; 
+        let output = protocol::pairwise_mult_zq(&input, &mut ctx).unwrap();
+        let output = protocol::open(&output, &mut ctx).unwrap();
+
+        // println!("I: {:x?}", &input);
+        // println!("O: {:x?}", &output);
+        // println!("E: {:x?}", &expected);
+
+        assert_eq!(&output, &expected);
+        
         // /* RANDOM TESTS */
-        // let mut rng = rand::thread_rng();
+        let mut rng = rand::thread_rng();
   
-        // for &len in vec![1, 2, 3, 5, 7, 11, 11177].iter() {
-        //     for bitlen in 1..65 {
+        // seems to break on my end when I populate the vector with multiple values. If you want to test, just put a different number in vec![]
+        for &len in vec![11].iter() { 
 
+            let mut input = vec![vec![Wrapping(0); len]; len];
             
-        //         let pad = true;
-        //         let asymm = ctx.num.asymm;
-        //         let bitmask: u128 = (1u128 << bitlen) - 1u128;
+            if ctx.num.asymm == 0 {
+                for i in 0.. len {
+                    for j in 0.. len {
+                        // keep random number small to reduce chance of overflow
+                        input[i][j] = Wrapping((rng.gen::<u64>() % 8 + 1) as u64); 
+                    }
+                }
+            }
 
-        //         let input = (0..len).map(|_i| ((rng.gen::<u64>() as u128) | ((rng.gen::<u64>() as u128) << 64)) & bitmask).collect::<Vec<u128>>();
+            let mut expected: Vec<Wrapping<u64>> = vec![];
+            for vec in &input {
 
-        //         let opened_input = protocol::open_z2(&input, &mut ctx).unwrap();
-        //         let compressed = util::compress_bit_vector(&input, len, bitlen, pad, asymm).unwrap();                
-        //         let tesselated = protocol::pairwise_mult_z2(&compressed, len, bitlen, &mut ctx).unwrap(); 
+                let mut product = Wrapping(1 as u64);
+
+                for val in vec {
+                    product = val * product;
+                }
+
+                expected.push(product);
+            }
+
+            let output = protocol::pairwise_mult_zq(&input, &mut ctx).unwrap();
+            let output = protocol::open(&output, &mut ctx).unwrap();
+    
+            // println!("I: {:x?}", &input);
+            // println!("O: {:x?}", &output);
+            // println!("E: {:x?}", &expected);
+    
+            assert_eq!(&output, &expected);
+
+        }
+
+    }
+
+    #[test]
+    fn _computing_party_protocol_minmax_batch() {
+
+        use std::env;
+        use std::num::Wrapping;
+        use std::time::SystemTime;
+        use super::util;
+        use super::computing_party::protocol;
+        use super::computing_party::init;
+        use super::io;
+        use rand::{thread_rng, Rng};
+        let test_path = "test/files/computing_party_protocol_minmax_batch";
+
+        let args: Vec<String> = env::args().collect();
+
+        // println!("ARGS HERE {:?}", args);
+
+        let id = &args[args.len()-1];
+        let test_cfg = format!("{}/Party{}.toml", test_path, id); 
+        let mut ctx = init::runtime_context( &test_cfg ).unwrap();
+        
+        /* connect */
+        assert!( init::connection( &mut ctx ).is_ok() );
+
+        /* known results */
+        let input = if ctx.num.asymm == 0 
+        { vec![vec![Wrapping(1), Wrapping(2)], vec![Wrapping(3), Wrapping(4)], vec![Wrapping(5), Wrapping(6)]] } else 
+        { vec![vec![Wrapping(0), Wrapping(0)], vec![Wrapping(0), Wrapping(0)], vec![Wrapping(0), Wrapping(0)]] };
+        let expected = (vec![Wrapping(1), Wrapping(3), Wrapping(5)], vec![Wrapping(2), Wrapping(4), Wrapping(6)]); 
+        let output = protocol::minmax_batch(&input, &mut ctx).unwrap();
+        let output = (protocol::open(&output.0, &mut ctx).unwrap(), protocol::open(&output.1, &mut ctx).unwrap());
+
+        // println!("I: {:x?}", &input);
+        // println!("O: {:x?}", &output);
+        // println!("E: {:x?}", &expected);
+
+        assert_eq!(&output, &expected);
+        
+        // // /* RANDOM TESTS */
+        let mut rng = rand::thread_rng();
   
-        //         let tesselated_bitlen = (bitlen + 1) >> 1;
-        //         let compressed = util::compress_from_tesselated_bit_vector(&tesselated, len, tesselated_bitlen, pad, asymm).unwrap();
-        //         let output = util::decompress_bit_vector(&compressed, len, tesselated_bitlen, pad, asymm).unwrap();
-        //         let output = protocol::open_z2(&output, &mut ctx).unwrap(); 
+        // seems to break on my end when I populate the vector with multiple values. If you want to test, just put a different number in vec![]
+        for &len in vec![11].iter() { 
 
-        //         let mut expected = vec![0u128 ; len];
-        //         if pad && (bitlen & 1 == 1) {
-        //             for i in 0..len {
-        //                 expected[i] |= opened_input[i] & 1;
-        //                 for j in 1..tesselated_bitlen {
-        //                     let left_bit = (opened_input[i] >> 2*j - 1);
-        //                     let right_bit = (opened_input[i] >> 2*j);
-        //                     expected[i] |= (left_bit & right_bit & 1) << j;
-        //                 }
-        //             }
-        //         } else {
-        //             for i in 0..len {
-        //                 for j in 0..tesselated_bitlen {
-        //                     let left_bit = (opened_input[i] >> 2*j);
-        //                     let right_bit = (opened_input[i] >> 2*j + 1);
-        //                     expected[i] |= (left_bit & right_bit & 1) << j;
-        //                 }
-        //             }
-        //         }
+            let mut input = vec![vec![Wrapping(0); len]; len];
+            
+            if ctx.num.asymm == 0 {
+                for i in 0.. len {
+                    for j in 0.. len {
+                        // keep random number small to reduce chance of overflow
+                        input[i][j] = Wrapping((rng.gen::<u64>() % 500 + 1) as u64); 
+                    }
+                }
+            }
 
-        //         // println!("[len={}][bitlen={}]", len, bitlen);
-        //         // println!("[len={}][bitlen={}] I: {:x?}, O: {:x?}, E: {:x?}", len, bitlen, &opened_input, &output, &expected);
-        //         // println!("\t expected: {:x?}", &expected);
+            let mut expected: (Vec<Wrapping<u64>>, Vec<Wrapping<u64>>) = (vec![], vec![]);
+            for vec in input.clone() {
 
-        //         assert_eq!(&expected, &output);
-        //     }
-        // }
+                let mut min = vec[0];
+                let mut max = vec[0];
+
+                for val in vec {
+                    if val < min {
+                        min = val;
+                    }
+
+                    if val > max {
+                        max = val;
+                    }
+                }
+
+                expected.0.push(min);
+                expected.1.push(max);
+            }
+
+            let output = protocol::minmax_batch(&input, &mut ctx).unwrap();
+            let output = (protocol::open(&output.0, &mut ctx).unwrap(), protocol::open(&output.1, &mut ctx).unwrap());
+    
+            println!("I: {:x?}", &input);
+            println!("O: {:x?}", &output);
+            println!("E: {:x?}", &expected);
+    
+            assert_eq!(&output, &expected);
+
+        }
+
     }
 
 }
