@@ -944,9 +944,9 @@ mod tests {
         let output = protocol::pairwise_mult_zq(&input, &mut ctx).unwrap();
         let output = protocol::open(&output, &mut ctx).unwrap();
 
-        println!("I: {:x?}", &input);
-        println!("O: {:x?}", &output);
-        println!("E: {:x?}", &expected);
+        // println!("I: {:x?}", &input);
+        // println!("O: {:x?}", &output);
+        // println!("E: {:x?}", &expected);
 
         assert_eq!(&output, &expected);
 
@@ -958,9 +958,9 @@ mod tests {
         let output = protocol::pairwise_mult_zq(&input, &mut ctx).unwrap();
         let output = protocol::open(&output, &mut ctx).unwrap();
 
-        println!("I: {:x?}", &input);
-        println!("O: {:x?}", &output);
-        println!("E: {:x?}", &expected);
+        // println!("I: {:x?}", &input);
+        // println!("O: {:x?}", &output);
+        // println!("E: {:x?}", &expected);
 
         assert_eq!(&output, &expected);
 
@@ -973,9 +973,9 @@ mod tests {
         let output = protocol::pairwise_mult_zq(&input, &mut ctx).unwrap();
         let output = protocol::open(&output, &mut ctx).unwrap();
 
-        println!("I: {:x?}", &input);
-        println!("O: {:x?}", &output);
-        println!("E: {:x?}", &expected);
+        // println!("I: {:x?}", &input);
+        // println!("O: {:x?}", &output);
+        // println!("E: {:x?}", &expected);
 
         assert_eq!(&output, &expected);
         
@@ -1010,6 +1010,94 @@ mod tests {
 
             let output = protocol::pairwise_mult_zq(&input, &mut ctx).unwrap();
             let output = protocol::open(&output, &mut ctx).unwrap();
+    
+            // println!("I: {:x?}", &input);
+            // println!("O: {:x?}", &output);
+            // println!("E: {:x?}", &expected);
+    
+            assert_eq!(&output, &expected);
+
+        }
+
+    }
+
+    #[test]
+    fn _computing_party_protocol_minmax_batch() {
+
+        use std::env;
+        use std::num::Wrapping;
+        use std::time::SystemTime;
+        use super::util;
+        use super::computing_party::protocol;
+        use super::computing_party::init;
+        use super::io;
+        use rand::{thread_rng, Rng};
+        let test_path = "test/files/computing_party_protocol_minmax_batch";
+
+        let args: Vec<String> = env::args().collect();
+
+        // println!("ARGS HERE {:?}", args);
+
+        let id = &args[args.len()-1];
+        let test_cfg = format!("{}/Party{}.toml", test_path, id); 
+        let mut ctx = init::runtime_context( &test_cfg ).unwrap();
+        
+        /* connect */
+        assert!( init::connection( &mut ctx ).is_ok() );
+
+        /* known results */
+        let input = if ctx.num.asymm == 0 
+        { vec![vec![Wrapping(1), Wrapping(2)], vec![Wrapping(3), Wrapping(4)], vec![Wrapping(5), Wrapping(6)]] } else 
+        { vec![vec![Wrapping(0), Wrapping(0)], vec![Wrapping(0), Wrapping(0)], vec![Wrapping(0), Wrapping(0)]] };
+        let expected = (vec![Wrapping(1), Wrapping(3), Wrapping(5)], vec![Wrapping(2), Wrapping(4), Wrapping(6)]); 
+        let output = protocol::minmax_batch(&input, &mut ctx).unwrap();
+        let output = (protocol::open(&output.0, &mut ctx).unwrap(), protocol::open(&output.1, &mut ctx).unwrap());
+
+        // println!("I: {:x?}", &input);
+        // println!("O: {:x?}", &output);
+        // println!("E: {:x?}", &expected);
+
+        assert_eq!(&output, &expected);
+        
+        // // /* RANDOM TESTS */
+        let mut rng = rand::thread_rng();
+  
+        // seems to break on my end when I populate the vector with multiple values. If you want to test, just put a different number in vec![]
+        for &len in vec![11].iter() { 
+
+            let mut input = vec![vec![Wrapping(0); len]; len];
+            
+            if ctx.num.asymm == 0 {
+                for i in 0.. len {
+                    for j in 0.. len {
+                        // keep random number small to reduce chance of overflow
+                        input[i][j] = Wrapping((rng.gen::<u64>() % 500 + 1) as u64); 
+                    }
+                }
+            }
+
+            let mut expected: (Vec<Wrapping<u64>>, Vec<Wrapping<u64>>) = (vec![], vec![]);
+            for vec in input.clone() {
+
+                let mut min = vec[0];
+                let mut max = vec[0];
+
+                for val in vec {
+                    if val < min {
+                        min = val;
+                    }
+
+                    if val > max {
+                        max = val;
+                    }
+                }
+
+                expected.0.push(min);
+                expected.1.push(max);
+            }
+
+            let output = protocol::minmax_batch(&input, &mut ctx).unwrap();
+            let output = (protocol::open(&output.0, &mut ctx).unwrap(), protocol::open(&output.1, &mut ctx).unwrap());
     
             println!("I: {:x?}", &input);
             println!("O: {:x?}", &output);

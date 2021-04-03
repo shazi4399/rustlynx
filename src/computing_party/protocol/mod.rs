@@ -659,9 +659,7 @@ pub fn minmax_batch(
     }
 
     let l_geq_r = batch_geq(&l_operands, &r_operands, ctx).unwrap();
-
-    let l_geq_r = z2_to_zq(&l_geq_r, ctx/*, 1*/).unwrap();
-
+    let l_geq_r = z2_to_zq(&l_geq_r, ctx).unwrap();
     let l_lt_r: Vec<Wrapping<u64>> = l_geq_r.iter().map(|x| -x + asymmetric_bit).collect();
 
     let mut values = l_operands.clone();
@@ -725,7 +723,7 @@ pub fn minmax_batch(
 
         let l_geq_r = batch_geq(&l_operands, &r_operands, ctx).unwrap();
 
-        let l_geq_r = z2_to_zq(&l_geq_r, ctx/*, 1*/).unwrap();
+        let l_geq_r = z2_to_zq(&l_geq_r, ctx).unwrap();
 
         let l_lt_r: Vec<Wrapping<u64>> = l_geq_r.iter().map(|x| -x + asymmetric_bit).collect();
 
@@ -765,6 +763,9 @@ pub fn minmax_batch(
 
         mins = new_mins;
         maxs = new_maxs;
+
+        // println!("min of pairs: {:5?}", reveal(&mins, ctx, ctx.decimal_precision, true ));
+        // println!("max of pairs: {:5?}", reveal(&maxs, ctx, ctx.decimal_precision, true ));
 
         n = (n / 2) + (n % 2);
         pairs = n / 2;
