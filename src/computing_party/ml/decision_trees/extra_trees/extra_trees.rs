@@ -54,9 +54,9 @@ Result<(Vec<Vec<Vec<Wrapping<u64>>>>, Vec<Vec<Vec<Wrapping<u64>>>>, Vec<Vec<Vec<
     println!("maxes and mins found.");
 
     let fsv_amount = xtctx.tc.tree_count * xtctx.feature_count;
-    let column_major_arvs = create_selection_vectors(fsv_amount, xtctx.tc.attribute_count, ctx)?;
+    let column_major_arvs = if USE_PREGENERATED_SPLITS_AND_SELECTIONS {load_arvs_from_file(ARV_PATH, ctx.num.asymm as usize, feature_count, attribute_count, tree_count)?} else {create_selection_vectors(fsv_amount, xtctx.tc.attribute_count, ctx)?};
     // column_major_arvs.iter().for_each(|x| println!("{:?}", open(x, ctx).unwrap()));
-    let final_column_major_arvs = if !USE_PREGENERATED_SPLITS_AND_SELECTIONS{two_dim_to_3_dim(&column_major_arvs, feature_count)?} else {load_arvs_from_file(ARV_PATH, ctx.num.asymm as usize, feature_count, attribute_count, tree_count)?};
+    let final_column_major_arvs = two_dim_to_3_dim(&column_major_arvs, feature_count)?;
     let column_major_arvs_flat: Vec<Wrapping<u64>> = final_column_major_arvs.clone().into_iter().flatten().flatten().collect();
     let mut column_major_arvs_flat_dup = column_major_arvs_flat.clone();
     column_major_arvs_flat_dup.append(&mut column_major_arvs_flat_dup.clone());
@@ -79,12 +79,12 @@ Result<(Vec<Vec<Vec<Wrapping<u64>>>>, Vec<Vec<Vec<Wrapping<u64>>>>, Vec<Vec<Vec<
     let selected_ranges: Vec<Wrapping<u64>> = selected_mins.iter().zip(selected_maxes.iter()).map(|(x, y)| y - x).collect();
     // println!("selected_ranges: {:?}", open(&selected_ranges, ctx));
 
-    let random_ratios = create_random_ratios(selected_ranges.len(), ctx)?;
+    let random_ratios =  create_random_ratios(selected_ranges.len(), ctx)?;
     // println!("RANDOM RATIOS:{:?}", open(&random_ratios, ctx));
     
     let range_times_ratio = multiply(&selected_ranges, &random_ratios, ctx)?;
     // println!("range_times_ratio: {:?}", open(&range_times_ratio, ctx));
-    let selected_splits: Vec<Wrapping<u64>> = range_times_ratio.iter().zip(selected_mins.iter()).map(|(x, y)| util::truncate(*x, decimal_precision, asym) + y).collect();
+    let selected_splits: Vec<Wrapping<u64>> = if USE_PREGENERATED_SPLITS_AND_SELECTIONS {load_splits_from_file(SPLITS_PATH, ctx.num.asymm as usize, feature_count, tree_count, decimal_precision)?} else {range_times_ratio.iter().zip(selected_mins.iter()).map(|(x, y)| util::truncate(*x, decimal_precision, asym) + y).collect()};
     
     // println!("SELECTED SPLITS: {:?}", open(&selected_splits, ctx));
     //println!("split_select finished. Time taken: {:?}ms", split_select.elapsed().unwrap().as_millis());
@@ -164,7 +164,7 @@ Result<(Vec<Vec<Vec<Wrapping<u64>>>>, Vec<Vec<Vec<Wrapping<u64>>>>, Vec<Vec<Vec<
     //Doubled for proper ohe
     xtctx.tc.attribute_count = 2 * xtctx.feature_count;
 
-    let final_arv_splits = if USE_PREGENERATED_SPLITS_AND_SELECTIONS {load_splits_from_file(SPLITS_PATH, ctx.num.asymm as usize, feature_count, tree_count, decimal_precision)?} else {two_dim_to_3_dim(&selected_splits.iter().map(|x| vec![*x]).collect(), feature_count)?}; 
+    let final_arv_splits = two_dim_to_3_dim(&selected_splits.iter().map(|x| vec![*x]).collect(), feature_count)?; 
 
     Ok((interleaved_complete_set, final_column_major_arvs, final_arv_splits))
 }
@@ -183,7 +183,7 @@ fn two_dim_to_3_dim(data: &Vec<Vec<Wrapping<u64>>>, group_size: usize) -> Result
 
 //Not in ring
 pub fn create_selection_vectors(quant: usize, size: usize, ctx: &mut Context) -> Result<Vec<Vec<Wrapping<u64>>>, Box<dyn Error> >{
-    let seed = [1234567usize];
+    let seed = [123456usize];
     let mut rng = rand::StdRng::from_seed(&seed);
 
     let mut results: Vec<Vec<Wrapping<u64>>> = vec![];
@@ -203,7 +203,7 @@ pub fn create_selection_vectors(quant: usize, size: usize, ctx: &mut Context) ->
 }
 //in ring
 pub fn create_random_ratios(quant: usize, ctx: &mut Context) -> Result<Vec<Wrapping<u64>>, Box<dyn Error> >{
-    let seed = [1234567usize];
+    let seed = [123456usize];
     let mut rng = rand::StdRng::from_seed(&seed);
     let upper_bound = 1 << ctx.num.precision_frac;
 
@@ -216,34 +216,32 @@ pub fn create_random_ratios(quant: usize, ctx: &mut Context) -> Result<Vec<Wrapp
     Ok(results)
 }
 
-fn load_arvs_from_file(path: &str, asym: usize, feature_count: usize, attribute_count: usize, tree_count: usize) -> Result<Vec<Vec<Vec<Wrapping<u64>>>>, Box<dyn Error>>{
+fn load_arvs_from_file(path: &str, asym: usize, feature_count: usize, attribute_count: usize, tree_count: usize) -> Result<Vec<Vec<Wrapping<u64>>>, Box<dyn Error>>{
     if asym != 1 {
-       return Ok(vec![vec![vec![Wrapping(0); attribute_count]; feature_count]; tree_count]);
+       return Ok(vec![vec![Wrapping(0u64); attribute_count]; feature_count * tree_count]);
     }
     let mut ret = vec![];
     let vals = io::matrix_csv_to_wrapping_vec(path)?;
     for i in 0 .. vals.len() {
-        let mut fsv = vec![];
         for j in 0 .. vals[i].len() {
             let index = vals[i][j].0 as usize;
             let mut sel_vec = vec![Wrapping(0); attribute_count];
-            sel_vec[index] = Wrapping(1);
-            fsv.push(sel_vec);
+            sel_vec[index] = Wrapping(1u64);
+            ret.push(sel_vec);
         }
-        ret.push(fsv);
     }
     Ok(ret)
 }
 
-fn load_splits_from_file(path: &str, asym: usize, feature_count: usize, tree_count: usize, decimal_precision: usize) -> Result<Vec<Vec<Vec<Wrapping<u64>>>>, Box<dyn Error>>{
-    let mut ratios = vec![vec![vec![Wrapping(0)]; feature_count]; tree_count];
+fn load_splits_from_file(path: &str, asym: usize, feature_count: usize, tree_count: usize, decimal_precision: usize) -> Result<Vec<Wrapping<u64>>, Box<dyn Error>>{
+    let mut ratios = vec![Wrapping(0); feature_count * tree_count];
     if asym != 1 {
         return Ok(ratios);
     }
     let float_ratios = io::matrix_csv_to_float_vec(path)?;
     for i in 0 .. tree_count {
         for j in 0 .. feature_count {
-            ratios[i][j] = vec![float_to_fixed(float_ratios[i][j], decimal_precision)?];
+            ratios[i * feature_count + j] = float_to_fixed(float_ratios[i][j], decimal_precision)?;
         }
     }
     Ok(ratios)
