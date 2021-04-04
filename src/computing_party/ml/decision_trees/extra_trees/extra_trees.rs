@@ -164,10 +164,7 @@ Result<(Vec<Vec<Vec<Wrapping<u64>>>>, Vec<Vec<Vec<Wrapping<u64>>>>, Vec<Vec<Vec<
     //Doubled for proper ohe
     xtctx.tc.attribute_count = 2 * xtctx.feature_count;
 
-    let final_arv_splits = two_dim_to_3_dim(&selected_splits.iter().map(|x| vec![*x]).collect(), feature_count)?;
-    if USE_PREGENERATED_SPLITS_AND_SELECTIONS {
-        let final_arv_splits = load_splits_from_file(SPLITS_PATH, ctx.num.asymm as usize, feature_count, tree_count, decimal_precision)?;
-    }
+    let final_arv_splits = if USE_PREGENERATED_SPLITS_AND_SELECTIONS {load_splits_from_file(SPLITS_PATH, ctx.num.asymm as usize, feature_count, tree_count, decimal_precision)?} else {two_dim_to_3_dim(&selected_splits.iter().map(|x| vec![*x]).collect(), feature_count)?}; 
 
     Ok((interleaved_complete_set, final_column_major_arvs, final_arv_splits))
 }
@@ -238,15 +235,15 @@ fn load_arvs_from_file(path: &str, asym: usize, feature_count: usize, attribute_
     Ok(ret)
 }
 
-fn load_splits_from_file(path: &str, asym: usize, feature_count: usize, tree_count: usize, decimal_precision: usize) -> Result<Vec<Vec<Wrapping<u64>>>, Box<dyn Error>>{
-    let mut ratios = vec![vec![Wrapping(0); feature_count]; tree_count];
+fn load_splits_from_file(path: &str, asym: usize, feature_count: usize, tree_count: usize, decimal_precision: usize) -> Result<Vec<Vec<Vec<Wrapping<u64>>>>, Box<dyn Error>>{
+    let mut ratios = vec![vec![vec![Wrapping(0)]; feature_count]; tree_count];
     if asym != 1 {
         return Ok(ratios);
     }
     let float_ratios = io::matrix_csv_to_float_vec(path)?;
     for i in 0 .. tree_count {
         for j in 0 .. feature_count {
-            ratios[i][j] = float_to_fixed(float_ratios[i][j], decimal_precision)?;
+            ratios[i][j] = vec![float_to_fixed(float_ratios[i][j], decimal_precision)?];
         }
     }
     Ok(ratios)
