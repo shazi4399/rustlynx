@@ -243,8 +243,9 @@ pub fn sid3t(input: &Vec<Vec<Vec<Wrapping<u64>>>>, class: &Vec<Vec<Vec<Wrapping<
 
         for n in 0 .. number_of_nodes_to_process {
             for a in 0 .. attribute_count {
+                let indexer = a * instance_count + n * instance_count * attribute_count;
                 input_subsets[n][a].append(&mut input_subsets_flattened
-                    [(n * attribute_count) + a * instance_count .. (n * attribute_count) + (a + 1) * instance_count].to_vec());
+                    [indexer .. indexer + instance_count].to_vec());
 
             }
         }
@@ -545,6 +546,26 @@ pub fn gini_impurity(input: &Vec<Vec<Vec<Wrapping<u64>>>>, u_decimal: &Vec<Wrapp
     let asymmetric_bit = ctx.num.asymm;
     let bin_count = train_ctx.bin_count;
     let feat_count = train_ctx.attribute_count/bin_count;
+
+    //TEST -- looks good
+    for n in 0.. number_of_nodes_to_process {
+        let total_data = input[0][0].len();
+        println!("{:?}", protocol::open(&vec![u_decimal[n * total_data * 2 .. (n + 1) * total_data * 2].to_vec().iter().sum()], ctx).unwrap());
+    }
+
+    //TEST -- issue, not all splits add up to 455 FIXED, another issue though, the binarization seems completely wrong
+    for n in 0.. number_of_nodes_to_process {
+        let mut col_count = 0;
+        for col in input[n].clone() {
+
+            let mut extra = "";
+            if col_count % bin_count == 0 && col_count != 0 {extra = ", ";}
+            
+            print!("{}{:?}", extra, protocol::open(&vec![col.iter().sum()], ctx).unwrap());
+            col_count += 1;
+        }
+        print!(", ");
+    }
 
     let alpha = Wrapping(1); // Need this from ctx
 
