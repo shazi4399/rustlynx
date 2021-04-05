@@ -62,7 +62,7 @@ mod tests {
     fn _util_compress_bit_vector() {
 
         use super::util;
-        use rand::{thread_rng, Rng};
+        use rand::{Rng};
         
         let max_threads = 16;
 
@@ -116,7 +116,7 @@ mod tests {
         let n_tests = 10;
         let max_len = 10000;
         
-        for i in 0..n_tests {
+        for _test in 0..n_tests {
 
             let len = 1 + rng.gen::<usize>() % (max_len - 1); 
             let bitlen = 1 + rng.gen::<usize>() % 127;
@@ -190,7 +190,7 @@ mod tests {
     fn _util_compress_from_tesselated_bit_vector() {
 
         use super::util;
-        use rand::{thread_rng, Rng};
+        use rand::{Rng};
 
         let max_threads = 16;
 
@@ -209,7 +209,7 @@ mod tests {
         let n_tests = 10;
         let max_len = 1000;
         
-        for i in 0..n_tests {
+        for _test in 0..n_tests {
 
             let len = 10000 + rng.gen::<usize>() % (max_len - 1); 
             let bitlen = 1 + rng.gen::<usize>() % 64;
@@ -304,7 +304,7 @@ mod tests {
     fn _computing_party_protocol_open_z2() {
 
         use std::env;
-        use std::num::Wrapping;
+        // use std::num::Wrapping;
         use std::time::SystemTime;
         use super::computing_party::protocol;
         use super::computing_party::init;
@@ -428,7 +428,7 @@ mod tests {
     fn _computing_party_protocol_multiply_z2() {
 
         use std::env;
-        use std::num::Wrapping;
+        // use std::num::Wrapping;
         use std::time::SystemTime;
         use super::computing_party::protocol;
         use super::computing_party::init;
@@ -491,13 +491,13 @@ mod tests {
     fn _computing_party_protocol_pairwise_mult_z2() {
 
         use std::env;
-        use std::num::Wrapping;
-        use std::time::SystemTime;
+        // use std::num::Wrapping;
+        // use std::time::SystemTime;
         use super::util;
         use super::computing_party::protocol;
         use super::computing_party::init;
-        use super::io;
-        use rand::{thread_rng, Rng};
+        // use super::io;
+        use rand::{Rng};
         let test_path = "test/files/computing_party_protocol_pairwise_mult_z2";
 
         let args: Vec<String> = env::args().collect();
@@ -555,16 +555,16 @@ mod tests {
                     for i in 0..len {
                         expected[i] |= opened_input[i] & 1;
                         for j in 1..tesselated_bitlen {
-                            let left_bit = (opened_input[i] >> 2*j - 1);
-                            let right_bit = (opened_input[i] >> 2*j);
+                            let left_bit = opened_input[i] >> 2*j - 1;
+                            let right_bit = opened_input[i] >> 2*j;
                             expected[i] |= (left_bit & right_bit & 1) << j;
                         }
                     }
                 } else {
                     for i in 0..len {
                         for j in 0..tesselated_bitlen {
-                            let left_bit = (opened_input[i] >> 2*j);
-                            let right_bit = (opened_input[i] >> 2*j + 1);
+                            let left_bit = opened_input[i] >> 2*j;
+                            let right_bit = opened_input[i] >> 2*j + 1;
                             expected[i] |= (left_bit & right_bit & 1) << j;
                         }
                     }
@@ -579,17 +579,17 @@ mod tests {
         }
     }
 
-    #[test]
+    #[test] // TODO: reevaluate this test
     fn _computing_party_protocol_parallel_mult_z2() {
 
         use std::env;
-        use std::num::Wrapping;
-        use std::time::SystemTime;
-        use super::util;
+        // use std::num::Wrapping;
+        // use std::time::SystemTime;
+        // use super::util;
         use super::computing_party::protocol;
         use super::computing_party::init;
-        use super::io;
-        use rand::{thread_rng, Rng};
+        // use super::io;
+        use rand::{Rng};
         let test_path = "test/files/computing_party_protocol_parallel_mult_z2";
 
         let args: Vec<String> = env::args().collect();
@@ -622,13 +622,13 @@ mod tests {
         for &len in vec![1, 2, 3, 5, 7, 11, 11177].iter() {
             for bitlen in vec![/*1, 2, 4, 8, */16, 32, 64] {
    
-                let pad = true;
-                let asymm = ctx.num.asymm;
+                // let pad = true;
+                // let asymm = ctx.num.asymm;
                 let bitmask: u128 = (1u128 << bitlen) - 1u128;
 
                 let input = vec![if ctx.num.asymm == 0 {bitmask} else {0} ; len];
 
-                let opened_input = protocol::open_z2(&input, &mut ctx).unwrap();
+                // let opened_input = protocol::open_z2(&input, &mut ctx).unwrap();
                 let output = protocol::parallel_mult_z2(&input, len, bitlen, &mut ctx).unwrap(); 
                 let output = protocol::open_z2(&output, &mut ctx).unwrap(); 
 
@@ -641,13 +641,13 @@ mod tests {
    
                 for i in 0..bitlen {
 
-                    let pad = true;
-                    let asymm = ctx.num.asymm;
+                    // let pad = true;
+                    // let asymm = ctx.num.asymm;
                     let bitmask: u128 = (1u128 << bitlen) - 1u128;
     
                     let input = vec![if ctx.num.asymm == 0 {bitmask} else {1 << i} ; len];
     
-                    let opened_input = protocol::open_z2(&input, &mut ctx).unwrap();
+                    // let opened_input = protocol::open_z2(&input, &mut ctx).unwrap();
                     let output = protocol::parallel_mult_z2(&input, len, bitlen, &mut ctx).unwrap(); 
                     let output = protocol::open_z2(&output, &mut ctx).unwrap(); 
     
@@ -660,10 +660,8 @@ mod tests {
 
         for &len in vec![1, 2, 3, 5, 7, 11, 11177].iter() {
             for bitlen in 1..65 {
-
             
-                let pad = true;
-                let asymm = ctx.num.asymm;
+                // let asymm = ctx.num.asymm;
                 let bitmask: u128 = (1u128 << bitlen) - 1u128;
 
                 let input = (0..len).map(|_i| ((rng.gen::<u64>() as u128) | ((rng.gen::<u64>() as u128) << 64)) & bitmask).collect::<Vec<u128>>();
@@ -693,13 +691,13 @@ mod tests {
     fn _computing_party_protocol_equality_from_z2() {
 
         use std::env;
-        use std::num::Wrapping;
-        use std::time::SystemTime;
-        use super::util;
+        // use std::num::Wrapping;
+        // use std::time::SystemTime;
+        // use super::util;
         use super::computing_party::protocol;
         use super::computing_party::init;
-        use super::io;
-        use rand::{thread_rng, Rng};
+        // use super::io;
+        // use rand::{thread_rng, Rng};
         let test_path = "test/files/computing_party_protocol_equality_from_z2";
 
         let args: Vec<String> = env::args().collect();
@@ -730,11 +728,11 @@ mod tests {
         assert_eq!(&output, &expected);
 
         // /* RANDOM TESTS */
-        let mut rng = rand::thread_rng();
+        // let rng = rand::thread_rng();
 
         for &bitlen in vec![5].iter() {
             let max_val = (1 << bitlen) - 1;
-            let bitmask: u128 = (1u128 << bitlen) - 1u128;
+            // let bitmask: u128 = (1u128 << bitlen) - 1u128;
 
             let x = (0..max_val).map(|idx| if ctx.num.asymm == 0 {idx as u128} else {0u128}).collect::<Vec<u128>>();
 
@@ -759,12 +757,12 @@ mod tests {
 
         use std::env;
         use std::num::Wrapping;
-        use std::time::SystemTime;
-        use super::util;
+        // use std::time::SystemTime;
+        // use super::util;
         use super::computing_party::protocol;
         use super::computing_party::init;
-        use super::io;
-        use rand::{thread_rng, Rng};
+        // use super::io;
+        use rand::{Rng};
         let test_path = "test/files/computing_party_protocol_bit_extract";
 
         let args: Vec<String> = env::args().collect();
@@ -778,7 +776,7 @@ mod tests {
         let mut rng = rand::thread_rng();
         let n_tests = 1;
            
-        for test in 0..n_tests {
+        for _test in 0..n_tests {
 
             let input = rng.gen::<u64>();
             let input_opened = protocol::open(&vec![Wrapping(input)], &mut ctx).unwrap()[0].0 as u128;
@@ -803,11 +801,11 @@ mod tests {
         use std::env;
         use std::num::Wrapping;
         use std::time::SystemTime;
-        use super::util;
+        // use super::util;
         use super::computing_party::protocol;
         use super::computing_party::init;
-        use super::io;
-        use rand::{thread_rng, Rng};
+        // use super::io;
+        use rand::{Rng};
         let test_path = "test/files/computing_party_protocol_bit_extract";
 
         let args: Vec<String> = env::args().collect();
@@ -855,12 +853,12 @@ mod tests {
 
         use std::env;
         use std::num::Wrapping;
-        use std::time::SystemTime;
-        use super::util;
+        // use std::time::SystemTime;
+        // use super::util;
         use super::computing_party::protocol;
         use super::computing_party::init;
-        use super::io;
-        use rand::{thread_rng, Rng};
+        // use super::io;
+        // use rand::{thread_rng, Rng};
         let test_path = "test/files/computing_party_protocol_bit_extract";
 
         let args: Vec<String> = env::args().collect();
@@ -871,12 +869,12 @@ mod tests {
         /* connect */
         assert!( init::connection( &mut ctx ).is_ok() );
      
-        let mut rng = rand::thread_rng();
-        let bitmask: u64 = (1 << (ctx.num.precision_int + ctx.num.precision_frac)) - 1;   
+        // let rng = rand::thread_rng();
+        // let bitmask: u64 = (1 << (ctx.num.precision_int + ctx.num.precision_frac)) - 1;   
         let n_tests = 2;        
         let size = 100000;
 
-        for test in 0..n_tests {
+        for _test in 0..n_tests {
             let x = if ctx.num.asymm == 0 {
                 (0..size).map(|i| Wrapping(i as u64)).collect()
             } else {
@@ -906,12 +904,12 @@ mod tests {
 
         use std::env;
         use std::num::Wrapping;
-        use std::time::SystemTime;
-        use super::util;
+        // use std::time::SystemTime;
+        // use super::util;
         use super::computing_party::protocol;
         use super::computing_party::init;
-        use super::io;
-        use rand::{thread_rng, Rng};
+        // use super::io;
+        use rand::{Rng};
         let test_path = "test/files/computing_party_protocol_bit_extract";
 
         let args: Vec<String> = env::args().collect();
@@ -926,7 +924,7 @@ mod tests {
         let n_tests = 10;
         let bitmask: u64 = (1 << (ctx.num.precision_int + ctx.num.precision_frac)) - 1;   
         
-        for test in 0..n_tests {
+        for _test in 0..n_tests {
 
             let mut x = 0u64;
             let mut y = 0u64;
@@ -1004,12 +1002,12 @@ mod tests {
 
         use std::env;
         use std::num::Wrapping;
-        use std::time::SystemTime;
-        use super::util;
+        // use std::time::SystemTime;
+        // use super::util;
         use super::computing_party::protocol;
         use super::computing_party::init;
-        use super::io;
-        use rand::{thread_rng, Rng};
+        // use super::io;
+        use rand::{Rng};
         let test_path = "test/files/computing_party_protocol_pairwise_mult_zq";
 
         let args: Vec<String> = env::args().collect();
@@ -1117,12 +1115,12 @@ mod tests {
 
         use std::env;
         use std::num::Wrapping;
-        use std::time::SystemTime;
-        use super::util;
+        // use std::time::SystemTime;
+        // use super::util;
         use super::computing_party::protocol;
         use super::computing_party::init;
-        use super::io;
-        use rand::{thread_rng, Rng};
+        // use super::io;
+        use rand::{Rng};
         let test_path = "test/files/computing_party_protocol_minmax_batch";
 
         let args: Vec<String> = env::args().collect();

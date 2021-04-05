@@ -1,9 +1,9 @@
 use std::error::Error;
 use super::super::super::super::Context;
 use std::num::Wrapping;
-use super::super::super::super::protocol;
+// use super::super::super::super::protocol;
 use super::super::decision_tree::TreeNode;
-use super::super::inference::classify_in_the_clear;
+// use super::super::inference::classify_in_the_clear;
 use super::super::inference::{InferenceContext,};
 use crate::io;
 use crate::util;

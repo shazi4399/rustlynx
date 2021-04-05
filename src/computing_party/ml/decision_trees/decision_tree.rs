@@ -261,7 +261,7 @@ pub fn sid3t(input: &Vec<Vec<Vec<Wrapping<u64>>>>, class: &Vec<Vec<Vec<Wrapping<
 
         let mut best_attributes: Vec<Vec<Wrapping<u64>>> = vec![]; //should be a vector containing selection vectors for the best attributes to split on for each node
         let mut chosen_split_points: Vec<Wrapping<u64>> = vec![]; //should be the associated value for the selection vector in best_attributes
-        let mut chosen_classifications: Vec<Wrapping<u64>> = vec![]; //the most frequent classification at each node multiplied by the value calculated in this_layer_classification_bits\
+        let mut chosen_classifications: Vec<Wrapping<u64>>; //the most frequent classification at each node multiplied by the value calculated in this_layer_classification_bits\
 
         let mut indices_exp = (0u64 .. class_label_count as u64).map(|x| vec![Wrapping(x); number_of_nodes_to_process]).flatten().collect();
         if asymmetric_bit != 1 {
@@ -700,8 +700,8 @@ pub fn gini_impurity(input: &Vec<Vec<Vec<Wrapping<u64>>>>, u_decimal: &Vec<Wrapp
     // At this point we have all of our x, x^2 and y values. Now we can start calculation gini numerators/denominators
     let mut sum_of_x2_j =  vec![vec![vec![Wrapping(0); bin_count]; feat_count]; number_of_nodes_to_process];
 
-    let mut D_exclude_j = vec![vec![vec![Wrapping(0); bin_count]; feat_count]; number_of_nodes_to_process];
-    let mut D_include_j = vec![vec![]; number_of_nodes_to_process];
+    let mut d_exclude_j = vec![vec![vec![Wrapping(0); bin_count]; feat_count]; number_of_nodes_to_process];
+    let mut d_include_j = vec![vec![]; number_of_nodes_to_process];
 
     // create vector of the 0 and 1 values for j to set us up for batch multiplicaiton.
     // also, sum all of the x^2 values over i, and push these sums over i to a vector
@@ -736,34 +736,34 @@ pub fn gini_impurity(input: &Vec<Vec<Vec<Wrapping<u64>>>>, u_decimal: &Vec<Wrapp
                 sum_of_x2_j[n][k][j] = sum_j_values;
             }
             // can be far better optimized. Named 'D' after De'Hooghs variable
-            D_exclude_j[n][k] = protocol::pairwise_mult_zq(&y_vals_exclude_j, ctx).unwrap();
-            // println!("exclude {:?}", protocol::open(&D_exclude_j[n][k], ctx).unwrap()); //test
+            d_exclude_j[n][k] = protocol::pairwise_mult_zq(&y_vals_exclude_j, ctx).unwrap();
+            // println!("exclude {:?}", protocol::open(&d_exclude_j[n][k], ctx).unwrap()); //test
             // 
-            // D_exclude_j.append(y_vals_exclude_j); what we should do?
+            // d_exclude_j.append(y_vals_exclude_j); what we should do?
         }
-        D_include_j[n] = protocol::pairwise_mult_zq(&y_vals_include_j, ctx).unwrap();
-        // println!("include {:?}", protocol::open(&D_include_j[n], ctx).unwrap()); //test
-        // D_include_j.append(y_vals_include_j); what we should do?
+        d_include_j[n] = protocol::pairwise_mult_zq(&y_vals_include_j, ctx).unwrap();
+        // println!("include {:?}", protocol::open(&d_include_j[n], ctx).unwrap()); //test
+        // d_include_j.append(y_vals_include_j); what we should do?
     }
 
-    //let D_exclude_j_flattend = protocol::pairwise_mult_zq(&D_exclude_j, ctx).unwrap(); what we should do?
-    //let D_include_j_flattend = protocol::pairwise_mult_zq(&D_include_j, ctx).unwrap(); what we should do?
+    //let d_exclude_j_flattend = protocol::pairwise_mult_zq(&d_exclude_j, ctx).unwrap(); what we should do?
+    //let d_include_j_flattend = protocol::pairwise_mult_zq(&d_include_j, ctx).unwrap(); what we should do?
 
-    let mut D_exclude_j_flattend = vec![];
-    let mut D_include_j_flattend = vec![];
+    let mut d_exclude_j_flattend = vec![];
+    let mut d_include_j_flattend = vec![];
     let mut sum_of_x2_j_flattend = vec![];
 
     for n in 0.. number_of_nodes_to_process {
         for k in 0.. feat_count {
-            D_exclude_j_flattend.append(&mut D_exclude_j[n][k]);
+            d_exclude_j_flattend.append(&mut d_exclude_j[n][k]);
             sum_of_x2_j_flattend.append(&mut sum_of_x2_j[n][k]);
         }
-        D_include_j_flattend.append(&mut D_include_j[n]);
+        d_include_j_flattend.append(&mut d_include_j[n]);
     } 
 
-    let gini_numerators_values_flat_unsummed = protocol::multiply(&D_exclude_j_flattend, &sum_of_x2_j_flattend, ctx).unwrap();
+    let gini_numerators_values_flat_unsummed = protocol::multiply(&d_exclude_j_flattend, &sum_of_x2_j_flattend, ctx).unwrap();
 
-    // println!("{}", D_exclude_j_flattend.len()); //test
+    // println!("{}", d_exclude_j_flattend.len()); //test
     // println!("{}", sum_of_x2_j_flattend.len()); //test
 
     for v in 0.. gini_numerators_values_flat_unsummed.len() / bin_count {
@@ -773,7 +773,7 @@ pub fn gini_impurity(input: &Vec<Vec<Vec<Wrapping<u64>>>>, u_decimal: &Vec<Wrapp
     }
 
     // create denominators
-    let gini_denominators: Vec<Wrapping<u64>> = D_include_j_flattend.clone();
+    let gini_denominators: Vec<Wrapping<u64>> = d_include_j_flattend.clone();
 
     // println!("{}: {:?}", gini_numerators.len(), protocol::open(&gini_numerators, ctx).unwrap()); //test
     // println!("{}: {:?}", gini_denominators.len(), protocol::open(&gini_denominators, ctx).unwrap()); //test
