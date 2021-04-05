@@ -4,7 +4,7 @@ use super::super::decision_tree::TrainingContext;
 use std::num::Wrapping;
 use crate::io;
 use super::super::super::super::protocol::*;
-use crate::constants;
+// use crate::constants;
 use rand::*;
 use crate::util;
 
@@ -40,10 +40,10 @@ Result<(Vec<Vec<Vec<Wrapping<u64>>>>, Vec<Vec<Vec<Wrapping<u64>>>>, Vec<Vec<Vec<
     let decimal_precision = ctx.num.precision_frac;
     let asym = ctx.num.asymm;
 
-    let USE_PREGENERATED_SPLITS_AND_SELECTIONS = false;
-    let ARV_PATH = "custom_randomness/arvs.csv";
-    let SPLITS_PATH = "custom_randomness/splits.csv";
-    let SEED = 446492;
+    let use_pregenerated_splits_and_selections = true;
+    let arv_path = "custom_randomness/arvs.csv";
+    let splits_path = "custom_randomness/splits.csv";
+    let seed = 446492;
 
     let minmax = minmax_batch(&util::transpose(data)?, ctx)?;
 
@@ -55,7 +55,7 @@ Result<(Vec<Vec<Vec<Wrapping<u64>>>>, Vec<Vec<Vec<Wrapping<u64>>>>, Vec<Vec<Vec<
     println!("maxes and mins found.");
 
     let fsv_amount = xtctx.tc.tree_count * xtctx.feature_count;
-    let column_major_arvs = if USE_PREGENERATED_SPLITS_AND_SELECTIONS {load_arvs_from_file(ARV_PATH, ctx.num.asymm as usize, feature_count, attribute_count, tree_count)?} else {create_selection_vectors(fsv_amount, xtctx.tc.attribute_count, SEED, ctx)?};
+    let column_major_arvs = if use_pregenerated_splits_and_selections {load_arvs_from_file(arv_path, ctx.num.asymm as usize, feature_count, attribute_count, tree_count)?} else {create_selection_vectors(fsv_amount, xtctx.tc.attribute_count, seed, ctx)?};
     // column_major_arvs.iter().for_each(|x| println!("{:?}", open(x, ctx).unwrap()));
     let final_column_major_arvs = two_dim_to_3_dim(&column_major_arvs, feature_count)?;
     let column_major_arvs_flat: Vec<Wrapping<u64>> = final_column_major_arvs.clone().into_iter().flatten().flatten().collect();
@@ -80,12 +80,12 @@ Result<(Vec<Vec<Vec<Wrapping<u64>>>>, Vec<Vec<Vec<Wrapping<u64>>>>, Vec<Vec<Vec<
     let selected_ranges: Vec<Wrapping<u64>> = selected_mins.iter().zip(selected_maxes.iter()).map(|(x, y)| y - x).collect();
     // println!("selected_ranges: {:?}", open(&selected_ranges, ctx));
 
-    let random_ratios =  create_random_ratios(selected_ranges.len() , SEED , ctx)?;
+    let random_ratios =  create_random_ratios(selected_ranges.len(), seed, ctx)?;
     // println!("RANDOM RATIOS:{:?}", open(&random_ratios, ctx));
     
     let range_times_ratio = multiply(&selected_ranges, &random_ratios, ctx)?;
     // println!("range_times_ratio: {:?}", open(&range_times_ratio, ctx));
-    let selected_splits: Vec<Wrapping<u64>> = if USE_PREGENERATED_SPLITS_AND_SELECTIONS {load_splits_from_file(SPLITS_PATH, ctx.num.asymm as usize, feature_count, tree_count, decimal_precision)?} else {range_times_ratio.iter().zip(selected_mins.iter()).map(|(x, y)| util::truncate(*x, decimal_precision, asym) + y).collect()};
+    let selected_splits: Vec<Wrapping<u64>> = if use_pregenerated_splits_and_selections {load_splits_from_file(splits_path, ctx.num.asymm as usize, feature_count, tree_count, decimal_precision)?} else {range_times_ratio.iter().zip(selected_mins.iter()).map(|(x, y)| util::truncate(*x, decimal_precision, asym) + y).collect()};
     
     // println!("SELECTED SPLITS: {:?}", open(&selected_splits, ctx));
     //println!("split_select finished. Time taken: {:?}ms", split_select.elapsed().unwrap().as_millis());
