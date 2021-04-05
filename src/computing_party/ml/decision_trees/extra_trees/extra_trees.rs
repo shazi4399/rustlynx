@@ -40,9 +40,10 @@ Result<(Vec<Vec<Vec<Wrapping<u64>>>>, Vec<Vec<Vec<Wrapping<u64>>>>, Vec<Vec<Vec<
     let decimal_precision = ctx.num.precision_frac;
     let asym = ctx.num.asymm;
 
-    let USE_PREGENERATED_SPLITS_AND_SELECTIONS = true;
+    let USE_PREGENERATED_SPLITS_AND_SELECTIONS = false;
     let ARV_PATH = "custom_randomness/arvs.csv";
     let SPLITS_PATH = "custom_randomness/splits.csv";
+    let SEED = 446492;
 
     let minmax = minmax_batch(&util::transpose(data)?, ctx)?;
 
@@ -54,7 +55,7 @@ Result<(Vec<Vec<Vec<Wrapping<u64>>>>, Vec<Vec<Vec<Wrapping<u64>>>>, Vec<Vec<Vec<
     println!("maxes and mins found.");
 
     let fsv_amount = xtctx.tc.tree_count * xtctx.feature_count;
-    let column_major_arvs = if USE_PREGENERATED_SPLITS_AND_SELECTIONS {load_arvs_from_file(ARV_PATH, ctx.num.asymm as usize, feature_count, attribute_count, tree_count)?} else {create_selection_vectors(fsv_amount, xtctx.tc.attribute_count, ctx)?};
+    let column_major_arvs = if USE_PREGENERATED_SPLITS_AND_SELECTIONS {load_arvs_from_file(ARV_PATH, ctx.num.asymm as usize, feature_count, attribute_count, tree_count)?} else {create_selection_vectors(fsv_amount, xtctx.tc.attribute_count, SEED, ctx)?};
     // column_major_arvs.iter().for_each(|x| println!("{:?}", open(x, ctx).unwrap()));
     let final_column_major_arvs = two_dim_to_3_dim(&column_major_arvs, feature_count)?;
     let column_major_arvs_flat: Vec<Wrapping<u64>> = final_column_major_arvs.clone().into_iter().flatten().flatten().collect();
@@ -79,7 +80,7 @@ Result<(Vec<Vec<Vec<Wrapping<u64>>>>, Vec<Vec<Vec<Wrapping<u64>>>>, Vec<Vec<Vec<
     let selected_ranges: Vec<Wrapping<u64>> = selected_mins.iter().zip(selected_maxes.iter()).map(|(x, y)| y - x).collect();
     // println!("selected_ranges: {:?}", open(&selected_ranges, ctx));
 
-    let random_ratios =  create_random_ratios(selected_ranges.len(), ctx)?;
+    let random_ratios =  create_random_ratios(selected_ranges.len() , SEED , ctx)?;
     // println!("RANDOM RATIOS:{:?}", open(&random_ratios, ctx));
     
     let range_times_ratio = multiply(&selected_ranges, &random_ratios, ctx)?;
@@ -182,34 +183,32 @@ fn two_dim_to_3_dim(data: &Vec<Vec<Wrapping<u64>>>, group_size: usize) -> Result
 }
 
 //Not in ring
-pub fn create_selection_vectors(quant: usize, size: usize, ctx: &mut Context) -> Result<Vec<Vec<Wrapping<u64>>>, Box<dyn Error> >{
-    let seed = [123456usize];
-    let mut rng = rand::StdRng::from_seed(&seed);
+pub fn create_selection_vectors(quant: usize, size: usize, seed: usize, ctx: &mut Context) -> Result<Vec<Vec<Wrapping<u64>>>, Box<dyn Error> >{
+    if ctx.num.asymm == 0 {
+        return Ok(vec![vec![Wrapping(0); size]; quant]);
+    }
+    let mut rng = rand::StdRng::from_seed(&[seed]);
 
     let mut results: Vec<Vec<Wrapping<u64>>> = vec![];
     for i in 0 .. quant {
         let index: usize = rng.gen_range(0, size);
-        let mut att_sel_vec = vec![];
-        for j in 0 .. size {
-            let val = if j == index && ctx.num.asymm == 1 {Wrapping(1)} else {Wrapping(0)};
-            let p0: Wrapping<u64> = Wrapping(rng.gen());
-            let p1: Wrapping<u64> = val - p0;
-            let ret = if ctx.num.asymm == 1 {p1} else {p0};
-            att_sel_vec.push(ret);
-        }
+        let mut att_sel_vec = vec![Wrapping(0); size];
+        att_sel_vec[index] = Wrapping(1);
         results.push(att_sel_vec);
     }
     Ok(results)
 }
 //in ring
-pub fn create_random_ratios(quant: usize, ctx: &mut Context) -> Result<Vec<Wrapping<u64>>, Box<dyn Error> >{
-    let seed = [123456usize];
-    let mut rng = rand::StdRng::from_seed(&seed);
+pub fn create_random_ratios(quant: usize, seed: usize, ctx: &mut Context) -> Result<Vec<Wrapping<u64>>, Box<dyn Error>> {
+    if ctx.num.asymm == 0 {
+        return Ok(vec![Wrapping(0); quant]);
+    }
+    let mut rng = if seed > 0 {rand::StdRng::from_seed(&[seed])} else {rand::StdRng::new()?};
     let upper_bound = 1 << ctx.num.precision_frac;
 
     let mut results = vec![];
     for i in 0 .. quant {
-        let val = if ctx.num.asymm == 1 {Wrapping(rng.gen_range(0, upper_bound))} else {Wrapping(0)};
+        let val = Wrapping(rng.gen_range(0, upper_bound));
         results.push(val);
     }
 
