@@ -620,7 +620,7 @@ mod tests {
         let mut rng = rand::thread_rng();
 
         for &len in vec![1, 2, 3, 5, 7, 11, 11177].iter() {
-            for bitlen in vec![1, 2, 4, 8, 16, 32, 64] {
+            for bitlen in vec![/*1, 2, 4, 8, */16, 32, 64] {
    
                 let pad = true;
                 let asymm = ctx.num.asymm;
@@ -850,6 +850,56 @@ mod tests {
         } 
     }
 
+    #[test] //  TODO: add tests for negative values
+    fn _computing_party_protocol_batch_geq() {
+
+        use std::env;
+        use std::num::Wrapping;
+        use std::time::SystemTime;
+        use super::util;
+        use super::computing_party::protocol;
+        use super::computing_party::init;
+        use super::io;
+        use rand::{thread_rng, Rng};
+        let test_path = "test/files/computing_party_protocol_bit_extract";
+
+        let args: Vec<String> = env::args().collect();
+        let id = &args[args.len()-1];
+        let test_cfg = format!("{}/Party{}.toml", test_path, id); 
+        let mut ctx = init::runtime_context( &test_cfg ).unwrap();
+        
+        /* connect */
+        assert!( init::connection( &mut ctx ).is_ok() );
+     
+        let mut rng = rand::thread_rng();
+        let bitmask: u64 = (1 << (ctx.num.precision_int + ctx.num.precision_frac)) - 1;   
+        let n_tests = 2;        
+        let size = 100000;
+
+        for test in 0..n_tests {
+            let x = if ctx.num.asymm == 0 {
+                (0..size).map(|i| Wrapping(i as u64)).collect()
+            } else {
+                vec![Wrapping(0u64); size]
+            };
+
+            let y = if ctx.num.asymm == 0 {
+                vec![Wrapping(0u64); size]
+            } else {
+                (0..size).map(|i| Wrapping((size - i) as u64)).collect()
+            };
+
+            let x_open = protocol::open(&x, &mut ctx).unwrap();
+            let y_open = protocol::open(&y, &mut ctx).unwrap();
+
+            let output = protocol::batch_geq(&x, &y, &mut ctx).unwrap();
+            let output = protocol::open_z2(&output, &mut ctx).unwrap();
+
+            for i in 0..size {
+                assert!( x_open[i] >= y_open[i] && output[i] == 1 || x_open[i] < y_open[i] && output[i] == 0 )
+            }
+        }
+    }
 
     #[test]
     fn _computing_party_protocol_geq() {
@@ -873,7 +923,7 @@ mod tests {
         assert!( init::connection( &mut ctx ).is_ok() );
      
         let mut rng = rand::thread_rng();
-        let n_tests = 100;
+        let n_tests = 10;
         let bitmask: u64 = (1 << (ctx.num.precision_int + ctx.num.precision_frac)) - 1;   
         
         for test in 0..n_tests {

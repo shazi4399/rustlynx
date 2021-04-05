@@ -683,19 +683,18 @@ pub fn geq(x: &Wrapping<u64>, y: &Wrapping<u64>, ctx: &mut Context) -> Result<u1
     Ok(x_geq_y)
 }
 
-//INSECURE PLACEHOLDER
 pub fn batch_geq(x: &Vec<Wrapping<u64>>, y: &Vec<Wrapping<u64>>, ctx: &mut Context) -> Result<Vec<u128>, Box<dyn Error>> {
 
-    let rev_x = open(x, ctx)?;
-    let rev_y = open(y, ctx)?;
-
-    if ctx.num.asymm == 1 {
-        let result = rev_x.iter().zip(rev_y.iter()).map(|(x, y)| (x >= y) as u128).collect();
-        return Ok(result);
-    } else {
-        let result = vec![0u128; rev_x.len()];
-        return Ok(result);
-    }
+    Ok(
+        batch_bit_extract(
+            &x.iter().zip(y).map(|(xx, yy)| xx - yy).collect(), 
+            ctx.num.precision_int + ctx.num.precision_frac + 1,
+            ctx
+        )?  
+        .iter()
+        .map(|msb| (ctx.num.asymm as u128) ^ msb)
+        .collect()
+    )
 }
 
 //INSECURE PLACEHOLDER
