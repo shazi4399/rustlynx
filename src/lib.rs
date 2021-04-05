@@ -809,6 +809,60 @@ mod tests {
     //     }
     // }
 
+    #[test]
+    fn _computing_party_protocol_batch_bit_extract() {
+
+        use std::env;
+        use std::num::Wrapping;
+        use std::time::SystemTime;
+        use super::util;
+        use super::computing_party::protocol;
+        use super::computing_party::init;
+        use super::io;
+        use rand::{thread_rng, Rng};
+        let test_path = "test/files/computing_party_protocol_bit_extract";
+
+        let args: Vec<String> = env::args().collect();
+        let id = &args[args.len()-1];
+        let test_cfg = format!("{}/Party{}.toml", test_path, id); 
+        let mut ctx = init::runtime_context( &test_cfg ).unwrap();
+        
+        /* connect */
+        assert!( init::connection( &mut ctx ).is_ok() );
+     
+        let mut rng = rand::thread_rng();
+    
+        for size in vec![100000] {
+
+            let input = (0..size).map(|_| Wrapping(rng.gen::<u64>())).collect::<Vec<Wrapping<u64>>>();
+            let input_opened = protocol::open(&input, &mut ctx).unwrap();
+            let input_opened = input_opened.iter().map(|x| x.0 as u128).collect::<Vec<u128>>();
+
+            for bit_pos in vec![0, 1, 3, 7, 15, 31, 63] {
+                for online_threads in vec![8] {
+                    for offline_threads in vec![16] {
+                        
+                        ctx.sys.threads.online = online_threads;
+                        ctx.sys.threads.offline = offline_threads;
+                        
+                        let now = SystemTime::now();
+                        let output = protocol::batch_bit_extract(&input, bit_pos, &mut ctx).unwrap();
+                        let avg_elapsed = now.elapsed().unwrap().as_millis();
+                        println!("size={:10}, bit_pos={:2}, online_threads={:2}, offline_threads={:2}, work time {:5.0} ms", 
+                            size, bit_pos, ctx.sys.threads.online, ctx.sys.threads.offline, avg_elapsed);    
+
+                        let output = protocol::open_z2(&output, &mut ctx).unwrap();
+
+                        for i in 0..size {
+                            assert_eq!((input_opened[i] >> bit_pos) & 1, output[i] & 1)
+                        }
+                    }
+                }
+            } 
+        } 
+    }
+
+
     // #[test]
     // fn _computing_party_protocol_geq() {
 

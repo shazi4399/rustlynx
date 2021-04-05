@@ -21,7 +21,7 @@ pub fn run( cfg_file : String ) -> Result<(), Box<dyn Error>> {
 	}
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct Context {
 	pub sys: System,
 	pub net: Network,
@@ -31,40 +31,40 @@ pub struct Context {
 }
 
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct System {
 	pub threads: Threading,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct Threading {
 	pub optimise: bool,
 	pub offline: usize,
 	pub online: usize,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct CorrelatedRandomness {
 	pub debug: bool,
 	pub additive: Option<Vec<(u64, u64, u64)>>,
 	pub xor: Option<Vec<(u128, u128, u128)>>,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct Numeric {
 	pub precision_frac: usize,
 	pub precision_int: usize,
 	pub asymm: u64,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct Network {
 	pub local: User,
 	pub external: User,
 	pub ti: Option<User>,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct User {
 	pub id: u8,
 	pub ip: Option<Ipv4Addr>,
@@ -78,7 +78,7 @@ pub struct IoStream {
 	pub ostream : TcpStream,
 }
 
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct MachineLearning {
 	pub model: Option<MLModel>,
 	pub phase: Option<MLPhase>,
@@ -86,7 +86,7 @@ pub struct MachineLearning {
 	pub callable: Option<fn(&mut Context) -> Result<(), Box<dyn Error>>>
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum MLModel {
 	LogisticRegression,
 	NaiveBayes,
@@ -94,10 +94,19 @@ pub enum MLModel {
 	RandomForest,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum MLPhase {
 	Learning,
 	Inference,
+}
+
+impl Clone for IoStream {
+    fn clone(&self) -> Self {
+       IoStream {
+            istream: self.istream.try_clone().unwrap(),
+            ostream: self.ostream.try_clone().unwrap(),
+        }
+    }
 }
 
 impl fmt::Debug for MachineLearning {

@@ -587,6 +587,91 @@ pub fn bit_extract(val: &Wrapping<u64>, bit_pos: usize, ctx: &mut Context) -> Re
 
 }
 
+pub fn batch_bit_extract(vec: &Vec<Wrapping<u64>>, bit_pos: usize, ctx: &mut Context) -> Result<Vec<u128>, Box<dyn Error>> { 
+
+    assert!(0 <= bit_pos && bit_pos < 64);
+    assert!(ctx.sys.threads.online > 1);
+
+    if bit_pos == 0 {
+        return Ok(vec.iter().map(|x| 1 & x.0 as u128).collect::<Vec<u128>>())
+    }
+
+    let n_elems = vec.len();
+    let bit_len = bit_pos;
+    let r_shift_mask = (1u128 << 127) - 1;
+    let p_mask = (1u128 << bit_pos) - 1;
+
+    let mut p_layer = util::compress_bit_vector(
+        &vec.iter().map(|x| p_mask & x.0 as u128).collect::<Vec<u128>>(),
+        n_elems,
+        bit_len,
+        bit_len > 1,
+        ctx.num.asymm,
+        ctx.sys.threads.online
+    )?;            
+
+    let mut g_layer = if ctx.num.asymm == 0 {
+        multiply_z2(&p_layer, &vec![0u128; p_layer.len()], ctx)?
+    } else {
+        multiply_z2(&vec![0u128; p_layer.len()], &p_layer, ctx)?
+    };
+
+    let mut bit_len = bit_pos; 
+    while bit_len > 1 {
+       
+        bit_len = (bit_len + 1) >> 1;
+
+        let mut p_ctx = ctx.clone();
+        let p_layer_1 = p_layer.clone();
+        let p_layer_t_handle = thread::spawn(move || {
+
+            p_ctx.sys.threads.online = cmp::max(1, p_ctx.sys.threads.online >> 1);
+            p_ctx.sys.threads.offline = cmp::max(1, p_ctx.sys.threads.offline >> 1);
+            p_ctx.net.external.tcp = Some(p_ctx.net.external.tcp.unwrap()[..p_ctx.sys.threads.online].to_vec());
+
+            util::compress_from_tesselated_bit_vector(
+                &pairwise_mult_z2(&p_layer_1, 0, 0, &mut p_ctx).unwrap(),
+                n_elems,
+                bit_len,
+                bit_len > 1,
+                p_ctx.num.asymm,
+                p_ctx.sys.threads.offline
+            ).unwrap() 
+        });    
+        
+        let mut g_ctx = ctx.clone();
+        let g_layer_t_handle = thread::spawn(move || {
+
+            g_ctx.sys.threads.online = cmp::max(1, g_ctx.sys.threads.online >> 1);
+            g_ctx.sys.threads.offline = cmp::max(1, g_ctx.sys.threads.offline >> 1);
+            g_ctx.net.external.tcp = Some(g_ctx.net.external.tcp.unwrap()[g_ctx.sys.threads.online..].to_vec());
+
+            util::compress_from_tesselated_bit_vector(
+                &multiply_z2(&p_layer, &g_layer.iter().map(|g| (g & r_shift_mask) << 1).collect(), &mut g_ctx).unwrap()
+                    .iter()
+                    .zip(&g_layer)
+                    .map(|(pp1_g, gp1)| pp1_g ^ gp1)
+                    .collect(),
+                n_elems,
+                bit_len,
+                bit_len > 1,
+                g_ctx.num.asymm,
+                g_ctx.sys.threads.online
+            ).unwrap()    
+        });
+
+        p_layer = p_layer_t_handle.join().unwrap();
+        g_layer = g_layer_t_handle.join().unwrap();
+    }
+
+    Ok(util::decompress_bit_vector(&g_layer, n_elems, 1, false, ctx.num.asymm)?
+        .iter()
+        .zip(vec)
+        .map(|(g, p)| 1 & (g ^ (p.0 as u128 >> bit_pos)))
+        .collect()
+    )
+}
+
 // x >= y <----> ~MSB(x - y)
 pub fn geq(x: &Wrapping<u64>, y: &Wrapping<u64>, ctx: &mut Context) -> Result<u128, Box<dyn Error>> {
 
@@ -928,33 +1013,4 @@ fn shared_or(
     }
     Ok(res)
 }
-
-
- /* 
-- at the lowest level (open), there are a fixed number of threads n.
-- a protocol one level above can either
-	- call open on the entire input set -- open splits input into n threads
-	- call open w/ a specified port to run on a single thread
-- have threads recombine pairwise
-
-
-    1 u128 -> 64 products
-    bitlen = 14 
-    xyxyxyxyxyxyxy len 128
-    uvuvuvuvuvuvuv len 128 + w0w0w0w0w0w0w0 len 128
-    result: w + u*e + d*v + d*e
-   (1) take xyxyxy...xy ^ uvuvuv...uv = dedede...de
-   (2) open dedede...de
-   (3) take u*e : (dedede..de) & ((uvuvuv..uv) >> 1) & 0xAAAAAAAAAAAAA = a0a0a0...a0
-   (4) take d*v : ((dedede..de) >> 1) & (uvuvuv..uv) & 0x5555555555555 = 0b0b0b...0b
-   (5) take d*e : ((dedede..de) & (dedede..de) << 1) & 0xAAAAAAAAAAAAA = 
-   (6) xor between all and compactify 
-    /* option to pad odds */
-    bit0 = x
-    bit1 = y
-    triple = ()
-    d = x - u;
-    e = y - v;
-    open(d, e)
-*/
 
