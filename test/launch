@@ -1,0 +1,3 @@
+export RUST_BACKTRACE=1
+cargo test _ -- --nocapture --test-threads=1 0 &
+cargo test _ -- --test-threads=1 1 > /dev/null 2>&1
