@@ -10,6 +10,7 @@ use crate::computing_party::protocol::discretize_into_ohe_batch;
 use crate::{util, io};
 use crate::computing_party::ml::decision_trees::extra_trees::extra_trees::create_selection_vectors;
 use rand::Rng;
+use std::io::{Write, Read};
 
 #[derive(Default)]
 pub struct RFContext {
@@ -40,18 +41,23 @@ pub const TI_BATCH_SIZE: usize = U64S_PER_TX / 3; // how many trplets in one tx
 
 pub const BINARY_PRIME: usize = 2;
 
+pub union Xbuffer {
+    pub u64_buf: [u64; U64S_PER_TX],
+    pub u8_buf: [u8; U8S_PER_TX],
+}
+
 pub fn rf_preprocess(data: &Vec<Vec<Wrapping<u64>>>, rfctx: &mut RFContext, ctx: &mut Context)->Result<(Vec<Vec<Vec<Wrapping<u64>>>>, Vec<Vec<Vec<Wrapping<u64>>>>, Vec<Vec<Vec<Wrapping<u64>>>>), Box<dyn Error>> {
     let bucket_size = rfctx.tc.attribute_count;
     let processed_data_com = discretize_into_ohe_batch(&util::transpose(data)?,bucket_size,ctx );
     let processed_data = processed_data_com.0;
     let full_splits = processed_data_com.1;
     //hard coded shares
-    let column_major_arvs = generate_rfs_share(rfctx.tc.tree_count, rfctx.tc.attribute_count,rfctx.feature_count, ctx)?;
+    let column_major_arvs = generate_rfs_share(rfctx.tc.tree_count, rfctx.tc.attribute_count,rfctx.feature_count, ctx);
     let mut final_arv_splits = Vec::new();
     //hard coded shares
     let matrix_shares = (vec![vec![Wrapping(0u64);1];1],vec![vec![Wrapping(0u64);1];1],vec![vec![Wrapping(0u64);1];1]);
     for t in 0..rfctx.tc.tree_count{
-        final_arv_splits.push(matrix_multiplication_integer(column_major_arvs[t],&full_splits,ctx,0u64,&matrix_shares));
+        final_arv_splits.push(matrix_multiplication_integer(&column_major_arvs[t],&full_splits,ctx,0u64,&matrix_shares));
     }
     Ok((processed_data, column_major_arvs, final_arv_splits))
 
@@ -82,7 +88,7 @@ fn generate_rfs_share(tree_cnt:usize,feature_selected:usize,feature_cnt:usize,ct
 }
 
 pub fn mod_subtraction(x: Wrapping<u64>, y: Wrapping<u64>, prime: u64) -> Wrapping<u64> {
-    Wrapping((x.0 as i64 - y.0 as i64).mod_floor(&(prime as i64)) as u64)
+    Wrapping(((x.0 as i64 - y.0 as i64)%(prime as i64)) as u64)
 }
 
 fn local_matrix_computation(x: &Vec<Vec<Wrapping<u64>>>, y: &Vec<Vec<Wrapping<u64>>>, prime: u64, operation: u8) -> Vec<Vec<Wrapping<u64>>> {
@@ -91,7 +97,7 @@ fn local_matrix_computation(x: &Vec<Vec<Wrapping<u64>>>, y: &Vec<Vec<Wrapping<u6
         let mut row = Vec::new();
         for j in 0..x[0].len() {
             match operation {
-                LOCAL_ADDITION => row.push(Wrapping((x[i][j] + y[i][j]).0.mod_floor(&prime))),
+                LOCAL_ADDITION => row.push(Wrapping((x[i][j] + y[i][j]).0%prime)),
                 LOCAL_SUBTRACTION => row.push(mod_subtraction(x[i][j], y[i][j], prime)),
                 _ => {}
             }
@@ -113,7 +119,7 @@ fn local_matrix_multiplication(x: &Vec<Vec<Wrapping<u64>>>, y: &Vec<Vec<Wrapping
             for p in 0..k {
                 multi_result += (x[m][p] * y[p][n]);
             }
-            multi_result = Wrapping(multi_result.0.mod_floor(&prime));
+            multi_result = Wrapping(multi_result.0%prime);
             row.push(multi_result);
         }
         result.push(row);
@@ -122,44 +128,47 @@ fn local_matrix_multiplication(x: &Vec<Vec<Wrapping<u64>>>, y: &Vec<Vec<Wrapping
 }
 
 fn send_batch_message(ctx: &Context, data: &Vec<u8>) -> Xbuffer {
-    let mut o_stream  = ctx.net.external.tcp.as_ref().unwrap()[i].ostream.try_clone()
-        .expect("rustlynx::computing_party::protocol::multiply: failed cloning tcp ostream");
-    let mut in_stream = ctx.net.external.tcp.as_ref().unwrap()[i].istream.try_clone()
-        .expect("rustlynx::computing_party::protocol::multiply: failed cloning tcp istream");
     let mut recv_buf = Xbuffer { u8_buf: [0u8; U8S_PER_TX] };
-    if ctx.num.asymm == 1 {
-        let mut bytes_written = 0;
-        while bytes_written < U8S_PER_TX {
-            let current_bytes = unsafe {
-                o_stream.write(&data[bytes_written..])
-            };
-            bytes_written += current_bytes.unwrap();
-        }
-
-        unsafe {
-            let mut bytes_read = 0;
-            while bytes_read < recv_buf.u8_buf.len() {
-                let current_bytes = in_stream.read(&mut recv_buf.u8_buf[bytes_read..]).unwrap();
-                bytes_read += current_bytes;
+    for i in 0..ctx.sys.threads.online {
+        let mut o_stream  = ctx.net.external.tcp.as_ref().unwrap()[i].ostream.try_clone()
+            .expect("rustlynx::computing_party::protocol::multiply: failed cloning tcp ostream");
+        let mut in_stream = ctx.net.external.tcp.as_ref().unwrap()[i].istream.try_clone()
+            .expect("rustlynx::computing_party::protocol::multiply: failed cloning tcp istream");
+        if ctx.num.asymm == 1 {
+            let mut bytes_written = 0;
+            while bytes_written < U8S_PER_TX {
+                let current_bytes = unsafe {
+                    o_stream.write(&data[bytes_written..])
+                };
+                bytes_written += current_bytes.unwrap();
             }
-        }
-    } else {
-        unsafe {
-            let mut bytes_read = 0;
-            while bytes_read < recv_buf.u8_buf.len() {
-                let current_bytes = in_stream.read(&mut recv_buf.u8_buf[bytes_read..]).unwrap();
-                bytes_read += current_bytes;
-            }
-        }
 
-        let mut bytes_written = 0;
-        while bytes_written < U8S_PER_TX {
-            let current_bytes = unsafe {
-                o_stream.write(&data[bytes_written..])
-            };
-            bytes_written += current_bytes.unwrap();
+            unsafe {
+                let mut bytes_read = 0;
+                while bytes_read < recv_buf.u8_buf.len() {
+                    let current_bytes = in_stream.read(&mut recv_buf.u8_buf[bytes_read..]).unwrap();
+                    bytes_read += current_bytes;
+                }
+            }
+        } else {
+            unsafe {
+                let mut bytes_read = 0;
+                while bytes_read < recv_buf.u8_buf.len() {
+                    let current_bytes = in_stream.read(&mut recv_buf.u8_buf[bytes_read..]).unwrap();
+                    bytes_read += current_bytes;
+                }
+            }
+
+            let mut bytes_written = 0;
+            while bytes_written < U8S_PER_TX {
+                let current_bytes = unsafe {
+                    o_stream.write(&data[bytes_written..])
+                };
+                bytes_written += current_bytes.unwrap();
+            }
         }
     }
+
     recv_buf
 }
 
@@ -253,6 +262,7 @@ pub fn init(cfg_file: &String) -> Result<(RFContext, Vec<Vec<Wrapping<u64>>>, Ve
     let tree_count: usize = settings.get_int("tree_count")? as usize;
     let max_depth: usize = settings.get_int("max_depth")? as usize;
     let epsilon: f64 = settings.get_int("epsilon")? as f64;
+    let save_location = settings.get_str("save_location")?;
     let original_attr_count = attribute_count;
     let bin_count = 2usize;
 
@@ -274,6 +284,7 @@ pub fn init(cfg_file: &String) -> Result<(RFContext, Vec<Vec<Wrapping<u64>>>, Ve
         tree_count,
         max_depth,
         epsilon,
+        save_location
     };
     let rf = RFContext {
         tc,
