@@ -40,10 +40,10 @@ Result<(Vec<Vec<Vec<Wrapping<u64>>>>, Vec<Vec<Vec<Wrapping<u64>>>>, Vec<Vec<Vec<
     let decimal_precision = ctx.num.precision_frac;
     let asym = ctx.num.asymm;
 
-    let use_pregenerated_splits_and_selections = true;
+    let use_pregenerated_splits_and_selections = false;
     let arv_path = "custom_randomness/arvs.csv";
     let splits_path = "custom_randomness/splits.csv";
-    let seed = 446492;
+    let seed = 0;
 
     let minmax = minmax_batch(&util::transpose(data)?, ctx)?;
 
@@ -187,7 +187,7 @@ pub fn create_selection_vectors(quant: usize, size: usize, seed: usize, ctx: &mu
     if ctx.num.asymm == 0 {
         return Ok(vec![vec![Wrapping(0); size]; quant]);
     }
-    let mut rng = rand::StdRng::from_seed(&[seed]);
+    let mut rng = if seed > 0 {rand::StdRng::from_seed(&[seed])} else {rand::StdRng::new()?};
 
     let mut results: Vec<Vec<Wrapping<u64>>> = vec![];
     for i in 0 .. quant {
@@ -216,7 +216,7 @@ pub fn create_random_ratios(quant: usize, seed: usize, ctx: &mut Context) -> Res
 }
 
 fn load_arvs_from_file(path: &str, asym: usize, feature_count: usize, attribute_count: usize, tree_count: usize) -> Result<Vec<Vec<Wrapping<u64>>>, Box<dyn Error>>{
-    if asym != 1 {
+    if asym == 0 {
        return Ok(vec![vec![Wrapping(0u64); attribute_count]; feature_count * tree_count]);
     }
     let mut ret = vec![];
@@ -234,7 +234,7 @@ fn load_arvs_from_file(path: &str, asym: usize, feature_count: usize, attribute_
 
 fn load_splits_from_file(path: &str, asym: usize, feature_count: usize, tree_count: usize, decimal_precision: usize) -> Result<Vec<Wrapping<u64>>, Box<dyn Error>>{
     let mut ratios = vec![Wrapping(0); feature_count * tree_count];
-    if asym != 1 {
+    if asym == 0 {
         return Ok(ratios);
     }
     let float_ratios = io::matrix_csv_to_float_vec(path)?;
