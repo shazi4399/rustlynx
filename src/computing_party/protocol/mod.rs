@@ -679,7 +679,7 @@ pub fn batch_geq(x: &Vec<Wrapping<u64>>, y: &Vec<Wrapping<u64>>, ctx: &mut Conte
     Ok(
         batch_bit_extract(
             &x.iter().zip(y).map(|(xx, yy)| xx - yy).collect(), 
-            ctx.num.precision_int + ctx.num.precision_frac + 1,
+            63usize,
             ctx
         )?  
         .iter()
