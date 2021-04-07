@@ -24,7 +24,7 @@
 
 [numbersystem]
 precision_frac = 10
-precision_int  = 15
+precision_int  = 52
 
 [correlatedrandomness]
 debug = true							  
