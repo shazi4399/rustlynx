@@ -7,6 +7,7 @@ use std::thread;
 use std::error::Error;
 use std::num::Wrapping;
 use std::cmp;
+use std::sync::{Arc, RwLock};
 // use std::time::SystemTime;
 use crate::computing_party::ml::decision_trees::random_forest::random_forest::{BATCH_SIZE, BUF_SIZE,U64S_PER_TX,U8S_PER_TX,Xbuffer};
 
@@ -1287,3 +1288,60 @@ fn shared_or(
     Ok(res)
 }
 
+pub fn batch_matmul(a: &Vec<Vec<Wrapping<u64>>>, b: &Vec<Vec<Vec<Wrapping<u64>>>>, ctx: &mut Context) -> Result<Vec<Vec<Vec<Wrapping<u64>>>>, Box<dyn Error>> {
+
+    let asymm = Wrapping(ctx.num.asymm);
+	let m = a.len();
+	let n = a[0].len();
+	let r = b[0][0].len();
+    let k = b.len();
+
+    // TODO: replace with real correlated randomness
+    let u = vec![vec![Wrapping(0u64); n]; m];
+    let v = vec![vec![vec![Wrapping(0u64); r]; n]; k];
+    let z = vec![vec![vec![Wrapping(0u64); r]; m]; k];
+    
+    let mut e: Vec<Wrapping<u64>> = a.iter().flatten().zip(u.iter().flatten()).map(|(aa, uu)| aa - uu).collect();
+    let mut f: Vec<Wrapping<u64>> = b.iter().flatten().flatten().zip(v.iter().flatten().flatten()).map(|(bb, vv)| bb - vv).collect();
+    e.append(&mut f);
+    let ef = open(&e, ctx)?;
+
+    let lock = Arc::new(RwLock::new( (u, v, z, ef) ));
+
+    let mut t_handles: Vec<thread::JoinHandle<Vec<Vec<Vec<Wrapping<u64>>>>>> = Vec::new();
+    for i in 0..ctx.sys.threads.offline {
+
+        let lb = cmp::min((i * k) / ctx.sys.threads.offline, (Wrapping(k) - Wrapping(1)).0);
+        let ub = cmp::min(((i+1) * k) / ctx.sys.threads.offline, k);
+        let lock = Arc::clone(&lock);
+
+        let t_handle = thread::spawn(move || {
+
+            let data = lock.read().unwrap();
+            let mut mat_subset = vec![vec![vec![Wrapping(0u64); r]; m]; ub - lb];
+            for kk in lb..ub {
+                for mm in 0..m {
+                    for rr in 0..r {
+                        mat_subset[kk - lb][mm][rr] = (0..n)
+                            .fold(Wrapping(0u64), |acc, nn| acc +
+                                data.2[kk][mm][rr] + 
+                                data.0[mm][nn] * data.3[m * n + kk * n * r + nn * r + rr] +
+                                data.3[n * mm + nn] * data.1[kk][nn][rr] +
+                                asymm * data.3[n * mm + nn] * data.3[m * n + kk * n * r + nn * r + rr] 
+                            )
+                    }
+                }
+            }
+
+            mat_subset
+        });   
+
+        t_handles.push(t_handle);
+    }
+
+    Ok(t_handles.into_iter()
+        .map(|t| t.join().unwrap())
+        .flatten()
+        .collect::<Vec<Vec<Vec<Wrapping<u64>>>>>()
+    )
+}
