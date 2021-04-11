@@ -57,7 +57,7 @@ pub fn rf_preprocess(data: &Vec<Vec<Wrapping<u64>>>, rfctx: &mut RFContext, ctx:
     //hard coded shares
     let matrix_shares = (vec![vec![Wrapping(0u64);1];1],vec![vec![Wrapping(0u64);1];1],vec![vec![Wrapping(0u64);1];1]);
     for t in 0..rfctx.tc.tree_count{
-        final_arv_splits.push(matrix_multiplication_integer(&column_major_arvs[t],&full_splits,ctx,0u64,&matrix_shares));
+        final_arv_splits.push(matrix_multiplication_integer(&column_major_arvs[t],&full_splits,ctx,&matrix_shares));
     }
     Ok((processed_data, column_major_arvs, final_arv_splits))
 
@@ -87,18 +87,15 @@ fn generate_rfs_share(tree_cnt:usize,feature_selected:usize,feature_cnt:usize,ct
     fs_vec
 }
 
-pub fn mod_subtraction(x: Wrapping<u64>, y: Wrapping<u64>, prime: u64) -> Wrapping<u64> {
-    Wrapping(((x.0 as i64 - y.0 as i64)%(prime as i64)) as u64)
-}
 
-fn local_matrix_computation(x: &Vec<Vec<Wrapping<u64>>>, y: &Vec<Vec<Wrapping<u64>>>, prime: u64, operation: u8) -> Vec<Vec<Wrapping<u64>>> {
-    let mut result = Vec::new();
+fn local_matrix_computation(x: &Vec<Vec<Wrapping<u64>>>, y: &Vec<Vec<Wrapping<u64>>>, operation: u8) -> Vec<Vec<Wrapping<u64>>> {
+    let mut result:Vec<Vec<Wrapping<u64>>> = Vec::new();
     for i in 0..x.len() {
-        let mut row = Vec::new();
+        let mut row:Vec<Wrapping<u64>> = Vec::new();
         for j in 0..x[0].len() {
             match operation {
-                LOCAL_ADDITION => row.push(Wrapping((x[i][j] + y[i][j]).0%prime)),
-                LOCAL_SUBTRACTION => row.push(mod_subtraction(x[i][j], y[i][j], prime)),
+                LOCAL_ADDITION => row.push(x[i][j] + y[i][j]),
+                LOCAL_SUBTRACTION => row.push(x[i][j]-y[i][j]),
                 _ => {}
             }
         }
@@ -107,7 +104,7 @@ fn local_matrix_computation(x: &Vec<Vec<Wrapping<u64>>>, y: &Vec<Vec<Wrapping<u6
     result
 }
 
-fn local_matrix_multiplication(x: &Vec<Vec<Wrapping<u64>>>, y: &Vec<Vec<Wrapping<u64>>>, prime: u64) -> Vec<Vec<Wrapping<u64>>> {
+fn local_matrix_multiplication(x: &Vec<Vec<Wrapping<u64>>>, y: &Vec<Vec<Wrapping<u64>>>) -> Vec<Vec<Wrapping<u64>>> {
     let i = x.len();
     let k = x[0].len();
     let j = y[0].len();
@@ -119,7 +116,7 @@ fn local_matrix_multiplication(x: &Vec<Vec<Wrapping<u64>>>, y: &Vec<Vec<Wrapping
             for p in 0..k {
                 multi_result += (x[m][p] * y[p][n]);
             }
-            multi_result = Wrapping(multi_result.0%prime);
+            multi_result = Wrapping(multi_result.0);
             row.push(multi_result);
         }
         result.push(row);
@@ -223,28 +220,28 @@ pub fn send_receive_u64_matrix(matrix_sent: &Vec<Vec<Wrapping<u64>>>, ctx: &Cont
     matrix_received
 }
 
-pub fn matrix_multiplication_integer(x: &Vec<Vec<Wrapping<u64>>>, y: &Vec<Vec<Wrapping<u64>>>, ctx: &Context, prime: u64, matrix_mul_shares: &(Vec<Vec<Wrapping<u64>>>, Vec<Vec<Wrapping<u64>>>, Vec<Vec<Wrapping<u64>>>)) -> Vec<Vec<Wrapping<u64>>> {
+pub fn matrix_multiplication_integer(x: &Vec<Vec<Wrapping<u64>>>, y: &Vec<Vec<Wrapping<u64>>>, ctx: &Context, matrix_mul_shares: &(Vec<Vec<Wrapping<u64>>>, Vec<Vec<Wrapping<u64>>>, Vec<Vec<Wrapping<u64>>>)) -> Vec<Vec<Wrapping<u64>>> {
     let mut d_matrix = Vec::new();
     let mut e_matrix = Vec::new();
     let u_shares = matrix_mul_shares.0.clone();
     let v_shares = matrix_mul_shares.1.clone();
     let w_shares = matrix_mul_shares.2.clone();
-    d_matrix = local_matrix_computation(x, &u_shares, prime, LOCAL_SUBTRACTION);
+    d_matrix = local_matrix_computation(x, &u_shares, LOCAL_SUBTRACTION);
 
-    e_matrix = local_matrix_computation(y, &v_shares, prime, LOCAL_SUBTRACTION);
+    e_matrix = local_matrix_computation(y, &v_shares, LOCAL_SUBTRACTION);
 
     let mut d_matrix_received = send_receive_u64_matrix(&d_matrix, ctx);
 
     let mut e_matrix_received = send_receive_u64_matrix(&e_matrix, ctx);
 
-    let mut d = local_matrix_computation(&d_matrix, &d_matrix_received, prime, LOCAL_ADDITION);
-    let mut e = local_matrix_computation(&e_matrix, &e_matrix_received, prime, LOCAL_ADDITION);
-    let de = local_matrix_multiplication(&d, &e, prime);
-    let eu = local_matrix_multiplication(&u_shares, &e, prime);
-    let dv = local_matrix_multiplication(&d, &v_shares, prime);
-    let w_eu = local_matrix_computation(&w_shares, &eu, prime, LOCAL_ADDITION);
-    let w_eu_dv = local_matrix_computation(&w_eu, &dv, prime, LOCAL_ADDITION);
-    let result = if ctx.num.asymm == 1 { local_matrix_computation(&w_eu_dv, &de, prime, LOCAL_ADDITION) } else { w_eu_dv.clone() };
+    let mut d = local_matrix_computation(&d_matrix, &d_matrix_received, LOCAL_ADDITION);
+    let mut e = local_matrix_computation(&e_matrix, &e_matrix_received, LOCAL_ADDITION);
+    let de = local_matrix_multiplication(&d, &e);
+    let eu = local_matrix_multiplication(&u_shares, &e);
+    let dv = local_matrix_multiplication(&d, &v_shares);
+    let w_eu = local_matrix_computation(&w_shares, &eu, LOCAL_ADDITION);
+    let w_eu_dv = local_matrix_computation(&w_eu, &dv, LOCAL_ADDITION);
+    let result = if ctx.num.asymm == 1 { local_matrix_computation(&w_eu_dv, &de, LOCAL_ADDITION) } else { w_eu_dv.clone() };
 
     result
 }

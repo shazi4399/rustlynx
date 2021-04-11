@@ -1198,4 +1198,113 @@ mod tests {
 
     }
 
+    #[test]
+    fn _computing_party_protocol_batch_matmul() {
+
+        use std::env;
+        use std::num::Wrapping;
+        use std::time::SystemTime;
+        use super::computing_party::protocol;
+        use super::computing_party::init;
+        use rand::{Rng};
+
+        let test_path = "test/files/computing_party_protocol_multiply";
+
+        let args: Vec<String> = env::args().collect();
+        let id = &args[args.len()-1];
+        let test_cfg = format!("{}/Party{}.toml", test_path, id); 
+        let mut ctx = init::runtime_context( &test_cfg ).unwrap();
+        let mut rng = rand::thread_rng();
+
+        /* connect */
+        assert!( init::connection( &mut ctx ).is_ok() );
+        ctx.sys.threads.online=2;
+        ctx.sys.threads.offline=4;
+
+        for k in vec![1, 10, 100] {
+            for m in vec![1, 10, 100] {
+                for n in vec![1, 10, 100] {
+                    for r in vec![1, 10, 100] {
+
+                        let rand_vec = protocol::open(
+                            &(0..m*n).map(|_| Wrapping(rng.gen::<u64>() % 256)).collect(),
+                            &mut ctx
+                        ).unwrap();
+                
+                        let mut rand_mat = vec![vec![Wrapping(0u64); n]; m];
+                        for mm in 0..m {
+                            for nn in 0..n {
+                                rand_mat[mm][nn] = rand_vec[n * mm + nn];
+                            }
+                        }
+                
+                        let a = rand_mat;
+                        
+                        let rand_vec = protocol::open(
+                            &(0..k*n*r).map(|_| Wrapping(rng.gen::<u64>() % 256)).collect(),
+                            &mut ctx
+                        ).unwrap();
+                
+                        let mut rand_mat = vec![vec![vec![Wrapping(0u64); r]; n]; k];
+                        for kk in 0..k {
+                            for nn in 0..n {
+                                for rr in 0..r {
+                                    // println!("k,n,r=({},{},{}), index={}", kk, nn, rr, kk * n * r + nn * r + rr);
+                                    rand_mat[kk][nn][rr] = rand_vec[kk * n * r + nn * r + rr];
+                                    
+                                }
+                            }
+                        }
+
+                        let b = rand_mat;
+                
+                        // println!("{:?}", &a);
+                        // println!("{:?}", &b);
+                
+                        let expected_result = batch_matmul(&a, &b);
+                
+                        let a = if ctx.num.asymm == 0 {a} else {vec![vec![Wrapping(0u64); n]; m]};
+                        let b = if ctx.num.asymm == 0 {vec![vec![vec![Wrapping(0u64); r]; n]; k]} else {b};
+                
+                        let now = SystemTime::now();
+                        let result = protocol::batch_matmul(&a, &b, &mut ctx).unwrap();
+                        println!("k={:5}, m={:5}, n={:5}, r={:5}, n_threads={:2}, work time {:5.0} ms", 
+                            k, m, n, r, ctx.sys.threads.online, now.elapsed().unwrap().as_millis());          
+                        let result = protocol::open(&result.into_iter().flatten().flatten().collect(), &mut ctx).unwrap();
+                
+                        // println!("Expected: {:?}", &expected_result.into_iter().flatten().flatten().collect::<Vec<Wrapping<u64>>>());
+                        // println!("Output: {:?}", &result);
+                
+                        assert_eq!(&result, &expected_result.into_iter().flatten().flatten().collect::<Vec<Wrapping<u64>>>())
+
+                    }
+                } 
+            }
+        }
+    }
+
+    use std::num::Wrapping;
+    fn batch_matmul(a: &Vec<Vec<Wrapping<u64>>>, b: &Vec<Vec<Vec<Wrapping<u64>>>>) -> Vec<Vec<Vec<Wrapping<u64>>>> {
+
+        let k = b.len();
+        let m = a.len();
+        let n = a[0].len();
+        let r = b[0][0].len();
+
+        let mut output = vec![vec![vec![Wrapping(0u64); r]; m]; k];
+
+        for kk in 0..k {
+            for mm in 0..m {
+                for rr in 0..r {
+                    for nn in 0..n {
+                        output[kk][mm][rr] += a[mm][nn] * b[kk][nn][rr];
+                    }
+                }
+            }
+        }
+
+        output
+    } 
+
+
 }
