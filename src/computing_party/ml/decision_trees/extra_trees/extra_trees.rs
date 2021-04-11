@@ -40,7 +40,7 @@ Result<(Vec<Vec<Vec<Wrapping<u64>>>>, Vec<Vec<Vec<Wrapping<u64>>>>, Vec<Vec<Vec<
     let decimal_precision = ctx.num.precision_frac;
     let asym = ctx.num.asymm;
 
-    let use_pregenerated_splits_and_selections = false;
+    let use_pregenerated_splits_and_selections = true;
     let arv_path = "custom_randomness/arvs.csv";
     let splits_path = "custom_randomness/splits.csv";
     let seed = 0;
@@ -198,6 +198,7 @@ pub fn create_selection_vectors(quant: usize, size: usize, seed: usize, ctx: &mu
     }
     Ok(results)
 }
+
 //in ring
 pub fn create_random_ratios(quant: usize, seed: usize, ctx: &mut Context) -> Result<Vec<Wrapping<u64>>, Box<dyn Error>> {
     if ctx.num.asymm == 0 {

@@ -406,7 +406,7 @@ pub fn most_frequent_class(frequencies_flat: &Vec<Wrapping<u64>>,
         if odd_length {
             for n in 0 .. number_of_nodes_to_process {
                 current_values.append(&mut new_values[n * (current_length_freq).. 
-                            (n + 1) * (current_length_freq - 1) + n].to_vec().clone());
+                            (n + 1) * (current_length_freq - 1) + n].to_vec());
 
                 forgotten_values.push(new_values[(n + 1) * (current_length_freq - 1) + n]);
             } 
@@ -479,7 +479,7 @@ pub fn most_frequent_class(frequencies_flat: &Vec<Wrapping<u64>>,
     for v in (1..past_assignments_freq.len()).rev() {
 
         if past_assignments_freq[v].len() == past_assignments_freq[v - 1].len() {
-            past_assignments_freq[v - 1] = protocol::multiply(&past_assignments_freq[v - 1].clone(), &past_assignments_freq[v], ctx).unwrap();
+            past_assignments_freq[v - 1] = protocol::multiply(&past_assignments_freq[v - 1], &past_assignments_freq[v], ctx).unwrap();
             continue;
         }
 
@@ -492,7 +492,7 @@ pub fn most_frequent_class(frequencies_flat: &Vec<Wrapping<u64>>,
             extended_past_assignment_v.push(past_assignments_freq[v][w]);
             extended_past_assignment_v.push(past_assignments_freq[v][w]);
         }
-        past_assignments_freq[v - 1] = protocol::multiply(&past_assignments_freq[v - 1].clone(), &extended_past_assignment_v, ctx).unwrap();
+        past_assignments_freq[v - 1] = protocol::multiply(&past_assignments_freq[v - 1], &extended_past_assignment_v, ctx).unwrap();
     }
 
     // un-flatten arg_max
@@ -513,27 +513,7 @@ pub fn gini_impurity(input: &Vec<Vec<Vec<Wrapping<u64>>>>, u_decimal: &Vec<Wrapp
     let bin_count = train_ctx.bin_count;
     let feat_count = train_ctx.attribute_count/bin_count;
 
-    //TEST -- looks good
-    for n in 0.. number_of_nodes_to_process {
-        let total_data = input[0][0].len();
-        println!("{:?}", protocol::open(&vec![u_decimal[n * total_data * 2 .. (n + 1) * total_data * 2].to_vec().iter().sum()], ctx).unwrap());
-    }
-
-    //TEST -- issue, not all splits add up to 455 FIXED, another issue though, the binarization seems completely wrong FIXED, sklearn had a bug where they said they were using one feature, but were really using another
-    for n in 0.. number_of_nodes_to_process {
-        let mut col_count = 0;
-        for col in input[n].clone() {
-
-            let mut extra = "";
-            if col_count % bin_count == 0 && col_count != 0 {extra = ", ";}
-            
-            print!("{}{:?}", extra, protocol::open(&vec![col.iter().sum()], ctx).unwrap());
-            col_count += 1;
-        }
-        print!(", ");
-    }
-
-    let alpha = Wrapping(1); // Need this from ctx
+    let alpha = Wrapping(8); // Need this from ctx
 
     let data_instance_count = train_ctx.instance_count;
 
@@ -593,7 +573,7 @@ pub fn gini_impurity(input: &Vec<Vec<Vec<Wrapping<u64>>>>, u_decimal: &Vec<Wrapp
     let mut u_decimal_vectors_clone = u_decimal_vectors.clone();
 
     for j in 0.. bin_count {
-        discretized_sets_vectors.append(&mut discretized_sets[j].clone());
+        discretized_sets_vectors.append(&mut discretized_sets[j]);
         u_decimal_vectors.append(&mut u_decimal_extended.clone());
 
     }
@@ -647,12 +627,12 @@ pub fn gini_impurity(input: &Vec<Vec<Vec<Wrapping<u64>>>>, u_decimal: &Vec<Wrapp
 
             // will be used to find x^2
             for i in 0..class_label_count {
-                all_x_values.append(&mut x_partitioned[n][k][i].clone());
+                all_x_values.append(&mut x_partitioned[n][k][i]);
             }
         }
     }
 
-    let all_x_values_squared: Vec<Wrapping<u64>> = protocol::multiply(&all_x_values.clone(), &all_x_values.clone(), ctx).unwrap();
+    let all_x_values_squared: Vec<Wrapping<u64>> = protocol::multiply(&all_x_values, &all_x_values, ctx).unwrap();
 
     for v in 0..all_x_values_squared.len() / 2 {
         for j in 0.. bin_count {
@@ -703,14 +683,14 @@ pub fn gini_impurity(input: &Vec<Vec<Vec<Wrapping<u64>>>>, u_decimal: &Vec<Wrapp
                 
                 sum_of_x2_j[n][k][j] = sum_j_values;
             }
-            d_exclude_j.extend(y_vals_exclude_j.clone());
+            d_exclude_j.extend(y_vals_exclude_j);
             // can be far better optimized. Named 'D' after De'Hooghs variable
             // d_exclude_j[n][k] = protocol::pairwise_mult_zq(&y_vals_exclude_j, ctx).unwrap();
             // println!("exclude {:?}", protocol::open(&d_exclude_j[n][k], ctx).unwrap()); //test
             // 
             // d_exclude_j.append(y_vals_exclude_j); what we should do?
         }
-        d_include_j.extend(y_vals_include_j.clone());
+        d_include_j.extend(y_vals_include_j);
         //d_include_j[n] = protocol::pairwise_mult_zq(&y_vals_include_j, ctx).unwrap();
         // println!("include {:?}", protocol::open(&d_include_j[n], ctx).unwrap()); //test
         // d_include_j.append(y_vals_include_j); what we should do?
@@ -782,8 +762,8 @@ pub fn gini_impurity(input: &Vec<Vec<Vec<Wrapping<u64>>>>, u_decimal: &Vec<Wrapp
         // it should be guarenteed that we have numerators/denonminators of even length
         if odd_length {
             for n in 0 .. number_of_nodes_to_process {
-                current_numerators.append(&mut new_numerators[n * (current_length).. (n + 1) * (current_length - 1) + n].to_vec().clone());
-                current_denominators.append(&mut new_denominators[n * (current_length).. (n + 1) * (current_length - 1) + n].to_vec().clone());
+                current_numerators.append(&mut new_numerators[n * (current_length).. (n + 1) * (current_length - 1) + n].to_vec());
+                current_denominators.append(&mut new_denominators[n * (current_length).. (n + 1) * (current_length - 1) + n].to_vec());
 
                 forgotten_numerators.push(new_numerators[(n + 1) * (current_length - 1) + n]);
                 forgotten_denominators.push(new_denominators[(n + 1) * (current_length - 1) + n]);
@@ -881,7 +861,7 @@ pub fn gini_impurity(input: &Vec<Vec<Vec<Wrapping<u64>>>>, u_decimal: &Vec<Wrapp
     for v in (1..past_assignments.len()).rev() {
 
         if past_assignments[v].len() == past_assignments[v - 1].len() {
-            past_assignments[v - 1] = protocol::multiply(&past_assignments[v - 1].clone(), &past_assignments[v], ctx).unwrap();
+            past_assignments[v - 1] = protocol::multiply(&past_assignments[v - 1], &past_assignments[v], ctx).unwrap();
             continue;
         }
 
@@ -894,7 +874,7 @@ pub fn gini_impurity(input: &Vec<Vec<Vec<Wrapping<u64>>>>, u_decimal: &Vec<Wrapp
             extended_past_assignment_v.push(past_assignments[v][w]);
             extended_past_assignment_v.push(past_assignments[v][w]);
         }
-        past_assignments[v - 1] = protocol::multiply(&past_assignments[v - 1].clone(), &extended_past_assignment_v, ctx).unwrap();
+        past_assignments[v - 1] = protocol::multiply(&past_assignments[v - 1], &extended_past_assignment_v, ctx).unwrap();
     }
 
     // un-flatten arg_max
