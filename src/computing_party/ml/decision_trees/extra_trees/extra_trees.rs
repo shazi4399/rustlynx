@@ -56,6 +56,7 @@ Result<(Vec<Vec<Vec<Wrapping<u64>>>>, Vec<Vec<Vec<Wrapping<u64>>>>, Vec<Vec<Vec<
 
     let fsv_amount = xtctx.tc.tree_count * xtctx.feature_count;
     let column_major_arvs = if use_pregenerated_splits_and_selections {load_arvs_from_file(arv_path, ctx.num.asymm as usize, feature_count, attribute_count, tree_count)?} else {create_selection_vectors(fsv_amount, xtctx.tc.attribute_count, seed, ctx)?};
+    let row_major_arvs: Vec<Vec<Vec<Wrapping<u64>>>> = two_dim_to_3_dim(&column_major_arvs, feature_count)?.iter().map(|x| util::transpose(&x).unwrap()).collect();
     // column_major_arvs.iter().for_each(|x| println!("{:?}", open(x, ctx).unwrap()));
     let final_column_major_arvs = two_dim_to_3_dim(&column_major_arvs, feature_count)?;
     let column_major_arvs_flat: Vec<Wrapping<u64>> = final_column_major_arvs.clone().into_iter().flatten().flatten().collect();
@@ -89,48 +90,17 @@ Result<(Vec<Vec<Vec<Wrapping<u64>>>>, Vec<Vec<Vec<Wrapping<u64>>>>, Vec<Vec<Vec<
     
     // println!("SELECTED SPLITS: {:?}", open(&selected_splits, ctx));
     //println!("split_select finished. Time taken: {:?}ms", split_select.elapsed().unwrap().as_millis());
-
-    //println!("Matmul beginning.");
-    //let matmultime = SystemTime::now();
-    // let u = ctx.dt_shares.matmul_u.clone();
-    // let mut e: Vec<Vec<Wrapping<u64>>> = vec![];
-    // for i in 0..u.len() {
-    //     e.push(reveal_wrapping(&dataset[i].iter().zip(u[i].iter()).map(|(&x, &u)| x - u ).collect(), ctx));
-    // }
-    // let v = ctx.dt_shares.matmul_vs.clone();
-    // let w = ctx.dt_shares.matmul_ws.clone();
-    
-    //apply the CRVs to the dataset
     // column_major_arvs.iter().for_each(|x| println!("{:?}", open(x, ctx).unwrap()));
-    let column_reduced_datasets = util::transpose(&matmul(
-        &data,
-        &column_major_arvs,
-        ctx,
-    )?)?;
-
-    // column_reduced_datasets.iter().for_each(|x| println!("{:?}", open(&x, ctx).unwrap()));
-    
-    //println!("Matmul finished. Time taken: {:?}ms", matmultime.elapsed().unwrap().as_millis());
-    //The splits have been found. The discretized datasets must now be made.
-
-    // the sets must be changed to column major.
-    // let col_maj_time = SystemTime::now();
-    let mut sets_col: Vec<Vec<Vec<Wrapping<u64>>>> = vec![];
-    for i in 0 .. column_reduced_datasets.len() / feature_count {
-        let mut set: Vec<Vec<Wrapping<u64>>> = vec![];
-        for j in 0 .. feature_count {
-            set.push(column_reduced_datasets[i * feature_count + j].clone());
-        }
-        sets_col.push(set);
-    }
-    //println!("col_maj finished. Time taken: {:?}ms", col_maj_time.elapsed().unwrap().as_millis());
+    let res = batch_matmul(&data, &row_major_arvs, ctx)?;
+    let mut column_reduced_datasets = vec![];
+    res.iter().for_each(|x| column_reduced_datasets.push(util::transpose(&x).unwrap()));
 
     //The sets are now column oriented. Next is to compare the contents to the chosen split point.
-    let total_sets = sets_col.len();
+    let total_sets = tree_count;
     //println!("Binarizing sets.");
     //let set_compil = SystemTime::now();
     let asym = Wrapping(asym);
-    let val_set = column_reduced_datasets.into_iter().flatten().collect();
+    let val_set = column_reduced_datasets.into_iter().flatten().flatten().collect();
     let mut split_set = vec![];
     for i in 0 .. total_sets {
         for j in 0 .. feature_count {
