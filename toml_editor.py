@@ -27,4 +27,14 @@ with open(toml_learn_path, 'w') as file:
     file.write("classes = data/Party%s_breast/%sy_train.csv\n".format(party, fold))
     file.write("save_location = treedata/Party%s_trees.json".format(party))
 
+with open(toml_inference_path, 'w') as file:
+
+    file.write("class_label_count = 2\n")
+    file.write("attribute_count = %s\n".format(attr))
+    file.write("instance_count = %s\n".format(rows))
+    file.write("max_depth = %s\n".format(depth))
+    file.write("data = data/Party%s_breast/%sX_test.csv\n".format(party, fold))
+    file.write("classes = data/Party%s_breast/%sy_test.csv\n".format(party, fold))
+    file.write("save_location = treedata/Party%s_trees.json".format(party))
+
 
