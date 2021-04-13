@@ -127,7 +127,7 @@ pub fn sid3t(input: &Vec<Vec<Vec<Wrapping<u64>>>>, class: &Vec<Vec<Vec<Wrapping<
             // println!("ances_xor_asym{:?}", reveal(&ances_xor_asym, ctx, ctx.decimal_precision, false, false));
 
             let chosen_classifications_corrected = protocol::multiply(&chosen_classifications, &ances_class_bits_neg, ctx)?;
-            println!("chosen_classifications_corrected{:?}", protocol::open(&chosen_classifications_corrected, ctx)?);
+            //println!("chosen_classifications_corrected{:?}", protocol::open(&chosen_classifications_corrected, ctx)?);
             for t in 0 .. tree_count {
                 for n in 0 .. nodes_to_process_per_tree {
                     treenodes[t].push(TreeNode {

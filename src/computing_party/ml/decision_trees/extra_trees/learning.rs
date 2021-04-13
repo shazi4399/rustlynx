@@ -2,8 +2,6 @@ use std::error::Error;
 use std::num::Wrapping;
 use super::super::super::super::Context;
 use super::extra_trees::*;
-// use std::fs::File;
-// use std::io::prelude::*;
 use super::super::decision_tree::*;
 use super::super::inference::classify_in_the_clear;
 use crate::io;
@@ -11,14 +9,27 @@ use crate::util;
 use serde_json;
 use crate::computing_party::protocol;
 use super::inference;
+use std::fs::OpenOptions;
+use std::io::{BufWriter, Write};
+use std::fs::File;
+
+use std::time::{Duration, Instant};
 
 pub fn run(ctx: &mut Context) -> Result<(), Box<dyn Error>> {
+
+    let start = Instant::now();
+
     let (mut xt_ctx, data, classes) = init(&ctx.ml.cfg)?;
-    for i in 0 .. xt_ctx.tc.class_label_count {
-        println!("Class {:?}:\n{:?}", i, protocol::open(&classes[0][i], ctx)?);
-    }
+    // for i in 0 .. xt_ctx.tc.class_label_count {
+    //     println!("Class {:?}:\n{:?}", i, protocol::open(&classes[0][i], ctx)?);
+    // }
     let (processed_data, arvs, splits) = xt_preprocess(&data, &mut xt_ctx, ctx)?;
     let trees = sid3t(&processed_data, &classes, &arvs, &splits, ctx, &mut xt_ctx.tc)?;
+
+
+    let duration = start.elapsed();
+
+
     io::write_to_file(&xt_ctx.tc.save_location, &serde_json::to_string(&trees)?)?;
     let mut rev_trees = vec![];
     trees.iter().for_each(|x| rev_trees.push(reveal_tree(x, ctx).unwrap()));
@@ -26,7 +37,7 @@ pub fn run(ctx: &mut Context) -> Result<(), Box<dyn Error>> {
         io::write_to_file("treedata/rev_trees.json", &serde_json::to_string_pretty(&rev_trees)?)?;
     }
     let path = format!("cfg/ml/extratrees/inference{}.toml", ctx.num.asymm);
-    let (_, test_data, test_lab, infctx) = inference::init(&path, true)?;
+    let (_, test_data, test_lab, infctx) = inference::init(&path, true)?; 
 
     // --------------
     // Done to streamline testing, in general, the inference should be seperate from the learning phase
@@ -40,7 +51,6 @@ pub fn run(ctx: &mut Context) -> Result<(), Box<dyn Error>> {
         test_data_open.push(protocol::open(&row, ctx)?);
     }
 
-    
     //let mut file = File::open("treedata/rev_trees.json")?;
     // let mut contents = String::new();
     // file.read_to_string(&mut contents)?;
@@ -48,7 +58,32 @@ pub fn run(ctx: &mut Context) -> Result<(), Box<dyn Error>> {
     // let trees: Vec<Vec<TreeNode>> = serde_json::from_str(&contents)?;
     let results = classify_in_the_clear(&rev_trees, &test_data_open, &test_lab_open_trunc, infctx)?;
     
-    println!("{} %", results * 100.0);
+    let result = format!("{} %, {:?} seconds", results * 100.0, duration);
+
+    println!("{}", result);
+
+    let path = "results.txt";
+
+    let b = std::path::Path::new(path).exists();
+
+    if ctx.num.asymm == 0 {
+
+        if !b {
+            let f = File::create(path).expect("unable to create file");
+            let mut f = BufWriter::new(f);
+            write!(f, "{}\n", result).expect("unable to write");
+        } else {
+            let f = OpenOptions::new()
+            .write(true)
+            .append(true)
+            .open(path)
+            .expect("unable to open file");
+            let mut f = BufWriter::new(f);
+
+            write!(f, "{}\n", result).expect("unable to write");
+        }
+
+    }
 
     Ok(())
 }

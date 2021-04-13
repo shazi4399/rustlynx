@@ -40,7 +40,7 @@ Result<(Vec<Vec<Vec<Wrapping<u64>>>>, Vec<Vec<Vec<Wrapping<u64>>>>, Vec<Vec<Vec<
     let decimal_precision = ctx.num.precision_frac;
     let asym = ctx.num.asymm;
 
-    let use_pregenerated_splits_and_selections = true;
+    let use_pregenerated_splits_and_selections = false;
     let arv_path = "custom_randomness/arvs.csv";
     let splits_path = "custom_randomness/splits.csv";
     let seed = 0;
