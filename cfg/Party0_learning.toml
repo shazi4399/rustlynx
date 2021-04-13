@@ -2,7 +2,7 @@
 
 	[net.local]
 	party_id   = 0
-	ip         = "168.62.167.8"
+	ip         = "127.0.0.1"
 	portrange  = "5000:6000"
 
 	[net.extern]
@@ -11,7 +11,7 @@
 	portrange = "6000:7000"
 
 	[net.ti]
-	ip   = "10.0.0.30"
+	ip   = "127.0.0.1"
 	port = 4000
 
 [sys]
