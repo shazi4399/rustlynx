@@ -8,7 +8,7 @@
 	[net.extern]
 	party_id  = 1
 	ip        = "52.136.118.184"
-	portrange = "6000:7000"
+	portrange = "5000:6000"
 
 	[net.ti]
 	ip   = "127.0.0.1"
