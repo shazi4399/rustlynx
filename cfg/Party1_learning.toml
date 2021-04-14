@@ -1,7 +1,7 @@
 [net]
 	[net.local]
 	party_id   = 1
-	ip         = "127.0.0.1"
+	ip         = "168.62.167.8"
 	portrange  = "5000:6000"
 
 	[net.extern]
