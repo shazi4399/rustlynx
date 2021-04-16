@@ -2,12 +2,12 @@
 
 	[net.local]
 	party_id   = 0
-	ip         = "10.0.0.30"
+	ip         = "168.62.167.8"
 	portrange  = "6000:7000"
 
 	[net.extern]
 	party_id  = 1
-	ip        = "10.0.0.32"
+	ip        = "52.136.118.184"
 	portrange = "5000:6000"
 
 	[net.ti]
