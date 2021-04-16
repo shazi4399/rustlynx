@@ -1,10 +1,6 @@
 import os
 import sys
 
-party = 0
-toml_learn_path = "cfg/ml/extratrees/learning{}.toml".format(party)
-toml_inference_path = "cfg/ml/extratrees/inference{}.toml".format(party)
-
 args = sys.argv[1:]
 
 rows=args[0]
@@ -15,6 +11,11 @@ feat=args[4]
 fold=args[5]
 party=args[6]
 key_word=args[7]
+
+toml_learn_path = "cfg/ml/extratrees/learning{}.toml".format(party)
+toml_inference_path = "cfg/ml/extratrees/inference{}.toml".format(party)
+
+
 
 with open(toml_learn_path, 'w') as file:
     file.write("class_label_count = 2\n")
