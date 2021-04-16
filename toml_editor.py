@@ -2,8 +2,8 @@ import os
 import sys
 
 party = 0
-toml_learn_path = "cfg/ml/learning{}.toml".format(party)
-toml_inference_path = "cfg/ml/inference{}.toml".format(party)
+toml_learn_path = "cfg/ml/extratrees/learning{}.toml".format(party)
+toml_inference_path = "cfg/ml/extratrees/inference{}.toml".format(party)
 
 args = sys.argv[1:]
 
