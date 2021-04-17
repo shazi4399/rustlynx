@@ -18,6 +18,8 @@ toml_inference_path = "cfg/ml/extratrees/inference{}.toml".format(party)
 printout = "learn path: {} \n inference path: {} \n\n rows = {}, attr = {} for dataset with codename {}\n".format(
     toml_learn_path,toml_inference_path,rows,attr,key_word)
 
+print(printout)
+
 
 with open(toml_learn_path, 'w') as file:
     file.write("class_label_count = 2\n")
