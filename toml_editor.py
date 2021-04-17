@@ -15,6 +15,8 @@ key_word=args[7]
 toml_learn_path = "cfg/ml/extratrees/learning{}.toml".format(party)
 toml_inference_path = "cfg/ml/extratrees/inference{}.toml".format(party)
 
+printout = "learn path: {} \n inference path: {} \n\n rows = {}, attr = {} for dataset with codename {}\n".format(
+    toml_learn_path,toml_inference_path,rows,attr,key_word)
 
 
 with open(toml_learn_path, 'w') as file:
@@ -30,7 +32,6 @@ with open(toml_learn_path, 'w') as file:
     file.write("save_location = \"treedata/Party{}_trees.json\"".format(party))
 
 with open(toml_inference_path, 'w') as file:
-
     file.write("class_label_count = 2\n")
     file.write("attribute_count = {}\n".format(attr))
     file.write("instance_count = {}\n".format(rows))
