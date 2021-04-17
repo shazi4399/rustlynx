@@ -15,8 +15,10 @@ key_word=args[7]
 toml_learn_path = "cfg/ml/extratrees/learning{}.toml".format(party)
 toml_inference_path = "cfg/ml/extratrees/inference{}.toml".format(party)
 
-printout = "learn path: {} \n inference path: {} \n\n rows = {}, attr = {} for dataset with codename {}\n".format(
-    toml_learn_path,toml_inference_path,rows,attr,key_word)
+delim = "---------------------------------------"
+
+printout = "\n{}\n\nlearn path: {} \n inference path: {} \n\n rows = {}, attr = {} for dataset with codename {}\n{}\n".format(
+    delim,toml_learn_path,toml_inference_path,rows,attr,key_word,delim)
 
 print(printout)
 

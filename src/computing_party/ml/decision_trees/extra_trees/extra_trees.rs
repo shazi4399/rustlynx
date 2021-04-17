@@ -45,6 +45,10 @@ Result<(Vec<Vec<Vec<Wrapping<u64>>>>, Vec<Vec<Vec<Wrapping<u64>>>>, Vec<Vec<Vec<
     let splits_path = "custom_randomness/splits.csv";
     let seed = 0;
 
+    for line in data {
+        println!("{:?}", open(&line, ctx));
+    }
+
     let minmax = minmax_batch(&util::transpose(data)?, ctx)?;
 
     let mins = minmax.0;
