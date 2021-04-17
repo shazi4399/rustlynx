@@ -108,6 +108,8 @@ pub fn init(cfg_file: &String) -> Result<(XTContext, Vec<Vec<Wrapping<u64>>>, Ve
     let data = io::matrix_csv_to_wrapping_vec(&settings.get_str("data")?)?;
     let mut classes = io::matrix_csv_to_wrapping_vec(&settings.get_str("classes")?)?;
 
+    let instance_count = data.len(); // ADDED BY DAVID, hopefully won't cause issues. This relives huge headaches though
+
     classes = util::transpose(&classes)?;
     let mut dup_classes = vec![];
     for i in 0 .. tree_count {
