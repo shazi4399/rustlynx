@@ -32,7 +32,7 @@ pub fn run(ctx: &mut Context) -> Result<(), Box<dyn Error>> {
 
     io::write_to_file(&xt_ctx.tc.save_location, &serde_json::to_string(&trees)?)?;
     let mut rev_trees = vec![];
-    trees.iter().for_each(|x| rev_trees.push(reveal_tree(x, ctx).unwrap()));
+    //trees.iter().for_each(|x| rev_trees.push(reveal_tree(x, ctx).unwrap()));
     if ctx.num.asymm == 1 {
         io::write_to_file("treedata/rev_trees.json", &serde_json::to_string_pretty(&rev_trees)?)?;
     }
