@@ -31,8 +31,8 @@ with open(toml_learn_path, 'w') as file:
     file.write("max_depth = {}\n".format(depth))
     file.write("feature_count = {}\n".format(feat))
     file.write("epsilon = 0.05\n")
-    file.write("data = \"/home/XT{}/new_Data/Party{}_{}/{}X_train.csv\"\n".format(str(int(party)+1),party, key_word, fold))
-    file.write("classes = \"/home/XT{}/new_Data/Party{}_{}/{}y_train.csv\"\n".format(str(int(party)+1),party, key_word, fold))
+    file.write("data = \"data/Party{}_{}/{}X_train.csv\"\n".format(party, key_word, fold))
+    file.write("classes = \"data/Party{}_{}/{}y_train.csv\"\n".format(party, key_word, fold))
     file.write("save_location = \"treedata/Party{}_trees.json\"".format(party))
 
 with open(toml_inference_path, 'w') as file:
@@ -40,8 +40,8 @@ with open(toml_inference_path, 'w') as file:
     file.write("attribute_count = {}\n".format(attr))
     file.write("instance_count = {}\n".format(rows))
     file.write("max_depth = {}\n".format(depth))
-    file.write("data = \"/home/XT{}/new_Data/Party{}_{}/{}X_test.csv\"\n".format(str(int(party)+1),party, key_word, fold))
-    file.write("classes = \"/home/XT{}/new_Data/Party{}_{}/{}y_test.csv\"\n".format(str(int(party)+1),party, key_word, fold))
+    file.write("data = \"data/Party{}_{}/{}X_test.csv\"\n".format(party, key_word, fold))
+    file.write("classes = \"data/Party{}_{}/{}y_test.csv\"\n".format(party, key_word, fold))
     file.write("save_location = \"treedata/Party{}_trees.json\"".format(party))
 
 

@@ -906,7 +906,7 @@ pub fn reveal_tree(nodes: &Vec<TreeNode>, ctx: &mut Context) -> Result<Vec<TreeN
         att_sel_vecs.push(nodes[i].attribute_sel_vec.clone());
     }
     let classes_rev = protocol::open(&classes, ctx)?;
-    println!("\n");
+    //println!("\n");
     for i in 0..nodes.len() {
         let att_sel_vecs_rev =
             protocol::open(&att_sel_vecs[i], ctx)?;
@@ -914,7 +914,7 @@ pub fn reveal_tree(nodes: &Vec<TreeNode>, ctx: &mut Context) -> Result<Vec<TreeN
         let mut attr = att_sel_vecs_rev.iter().position(|x| *x == Wrapping(1u64));
         let attr_wrap: Wrapping<u64> = if attr.is_some() {Wrapping(attr.unwrap() as u64)} else {Wrapping(0)};
 
-        println!("Node#{:?}, classification:{:?}, split_point:{:?}, att_sel_vec:{:?}", i , classes_rev[i], split_points_rev, att_sel_vecs_rev);
+        //println!("Node#{:?}, classification:{:?}, split_point:{:?}, att_sel_vec:{:?}", i , classes_rev[i], split_points_rev, att_sel_vecs_rev);
         rev_node.push(TreeNode {
             attribute_sel_vec: vec![attr_wrap],
             classification: classes_rev[i],
