@@ -70,29 +70,23 @@ Result<(Vec<Vec<Vec<Wrapping<u64>>>>, Vec<Vec<Vec<Wrapping<u64>>>>, Vec<Vec<Vec<
         mins_concat.extend(&mins);
         maxes_concat.extend(&maxes);
     }
-    println!("\n\nWE MADE IT HERE! \n\n");
     mins_concat.append(&mut maxes_concat); //consolidate into mins, now mins represents both mins and maxes
     //let split_select = SystemTime::now();
-    println!("\n\nWE MADE IT HERE! \n\n");
     let mul_min_max = multiply(&column_major_arvs_flat_dup, &mins_concat, ctx)?;
-    println!("\n\nWE MADE IT HERE! \n\n");
     // println!("mul_min_max: {:?}", open(&mul_min_max, ctx));
     let selected_vals: Vec<Wrapping<u64>> = mul_min_max.chunks(attribute_count).map(|x| x.iter().fold(Wrapping(0), |acc, y| acc + y)).collect();
-    println!("\n\nWE MADE IT HERE! \n\n");
     // println!("selected_vals: {:?}", open(&selected_vals, ctx));
 
     let (selected_mins, selected_maxes)= selected_vals.split_at(selected_vals.len()/2);
-    println!("\n\nWE MADE IT HERE! \n\n");
     let selected_ranges: Vec<Wrapping<u64>> = selected_mins.iter().zip(selected_maxes.iter()).map(|(x, y)| y - x).collect();
-    println!("\n\nWE MADE IT HERE! \n\n");
+    println!("ranges selected");
     // println!("selected_ranges: {:?}", open(&selected_ranges, ctx));
 
     let random_ratios =  create_random_ratios(selected_ranges.len(), seed, ctx)?;
-    println!("\n\nWE MADE IT HERE! \n\n");
     // println!("RANDOM RATIOS:{:?}", open(&random_ratios, ctx));
     
     let range_times_ratio = multiply(&selected_ranges, &random_ratios, ctx)?;
-    println!("\n\nWE MADE IT HERE! \n\n");
+    println!("ratios applied to ranges");
     // println!("range_times_ratio: {:?}", open(&range_times_ratio, ctx));
     let selected_splits: Vec<Wrapping<u64>> = if use_pregenerated_splits_and_selections {load_splits_from_file(splits_path, ctx.num.asymm as usize, feature_count, tree_count, decimal_precision)?} else {range_times_ratio.iter().zip(selected_mins.iter()).map(|(x, y)| util::truncate(*x, decimal_precision, asym) + y).collect()};
     
@@ -101,6 +95,7 @@ Result<(Vec<Vec<Vec<Wrapping<u64>>>>, Vec<Vec<Vec<Wrapping<u64>>>>, Vec<Vec<Vec<
     // column_major_arvs.iter().for_each(|x| println!("{:?}", open(x, ctx).unwrap()));
 
     let res = batch_matmul(&data, &row_major_arvs, ctx)?;
+    println!("batch_matmul completed");
     let mut column_reduced_datasets = vec![];
     res.iter().for_each(|x| column_reduced_datasets.push(util::transpose(&x).unwrap()));
 
