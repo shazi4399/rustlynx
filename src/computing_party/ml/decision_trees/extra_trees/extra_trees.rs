@@ -55,12 +55,17 @@ Result<(Vec<Vec<Vec<Wrapping<u64>>>>, Vec<Vec<Vec<Wrapping<u64>>>>, Vec<Vec<Vec<
     println!("maxes and mins found.");
 
     let fsv_amount = xtctx.tc.tree_count * xtctx.feature_count;
+    println!("\n\nWE MADE IT HERE! \n\n");
     let column_major_arvs = if use_pregenerated_splits_and_selections {load_arvs_from_file(arv_path, ctx.num.asymm as usize, feature_count, attribute_count, tree_count)?} else {create_selection_vectors(fsv_amount, xtctx.tc.attribute_count, seed, ctx)?};
     let row_major_arvs: Vec<Vec<Vec<Wrapping<u64>>>> = two_dim_to_3_dim(&column_major_arvs, feature_count)?.iter().map(|x| util::transpose(&x).unwrap()).collect();
     // column_major_arvs.iter().for_each(|x| println!("{:?}", open(x, ctx).unwrap()));
+    println!("\n\nWE MADE IT HERE! \n\n");
     let final_column_major_arvs = two_dim_to_3_dim(&column_major_arvs, feature_count)?;
+    println!("\n\nWE MADE IT HERE! \n\n");
     let column_major_arvs_flat: Vec<Wrapping<u64>> = final_column_major_arvs.clone().into_iter().flatten().flatten().collect();
+    println!("\n\nWE MADE IT HERE! \n\n");
     let mut column_major_arvs_flat_dup = column_major_arvs_flat.clone();
+    println!("\n\nWE MADE IT HERE! \n\n");
     column_major_arvs_flat_dup.append(&mut column_major_arvs_flat_dup.clone());
     // column_major_arvs.iter().for_each(|x| println!("{:?}", open(x, ctx).unwrap()));
 
@@ -70,29 +75,35 @@ Result<(Vec<Vec<Vec<Wrapping<u64>>>>, Vec<Vec<Vec<Wrapping<u64>>>>, Vec<Vec<Vec<
         mins_concat.extend(&mins);
         maxes_concat.extend(&maxes);
     }
+    println!("\n\nWE MADE IT HERE! \n\n");
     mins_concat.append(&mut maxes_concat); //consolidate into mins, now mins represents both mins and maxes
     //let split_select = SystemTime::now();
+    println!("\n\nWE MADE IT HERE! \n\n");
     let mul_min_max = multiply(&column_major_arvs_flat_dup, &mins_concat, ctx)?;
+    println!("\n\nWE MADE IT HERE! \n\n");
     // println!("mul_min_max: {:?}", open(&mul_min_max, ctx));
     let selected_vals: Vec<Wrapping<u64>> = mul_min_max.chunks(attribute_count).map(|x| x.iter().fold(Wrapping(0), |acc, y| acc + y)).collect();
+    println!("\n\nWE MADE IT HERE! \n\n");
     // println!("selected_vals: {:?}", open(&selected_vals, ctx));
 
     let (selected_mins, selected_maxes)= selected_vals.split_at(selected_vals.len()/2);
+    println!("\n\nWE MADE IT HERE! \n\n");
     let selected_ranges: Vec<Wrapping<u64>> = selected_mins.iter().zip(selected_maxes.iter()).map(|(x, y)| y - x).collect();
+    println!("\n\nWE MADE IT HERE! \n\n");
     // println!("selected_ranges: {:?}", open(&selected_ranges, ctx));
 
     let random_ratios =  create_random_ratios(selected_ranges.len(), seed, ctx)?;
+    println!("\n\nWE MADE IT HERE! \n\n");
     // println!("RANDOM RATIOS:{:?}", open(&random_ratios, ctx));
     
     let range_times_ratio = multiply(&selected_ranges, &random_ratios, ctx)?;
+    println!("\n\nWE MADE IT HERE! \n\n");
     // println!("range_times_ratio: {:?}", open(&range_times_ratio, ctx));
     let selected_splits: Vec<Wrapping<u64>> = if use_pregenerated_splits_and_selections {load_splits_from_file(splits_path, ctx.num.asymm as usize, feature_count, tree_count, decimal_precision)?} else {range_times_ratio.iter().zip(selected_mins.iter()).map(|(x, y)| util::truncate(*x, decimal_precision, asym) + y).collect()};
     
     // println!("SELECTED SPLITS: {:?}", open(&selected_splits, ctx));
     //println!("split_select finished. Time taken: {:?}ms", split_select.elapsed().unwrap().as_millis());
     // column_major_arvs.iter().for_each(|x| println!("{:?}", open(x, ctx).unwrap()));
-
-    println!("\n\nWE MADE IT HERE! \n\n");
 
     let res = batch_matmul(&data, &row_major_arvs, ctx)?;
     let mut column_reduced_datasets = vec![];
