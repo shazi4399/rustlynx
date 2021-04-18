@@ -110,6 +110,7 @@ pub fn init(cfg_file: &String) -> Result<(XTContext, Vec<Vec<Wrapping<u64>>>, Ve
 
     let instance_count = data.len(); // ADDED BY DAVID, hopefully won't cause issues. This relives huge headaches though
     let attribute_count = data[0].len(); // ADDED BY DAVID, hopefully won't cause issues. This relives huge headaches though
+    println!("{}", attribute_count);
 
     classes = util::transpose(&classes)?;
     let mut dup_classes = vec![];
