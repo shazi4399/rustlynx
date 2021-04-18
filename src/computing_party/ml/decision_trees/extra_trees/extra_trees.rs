@@ -57,6 +57,7 @@ Result<(Vec<Vec<Vec<Wrapping<u64>>>>, Vec<Vec<Vec<Wrapping<u64>>>>, Vec<Vec<Vec<
     let fsv_amount = xtctx.tc.tree_count * xtctx.feature_count;
     println!("\n\nWE MADE IT HERE! \n\n");
     let column_major_arvs = if use_pregenerated_splits_and_selections {load_arvs_from_file(arv_path, ctx.num.asymm as usize, feature_count, attribute_count, tree_count)?} else {create_selection_vectors(fsv_amount, xtctx.tc.attribute_count, seed, ctx)?};
+    println!("\n\nWE MADE IT HERE! \n\n");
     let row_major_arvs: Vec<Vec<Vec<Wrapping<u64>>>> = two_dim_to_3_dim(&column_major_arvs, feature_count)?.iter().map(|x| util::transpose(&x).unwrap()).collect();
     // column_major_arvs.iter().for_each(|x| println!("{:?}", open(x, ctx).unwrap()));
     println!("\n\nWE MADE IT HERE! \n\n");
