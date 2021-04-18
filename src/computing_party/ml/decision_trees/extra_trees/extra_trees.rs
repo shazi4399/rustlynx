@@ -91,6 +91,9 @@ Result<(Vec<Vec<Vec<Wrapping<u64>>>>, Vec<Vec<Vec<Wrapping<u64>>>>, Vec<Vec<Vec<
     // println!("SELECTED SPLITS: {:?}", open(&selected_splits, ctx));
     //println!("split_select finished. Time taken: {:?}ms", split_select.elapsed().unwrap().as_millis());
     // column_major_arvs.iter().for_each(|x| println!("{:?}", open(x, ctx).unwrap()));
+
+    println!("\n\nWE MADE IT HERE! \n\n");
+
     let res = batch_matmul(&data, &row_major_arvs, ctx)?;
     let mut column_reduced_datasets = vec![];
     res.iter().for_each(|x| column_reduced_datasets.push(util::transpose(&x).unwrap()));
