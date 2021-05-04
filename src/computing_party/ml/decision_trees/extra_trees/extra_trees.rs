@@ -59,7 +59,7 @@ Result<(Vec<Vec<Vec<Wrapping<u64>>>>, Vec<Vec<Vec<Wrapping<u64>>>>, Vec<Vec<Vec<
     let row_major_arvs: Vec<Vec<Vec<Wrapping<u64>>>> = two_dim_to_3_dim(&column_major_arvs, feature_count)?.iter().map(|x| util::transpose(&x).unwrap()).collect();
     // column_major_arvs.iter().for_each(|x| println!("{:?}", open(x, ctx).unwrap()));
     let final_column_major_arvs = two_dim_to_3_dim(&column_major_arvs, feature_count)?;
-    let column_major_arvs_flat: Vec<Wrapping<u64>> = final_column_major_arvs.clone().into_iter().flatten().flatten().collect();;
+    let column_major_arvs_flat: Vec<Wrapping<u64>> = final_column_major_arvs.clone().into_iter().flatten().flatten().collect();
     let mut column_major_arvs_flat_dup = column_major_arvs_flat.clone();
     column_major_arvs_flat_dup.append(&mut column_major_arvs_flat_dup.clone());
     // column_major_arvs.iter().for_each(|x| println!("{:?}", open(x, ctx).unwrap()));
@@ -79,11 +79,10 @@ Result<(Vec<Vec<Vec<Wrapping<u64>>>>, Vec<Vec<Vec<Wrapping<u64>>>>, Vec<Vec<Vec<
 
     let (selected_mins, selected_maxes)= selected_vals.split_at(selected_vals.len()/2);
     let selected_ranges: Vec<Wrapping<u64>> = selected_mins.iter().zip(selected_maxes.iter()).map(|(x, y)| y - x).collect();
-    println!("ranges selected");
     // println!("selected_ranges: {:?}", open(&selected_ranges, ctx));
 
     let random_ratios =  create_random_ratios(selected_ranges.len(), seed, ctx)?;
-    // println!("RANDOM RATIOS:{:?}", open(&random_ratios, ctx));
+    //println!("RANDOM RATIOS:{:?}", open(&random_ratios, ctx)?.iter().map(|x| x.0 as f64/2f64.powf(ctx.num.precision_frac as f64)).collect::<Vec<f64>>());
     
     let range_times_ratio = multiply(&selected_ranges, &random_ratios, ctx)?;
     // println!("range_times_ratio: {:?}", open(&range_times_ratio, ctx));
@@ -92,9 +91,7 @@ Result<(Vec<Vec<Vec<Wrapping<u64>>>>, Vec<Vec<Vec<Wrapping<u64>>>>, Vec<Vec<Vec<
     // println!("SELECTED SPLITS: {:?}", open(&selected_splits, ctx));
     //println!("split_select finished. Time taken: {:?}ms", split_select.elapsed().unwrap().as_millis());
     // column_major_arvs.iter().for_each(|x| println!("{:?}", open(x, ctx).unwrap()));
-
     let res = batch_matmul(&data, &row_major_arvs, ctx)?;
-    println!("batch_matmul completed");
     let mut column_reduced_datasets = vec![];
     res.iter().for_each(|x| column_reduced_datasets.push(util::transpose(&x).unwrap()));
 
@@ -137,13 +134,14 @@ Result<(Vec<Vec<Vec<Wrapping<u64>>>>, Vec<Vec<Vec<Wrapping<u64>>>>, Vec<Vec<Vec<
 
     //Doubled for proper ohe
     xtctx.tc.attribute_count = 2 * xtctx.feature_count;
+    //println!("SELECTED SPLITS: {:?}", open(&selected_splits, ctx)?.iter().map(|x| x.0 as f64/2f64.powf(ctx.num.precision_frac as f64)).collect::<Vec<f64>>());
 
     let final_arv_splits = two_dim_to_3_dim(&selected_splits.iter().map(|x| vec![*x]).collect(), feature_count)?; 
 
     Ok((interleaved_complete_set, final_column_major_arvs, final_arv_splits))
 }
 
-fn two_dim_to_3_dim(data: &Vec<Vec<Wrapping<u64>>>, group_size: usize) -> Result<Vec<Vec<Vec<Wrapping<u64>>>>, Box<dyn Error>>{
+pub fn two_dim_to_3_dim(data: &Vec<Vec<Wrapping<u64>>>, group_size: usize) -> Result<Vec<Vec<Vec<Wrapping<u64>>>>, Box<dyn Error>>{
     let mut result = vec![];
     for i in 0.. data.len() / group_size {
         let mut group = vec![];
@@ -189,7 +187,7 @@ pub fn create_random_ratios(quant: usize, seed: usize, ctx: &mut Context) -> Res
     Ok(results)
 }
 
-fn load_arvs_from_file(path: &str, asym: usize, feature_count: usize, attribute_count: usize, tree_count: usize) -> Result<Vec<Vec<Wrapping<u64>>>, Box<dyn Error>>{
+pub fn load_arvs_from_file(path: &str, asym: usize, feature_count: usize, attribute_count: usize, tree_count: usize) -> Result<Vec<Vec<Wrapping<u64>>>, Box<dyn Error>>{
     if asym == 0 {
        return Ok(vec![vec![Wrapping(0u64); attribute_count]; feature_count * tree_count]);
     }

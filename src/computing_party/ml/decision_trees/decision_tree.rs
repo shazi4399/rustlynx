@@ -4,13 +4,14 @@ use std::num::Wrapping;
 use super::super::super::protocol;
 use super::super::super::super::util;
 use serde::{Serialize, Deserialize};
+use std::fs;
 
 
 #[derive(Default, Serialize, Deserialize)]
 pub struct TreeNode {
     pub split_point: Vec<Wrapping<u64>>,
     pub attribute_sel_vec: Vec<Wrapping<u64>>,
-    pub classification: Wrapping<u64>,
+    pub frequencies: Vec<Wrapping<u64>>,
 }
 
 impl Clone for TreeNode {
@@ -18,7 +19,7 @@ impl Clone for TreeNode {
         TreeNode {
             split_point: self.split_point.clone(),
             attribute_sel_vec: self.attribute_sel_vec.clone(),
-            classification: self.classification.clone()
+            frequencies: self.frequencies.clone()
         }
     }
 }
@@ -58,7 +59,7 @@ pub fn sid3t(input: &Vec<Vec<Vec<Wrapping<u64>>>>, class: &Vec<Vec<Vec<Wrapping<
     for t in 0..tree_count {
         treenodes[t].push(TreeNode {
             attribute_sel_vec: vec![],
-            classification: Wrapping(0),
+            frequencies: vec![Wrapping(0)],
             split_point: vec![],
         });
     }
@@ -107,32 +108,33 @@ pub fn sid3t(input: &Vec<Vec<Vec<Wrapping<u64>>>>, class: &Vec<Vec<Vec<Wrapping<
                                         (n * class_label_count + i + 1) * instance_count].iter().sum());
             }
         }
+       // println!("frequencies_flat{:?}", protocol::open(&frequencies_flat, ctx)?);
 
-        let frequencies_argmax = most_frequent_class(&frequencies_flat, number_of_nodes_to_process, ctx, train_ctx)?;
+        // let frequencies_argmax = most_frequent_class(&frequencies_flat, number_of_nodes_to_process, ctx, train_ctx)?;
         // frequencies_argmax.iter().for_each(|x| println!("frequencies_argmax{:?}", protocol::open(&x, ctx).unwrap()));
-        let mut chosen_classifications: Vec<Wrapping<u64>> = vec![];
+        // let mut chosen_classifications: Vec<Wrapping<u64>> = vec![];
         // STEP 2: max_depth exit condition
         // let mut indices: Vec<Wrapping<u64>> = (0u64 .. class_label_count as u64).map(|x| Wrapping(x << decimal_precision)).collect(); //put into ring, as they aren't always either 0 or 1
-        let mut indices: Vec<Wrapping<u64>> = (0u64 .. class_label_count as u64).map(|x| Wrapping(x)).collect();
-        for n in 0 .. number_of_nodes_to_process {
-            chosen_classifications.push(frequencies_argmax[n].iter().zip(indices.iter()).map(|(x, y)| x * y).sum());
-        }
+        // let mut indices: Vec<Wrapping<u64>> = (0u64 .. class_label_count as u64).map(|x| Wrapping(x)).collect();
+        // for n in 0 .. number_of_nodes_to_process {
+        //     chosen_classifications.push(frequencies_argmax[n].iter().zip(indices.iter()).map(|(x, y)| x * y).sum());
+        // }
 
         if max_depth {   
             // println!("chosen_classifications{:?}", protocol::open(&chosen_classifications, ctx)?);
             // println!("ances_class_bits{:?}", protocol::open(&ances_class_bits, ctx)?);
 
-            let ances_class_bits_neg = ances_class_bits.iter().map(|x| -x + Wrapping(asymmetric_bit)).collect();
+            let ances_class_bits_neg_exp = ances_class_bits.iter().map(|x| vec![-x + Wrapping(asymmetric_bit); class_label_count]).flatten().collect();
             // println!("ances_class_bits_neg{:?}", protocol::open(&ances_class_bits_neg, ctx)?);
             // println!("ances_xor_asym{:?}", reveal(&ances_xor_asym, ctx, ctx.decimal_precision, false, false));
 
-            let chosen_classifications_corrected = protocol::multiply(&chosen_classifications, &ances_class_bits_neg, ctx)?;
+            let chosen_classifications_corrected = protocol::multiply(&frequencies_flat, &ances_class_bits_neg_exp, ctx)?;
             //println!("chosen_classifications_corrected{:?}", protocol::open(&chosen_classifications_corrected, ctx)?);
             for t in 0 .. tree_count {
                 for n in 0 .. nodes_to_process_per_tree {
                     treenodes[t].push(TreeNode {
                         attribute_sel_vec: vec![],
-                        classification: chosen_classifications_corrected[t * nodes_to_process_per_tree + n],
+                        frequencies: chosen_classifications_corrected[t * nodes_to_process_per_tree * class_label_count + n * class_label_count .. t * nodes_to_process_per_tree * class_label_count + (n + 1) * class_label_count].to_vec(),
                         split_point: vec![Wrapping(0)],
                     });
                 }
@@ -219,25 +221,36 @@ pub fn sid3t(input: &Vec<Vec<Vec<Wrapping<u64>>>>, class: &Vec<Vec<Vec<Wrapping<
 
         let gini_argmax = gini_impurity(&input_subsets, &frequencies_flat_unsummed, number_of_nodes_to_process, ctx, train_ctx);
 
-        // let gini_argmax_rev: Vec<Vec<Wrapping<u64>>> = gini_argmax.iter().map(|x| protocol::open(&x, ctx).unwrap()).collect();
-        // for i in 0 .. number_of_nodes_to_process {
-        //     println!("GINI ARGMAX FOR NODE {:?}: ", gini_argmax_rev[i]);
-        // }
+        // ADDED
+        let gini_argmax_rev: Vec<Vec<Wrapping<u64>>> = gini_argmax.iter().map(|x| protocol::open(&x, ctx).unwrap()).collect();
+        let mut ans = vec![];
+        for i in 0 .. number_of_nodes_to_process {
+            let mut index = 0;
+            let gini = gini_argmax_rev[i].clone();
+            for i in 0.. gini.len() {
+                if gini[i] == Wrapping(1) {
+                    index = i;
+                    break;
+                }
+            }
+            ans.push(index);
+        }
+        //println!("GINI ARGMAX FOR NODE {:?}", ans);
 
         // STEP 5: Create data structures for next layer based on step 4
 
         let mut best_attributes: Vec<Vec<Wrapping<u64>>> = vec![]; //should be a vector containing selection vectors for the best attributes to split on for each node
         let mut chosen_split_points: Vec<Wrapping<u64>> = vec![]; //should be the associated value for the selection vector in best_attributes
-        let mut chosen_classifications: Vec<Wrapping<u64>>; //the most frequent classification at each node multiplied by the value calculated in this_layer_classification_bits\
+        // let mut chosen_classifications: Vec<Wrapping<u64>>; //the most frequent classification at each node multiplied by the value calculated in this_layer_classification_bits\
 
         let mut indices_exp = (0u64 .. class_label_count as u64).map(|x| vec![Wrapping(x); number_of_nodes_to_process]).flatten().collect();
         if asymmetric_bit != 1 {
             indices_exp = vec![Wrapping(0u64); class_label_count * number_of_nodes_to_process];
         }
 
-        chosen_classifications = dot_product(&frequencies_argmax.into_iter().flatten().collect(), &indices_exp, class_label_count, ctx)?;
+        // chosen_classifications = dot_product(&frequencies_argmax.into_iter().flatten().collect(), &indices_exp, class_label_count, ctx)?;
         // println!("chosen_classifications: {:?}", protocol::open(&chosen_classifications, ctx)?);
-        let chosen_classifications_corrected = protocol::multiply(&chosen_classifications, &this_layer_classifies, ctx)?;
+        // let chosen_classifications_corrected = protocol::multiply(&chosen_classifications, &this_layer_classifies, ctx)?;
         // println!("chosen_classifications_corrected: {:?}", protocol::open(&chosen_classifications_corrected, ctx)?);
         let next_layer_classification_bits = protocol::or(&this_layer_classifies, &ances_class_bits, ctx)?;
         // println!("next_layer_classification_bits: {:?}", protocol::open(&next_layer_classification_bits, ctx)?);
@@ -259,6 +272,8 @@ pub fn sid3t(input: &Vec<Vec<Vec<Wrapping<u64>>>>, class: &Vec<Vec<Vec<Wrapping<
                 }
             }
         }
+        let this_layer_classifies_exp = this_layer_classifies.iter().map(|x| vec![*x; class_label_count]).flatten().collect(); 
+        let corrected_frequencies = protocol::multiply(&this_layer_classifies_exp, &frequencies_flat, ctx)?;
 
         //let fsvs_flat: Vec<Wrapping<u64>> = att_sel_vecs.iter().map(|x| vec![x.clone(); nodes_to_process_per_tree]).flatten().flatten().flatten().collect();
         let mut fsvs_flat: Vec<Wrapping<u64>> = vec![];
@@ -357,7 +372,7 @@ pub fn sid3t(input: &Vec<Vec<Vec<Wrapping<u64>>>>, class: &Vec<Vec<Vec<Wrapping<
             for n in 0 .. nodes_to_process_per_tree {
                 treenodes[t].push(TreeNode {
                     attribute_sel_vec: selected_fsvs[t * nodes_to_process_per_tree + n].clone(),
-                    classification: chosen_classifications_corrected[t * nodes_to_process_per_tree + n],
+                    frequencies: corrected_frequencies[t * nodes_to_process_per_tree * class_label_count + n * class_label_count .. t * nodes_to_process_per_tree * class_label_count + (n + 1) * class_label_count].to_vec(),
                     split_point: chosen_splits[t * nodes_to_process_per_tree + n].clone(),
                 });
             }
@@ -507,13 +522,30 @@ pub fn most_frequent_class(frequencies_flat: &Vec<Wrapping<u64>>,
 pub fn gini_impurity(input: &Vec<Vec<Vec<Wrapping<u64>>>>, u_decimal: &Vec<Wrapping<u64>>, 
     number_of_nodes_to_process: usize, ctx: &mut Context, train_ctx: &mut TrainingContext) -> Vec<Vec<Wrapping<u64>>> {
 
+
+
+
+
+        // let mut string: String = "".to_string();
+
+        // for subset in input.clone() {
+        //     for col in subset {
+        //         string = [string, format!("{:?}", protocol::open(&col, ctx).unwrap())].join("\n");
+        //     }
+        // }
+
+        // //println!("{}", string);
+
+        // fs::write("input_res.txt", string).expect("Unable to write file");
+
+
     let class_label_count = train_ctx.class_label_count;
     let decimal_precision = ctx.num.precision_frac;
     let asymmetric_bit = ctx.num.asymm;
     let bin_count = train_ctx.bin_count;
     let feat_count = train_ctx.attribute_count/bin_count;
 
-    let alpha = Wrapping(8); // Need this from ctx
+    let alpha = Wrapping(1); // Need this from ctx
 
     let data_instance_count = train_ctx.instance_count;
 
@@ -895,29 +927,29 @@ fn dot_product(x: &Vec<Wrapping<u64>>, y: &Vec<Wrapping<u64>>, sub_len: usize, c
 }
 
 pub fn reveal_tree(nodes: &Vec<TreeNode>, ctx: &mut Context) -> Result<Vec<TreeNode>, Box<dyn Error>>{
-    let mut classes = vec![];
+    let mut freqs = vec![];
     let mut split_points = vec![];
     let mut att_sel_vecs = vec![];
     let mut rev_node = vec![];
     for i in 0..nodes.len() {
         //index changing is because dummy is in pos 0
-        classes.push(nodes[i].classification);
+        freqs.push(nodes[i].frequencies.clone());
         split_points.push(nodes[i].split_point.clone());
         att_sel_vecs.push(nodes[i].attribute_sel_vec.clone());
     }
-    let classes_rev = protocol::open(&classes, ctx)?;
     //println!("\n");
     for i in 0..nodes.len() {
-        let att_sel_vecs_rev =
-            protocol::open(&att_sel_vecs[i], ctx)?;
-            let split_points_rev = protocol::open(&split_points[i], ctx)?;
+        let att_sel_vecs_rev = protocol::open(&att_sel_vecs[i], ctx)?;
+        let split_points_rev = protocol::open(&split_points[i], ctx)?;
+        let freqs_rev = protocol::open(&freqs[i], ctx)?;
         let mut attr = att_sel_vecs_rev.iter().position(|x| *x == Wrapping(1u64));
         let attr_wrap: Wrapping<u64> = if attr.is_some() {Wrapping(attr.unwrap() as u64)} else {Wrapping(0)};
-
-        //println!("Node#{:?}, classification:{:?}, split_point:{:?}, att_sel_vec:{:?}", i , classes_rev[i], split_points_rev, att_sel_vecs_rev);
+        let float_splits: Vec<f64> = split_points_rev.iter().map(|x| x.0 as f64 / 2f64.powf(ctx.num.precision_frac as f64)).collect();
+        
+        //println!("Node#{:?}, frequencies:{:?}, split_point:{:?}, att_sel_vec:{:?}", i , freqs_rev,  float_splits, att_sel_vecs_rev);
         rev_node.push(TreeNode {
             attribute_sel_vec: vec![attr_wrap],
-            classification: classes_rev[i],
+            frequencies: freqs_rev,
             split_point: split_points_rev
         })
     }

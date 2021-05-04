@@ -3,7 +3,8 @@ use std::num::Wrapping;
 use super::super::super::super::Context;
 use super::extra_trees::*;
 use super::super::decision_tree::*;
-use super::super::inference::classify_in_the_clear;
+use super::super::inference::classify_softvote;
+use super::super::inference::classify_argmax;
 use crate::io;
 use crate::util;
 use serde_json;
@@ -56,9 +57,11 @@ pub fn run(ctx: &mut Context) -> Result<(), Box<dyn Error>> {
     // file.read_to_string(&mut contents)?;
 
     // let trees: Vec<Vec<TreeNode>> = serde_json::from_str(&contents)?;
-    let results = classify_in_the_clear(&rev_trees, &test_data_open, &test_lab_open_trunc, infctx)?;
+    let argmax_results = classify_argmax(&rev_trees, &test_data_open, &test_lab_open_trunc, &infctx)?;
+
+    let softvote_results = classify_softvote(&rev_trees, &test_data_open, &test_lab_open_trunc, &infctx)?;
     
-    let result = format!("{} %, {:?} seconds", results * 100.0, duration);
+    let result = format!("argmax: {} %, softvote: {} %, {:?} seconds", argmax_results * 100.0, softvote_results * 100.0, duration);
 
     println!("{}", result);
 
