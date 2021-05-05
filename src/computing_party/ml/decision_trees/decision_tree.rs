@@ -221,20 +221,20 @@ pub fn sid3t(input: &Vec<Vec<Vec<Wrapping<u64>>>>, class: &Vec<Vec<Vec<Wrapping<
 
         let gini_argmax = gini_impurity(&input_subsets, &frequencies_flat_unsummed, number_of_nodes_to_process, ctx, train_ctx);
 
-        // ADDED
-        let gini_argmax_rev: Vec<Vec<Wrapping<u64>>> = gini_argmax.iter().map(|x| protocol::open(&x, ctx).unwrap()).collect();
-        let mut ans = vec![];
-        for i in 0 .. number_of_nodes_to_process {
-            let mut index = 0;
-            let gini = gini_argmax_rev[i].clone();
-            for i in 0.. gini.len() {
-                if gini[i] == Wrapping(1) {
-                    index = i;
-                    break;
-                }
-            }
-            ans.push(index);
-        }
+        // // ADDED
+        // let gini_argmax_rev: Vec<Vec<Wrapping<u64>>> = gini_argmax.iter().map(|x| protocol::open(&x, ctx).unwrap()).collect();
+        // let mut ans = vec![];
+        // for i in 0 .. number_of_nodes_to_process {
+        //     let mut index = 0;
+        //     let gini = gini_argmax_rev[i].clone();
+        //     for i in 0.. gini.len() {
+        //         if gini[i] == Wrapping(1) {
+        //             index = i;
+        //             break;
+        //         }
+        //     }
+        //     ans.push(index);
+        // }
         //println!("GINI ARGMAX FOR NODE {:?}", ans);
 
         // STEP 5: Create data structures for next layer based on step 4
@@ -927,6 +927,7 @@ fn dot_product(x: &Vec<Wrapping<u64>>, y: &Vec<Wrapping<u64>>, sub_len: usize, c
 }
 
 pub fn reveal_tree(nodes: &Vec<TreeNode>, ctx: &mut Context) -> Result<Vec<TreeNode>, Box<dyn Error>>{
+    println!("Revealing trees");
     let mut freqs = vec![];
     let mut split_points = vec![];
     let mut att_sel_vecs = vec![];
