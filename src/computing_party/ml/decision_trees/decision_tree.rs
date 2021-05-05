@@ -927,7 +927,6 @@ fn dot_product(x: &Vec<Wrapping<u64>>, y: &Vec<Wrapping<u64>>, sub_len: usize, c
 }
 
 pub fn reveal_tree(nodes: &Vec<TreeNode>, ctx: &mut Context) -> Result<Vec<TreeNode>, Box<dyn Error>>{
-    println!("Revealing trees");
     let mut freqs = vec![];
     let mut split_points = vec![];
     let mut att_sel_vecs = vec![];

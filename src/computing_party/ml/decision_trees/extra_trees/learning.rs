@@ -56,6 +56,7 @@ pub fn run(ctx: &mut Context) -> Result<(), Box<dyn Error>> {
     // let mut contents = String::new();
     // file.read_to_string(&mut contents)?;
 
+    println!("finished training, now classifying test data");
     // let trees: Vec<Vec<TreeNode>> = serde_json::from_str(&contents)?;
     let argmax_results = classify_argmax(&rev_trees, &test_data_open, &test_lab_open_trunc, &infctx)?;
 
