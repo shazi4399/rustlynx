@@ -1,0 +1,8 @@
+class_label_count = 2
+attribute_count = 30
+instance_count = 455
+max_depth = 3
+bin_count = 5
+data = "data/Party0_breast/1X_test.csv"
+classes = "data/Party0_breast/1y_test.csv"
+tree_location = "treedata/Party0_trees.json"
