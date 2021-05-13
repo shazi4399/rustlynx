@@ -133,9 +133,23 @@ Result<(Vec<Vec<Vec<Wrapping<u64>>>>, Vec<Vec<Vec<Wrapping<u64>>>>, Vec<Vec<Vec<
     }
 
     selected_ranges.shrink_to_fit();
+
+    drop(selected_ranges_1);
+    drop(selected_ranges_2);
+    drop(selected_ranges_3);
+    drop(selected_maxes_cmp_res_neg);
+    drop(selected_mins_cmp_res_neg);
+    drop(option1_valid);
+    drop(option2_valid);
+    drop(option3_valid);
+    drop(pos_neg_minmaxes);
+    drop(smallest_neg_array);
+    drop(mul_min_max);
+
     
     // WORK BY DAVID FINISHED
 
+    println!("ranges selected");
 
     // println!("selected_ranges: {:?}", util::ring_to_float(&open(&selected_ranges, ctx)?, ctx.num.precision_int, ctx.num.precision_frac));
 
@@ -150,8 +164,15 @@ Result<(Vec<Vec<Vec<Wrapping<u64>>>>, Vec<Vec<Vec<Wrapping<u64>>>>, Vec<Vec<Vec<
     //println!("split_select finished. Time taken: {:?}ms", split_select.elapsed().unwrap().as_millis());
     // column_major_arvs.iter().for_each(|x| println!("{:?}", open(x, ctx).unwrap()));
     let res = batch_matmul(&data, &row_major_arvs, ctx)?;
+
+    drop(data);
+    drop(row_major_arvs);
+
     let mut column_reduced_datasets = vec![];
     res.iter().for_each(|x| column_reduced_datasets.push(util::transpose(&x).unwrap()));
+
+    drop(res);
+    column_reduced_datasets.shrink_to_fit();
 
     //The sets are now column oriented. Next is to compare the contents to the chosen split point.
     let total_sets = tree_count;
@@ -177,6 +198,10 @@ Result<(Vec<Vec<Vec<Wrapping<u64>>>>, Vec<Vec<Vec<Wrapping<u64>>>>, Vec<Vec<Vec<
     // let comp_extract_time = SystemTime::now();
     let comparison_results: Vec<Vec<Vec<Wrapping<u64>>>> = cmp_res.chunks(instance_count * feature_count).map(|x| x.chunks(instance_count).map(|x| x.to_vec()).collect()).collect();
     let neg_comparison_results: Vec<Vec<Vec<Wrapping<u64>>>> = cmp_res_neg.chunks(instance_count * feature_count).map(|x| x.chunks(instance_count).map(|x| x.to_vec()).collect()).collect();
+
+    drop(cmp_res);
+    drop(cmp_res_neg);
+
     let mut interleaved_complete_set = vec![];
     for i in 0 .. tree_count {
         let mut interleaved_set = vec![];
@@ -187,6 +212,7 @@ Result<(Vec<Vec<Vec<Wrapping<u64>>>>, Vec<Vec<Vec<Wrapping<u64>>>>, Vec<Vec<Vec<
         interleaved_set.shrink_to_fit();
         interleaved_complete_set.push(interleaved_set);
     }
+    
     interleaved_complete_set.shrink_to_fit();
     // println!("comp_extract finished. Time taken: {:?}ms", comp_extract_time.elapsed().unwrap().as_millis());
 
