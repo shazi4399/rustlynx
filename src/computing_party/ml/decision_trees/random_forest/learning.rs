@@ -29,6 +29,9 @@ pub fn run(ctx: &mut Context) -> Result<(), Box<dyn Error>> {
     println!("Training complete, revealing trees for testing");
 
     trees.iter().for_each(|x| rev_trees.push(decision_tree::reveal_tree(x, ctx).unwrap()));
+
+    println!("Trees open, now openning test data");
+
     let mut test_data_open = vec![];
 
     let test_lab_open = protocol::open(&classes_single_col, ctx)?;
@@ -38,7 +41,9 @@ pub fn run(ctx: &mut Context) -> Result<(), Box<dyn Error>> {
     for row in test_data{
         test_data_open.push(protocol::open(&row, ctx)?);
     }
+    
     let argmax_results = classify_argmax(&rev_trees, &test_data_open, &test_lab_open_trunc, &ic, ctx.num.precision_int, ctx.num.precision_frac)?;
+    println!("argmax results complete, now calculating softvote");
     let softvote_results = classify_softvote(&rev_trees, &test_data_open, &test_lab_open_trunc, &ic, ctx.num.precision_int, ctx.num.precision_frac)?;
 
     let result = format!("argmax: {} %, softvote: {} %, {:?} seconds", argmax_results * 100.0, softvote_results * 100.0, duration);

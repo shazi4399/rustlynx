@@ -846,7 +846,7 @@ pub fn reveal_tree(nodes: &Vec<TreeNode>, ctx: &mut Context) -> Result<Vec<TreeN
         split_points.push(nodes[i].split_point.clone());
         att_sel_vecs.push(nodes[i].attribute_sel_vec.clone());
     }
-    //println!("\n");
+    println!("\n");
     for i in 0..nodes.len() {
         let att_sel_vecs_rev = protocol::open(&att_sel_vecs[i], ctx)?;
         let split_points_rev = protocol::open(&split_points[i], ctx)?;
@@ -855,7 +855,7 @@ pub fn reveal_tree(nodes: &Vec<TreeNode>, ctx: &mut Context) -> Result<Vec<TreeN
         let attr_wrap: Wrapping<u64> = if attr.is_some() {Wrapping(attr.unwrap() as u64)} else {Wrapping(0)};
         let float_splits: Vec<f64> = split_points_rev.iter().map(|x| x.0 as f64 / 2f64.powf(ctx.num.precision_frac as f64)).collect();
         
-        //println!("Node#{:?}, frequencies:{:?}, split_point:{:?}, att_sel_vec:{:?}", i , freqs_rev,  float_splits, att_sel_vecs_rev);
+        println!("Node#{:?}, frequencies:{:?}, split_point:{:?}, att_sel_vec:{:?}", i , freqs_rev,  float_splits, att_sel_vecs_rev);
         rev_node.push(TreeNode {
             attribute_sel_vec: vec![attr_wrap],
             frequencies: freqs_rev,
