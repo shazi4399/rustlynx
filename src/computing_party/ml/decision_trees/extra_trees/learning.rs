@@ -59,6 +59,7 @@ pub fn run(ctx: &mut Context) -> Result<(), Box<dyn Error>> {
     println!("finished training, now classifying test data");
     // let trees: Vec<Vec<TreeNode>> = serde_json::from_str(&contents)?;
     let argmax_results = classify_argmax(&rev_trees, &test_data_open, &test_lab_open_trunc, &infctx, ctx.num.precision_int, ctx.num.precision_frac)?;
+    println!("argmax results complete, now calculating softvote");
     let softvote_results = classify_softvote(&rev_trees, &test_data_open, &test_lab_open_trunc, &infctx, ctx.num.precision_int, ctx.num.precision_frac)?;
 
     let result = format!("argmax: {} %, softvote: {} %, {:?} seconds", argmax_results * 100.0, softvote_results * 100.0, duration);
