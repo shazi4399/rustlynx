@@ -44,7 +44,7 @@ pub fn classify_softvote(trees: &Vec<Vec<TreeNode>>, transactions_wrapping: &Vec
 
             for tree in ensemble {
 
-                let mut current_node = 1;
+                let mut current_node = 0;
 
                 for d in 0.. depth {
                     let chosen_attr = tree[current_node].attribute_sel_vec[0].0 as usize;
@@ -127,7 +127,7 @@ pub fn classify_softvote(trees: &Vec<Vec<TreeNode>>, transactions_wrapping: &Vec
 
                 let mut vote = 0;
                 
-                let mut current_node = 1;
+                let mut current_node = 0;
 
                 for d in 0.. depth {
                     let chosen_attr = tree[current_node].attribute_sel_vec[0].0 as usize;
