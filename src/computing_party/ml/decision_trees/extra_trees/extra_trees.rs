@@ -44,7 +44,7 @@ Result<(Vec<Vec<Vec<Wrapping<u64>>>>, Vec<Vec<Vec<Wrapping<u64>>>>, Vec<Vec<Vec<
     let use_pregenerated_splits_and_selections = false;
     let arv_path = "custom_randomness/arvs.csv";
     let splits_path = "custom_randomness/splits.csv";
-    let seed = 5;
+    let seed = 0;
 
     let minmax = minmax_batch(&util::transpose(data)?, ctx)?;
 
