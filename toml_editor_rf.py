@@ -46,7 +46,7 @@ with open(toml_inference_path, 'w') as file:
     file.write("attribute_count = {}\n".format(attr))
     file.write("instance_count = {}\n".format(rows))
     file.write("max_depth = {}\n".format(depth))
-    file.write("attr_value_count = {}\n".format(attr_value_count))
+    file.write("bin_count = {}\n".format(attr_value_count))
     file.write("data = \"data/Party{}_{}/{}X_test.csv\"\n".format(party, key_word, fold))
     file.write("classes = \"data/Party{}_{}/{}y_test.csv\"\n".format(party, key_word, fold))
     file.write("save_location = \"treedata/Party{}_trees.json\"".format(party))
