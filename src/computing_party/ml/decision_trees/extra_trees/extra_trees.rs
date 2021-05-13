@@ -165,6 +165,8 @@ Result<(Vec<Vec<Vec<Wrapping<u64>>>>, Vec<Vec<Vec<Wrapping<u64>>>>, Vec<Vec<Vec<
     // column_major_arvs.iter().for_each(|x| println!("{:?}", open(x, ctx).unwrap()));
     let res = batch_matmul(&data, &row_major_arvs, ctx)?;
 
+    println!("matmul done");
+
     drop(data);
     drop(row_major_arvs);
 
