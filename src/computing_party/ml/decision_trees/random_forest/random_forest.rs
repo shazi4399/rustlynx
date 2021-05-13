@@ -63,7 +63,7 @@ pub fn rf_preprocess(data: &Vec<Vec<Wrapping<u64>>>, classes: &Vec<Vec<Wrapping<
     let instance_selection = instance_selection(instance_count, instance_select_count, tree_count, seed, ctx)?;
     let mut final_datasets = vec![];
     for i in 0 .. tree_count {
-        println!("tree {} matmul", i);
+        // println!("tree {} matmul", i);
         final_datasets.push(batch_matmul(&util::transpose(&attribute_reduced_sets[i])?,&vec![util::transpose(&instance_selection[i])?],ctx)?.into_iter().flatten().collect());
     }
     let final_classes: Vec<Vec<Vec<Wrapping<u64>>>> = batch_matmul(&classes, &instance_selection.iter().map(|x| util::transpose(&x).unwrap()).collect(), ctx)?;
