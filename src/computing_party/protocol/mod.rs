@@ -1288,6 +1288,7 @@ pub fn batch_matmul(a: &Vec<Vec<Wrapping<u64>>>, b: &Vec<Vec<Vec<Wrapping<u64>>>
 
             let data = lock.read().unwrap();
             let mut mat_subset = vec![vec![vec![Wrapping(0u64); r]; m]; ub - lb];
+            println!("lb = {}, ub = {}", lb, ub);
             for kk in lb..ub {
                 println!("kk = {}", kk);
                 for mm in 0..m {
