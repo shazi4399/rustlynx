@@ -1,5 +1,6 @@
 use std::error::Error;
 use std::num::Wrapping;
+use crate::util;
 // use std::io::Read;
 use super::super::super::Context;
 use super::decision_tree::TreeNode;
@@ -17,10 +18,17 @@ pub fn run(ctx: &mut Context) -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-pub fn classify_softvote(trees: &Vec<Vec<TreeNode>>, transactions: &Vec<Vec<Wrapping<u64>>>, labels: &Vec<u64>, infer_ctx: &InferenceContext) 
-    -> Result<f64, Box<dyn Error>> {
+pub fn classify_softvote(trees: &Vec<Vec<TreeNode>>, transactions_wrapping: &Vec<Vec<Wrapping<u64>>>, labels: &Vec<u64>, 
+                    infer_ctx: &InferenceContext, precision_int: usize, precision_frac: usize) -> Result<f64, Box<dyn Error>> {
 
-        let bin_count = 2;
+        let mut transactions = vec![];
+
+        for row in transactions_wrapping {
+            transactions.push(util::ring_to_float(&row, precision_int, precision_frac)?)
+        }
+
+
+        let bin_count = infer_ctx.bin_count;
         
         let ensemble = trees;
         let mut correctly_classified = 0;
@@ -40,7 +48,7 @@ pub fn classify_softvote(trees: &Vec<Vec<TreeNode>>, transactions: &Vec<Vec<Wrap
 
                 for d in 0.. depth {
                     let chosen_attr = tree[current_node].attribute_sel_vec[0].0 as usize;
-                    let splits = tree[current_node].split_point.clone();
+                    let splits = util::ring_to_float(&tree[current_node].split_point.clone(), precision_int, precision_frac)?;
 
                     let val = transaction[chosen_attr];
 
@@ -90,10 +98,16 @@ pub fn classify_softvote(trees: &Vec<Vec<TreeNode>>, transactions: &Vec<Vec<Wrap
 
 
 
-    pub fn classify_argmax(trees: &Vec<Vec<TreeNode>>, transactions: &Vec<Vec<Wrapping<u64>>>, labels: &Vec<u64>, infer_ctx: &InferenceContext) 
-    -> Result<f64, Box<dyn Error>> {
+    pub fn classify_argmax(trees: &Vec<Vec<TreeNode>>, transactions_wrapping: &Vec<Vec<Wrapping<u64>>>, labels: &Vec<u64>, 
+        infer_ctx: &InferenceContext, precision_int: usize, precision_frac: usize) -> Result<f64, Box<dyn Error>> {
 
-        let bin_count = 2;
+        let mut transactions = vec![];
+
+        for row in transactions_wrapping {
+            transactions.push(util::ring_to_float(&row, precision_int, precision_frac)?)
+        }
+
+        let bin_count = infer_ctx.bin_count;
         
         let ensemble = trees;
         let mut correctly_classified = 0;
@@ -117,7 +131,7 @@ pub fn classify_softvote(trees: &Vec<Vec<TreeNode>>, transactions: &Vec<Vec<Wrap
 
                 for d in 0.. depth {
                     let chosen_attr = tree[current_node].attribute_sel_vec[0].0 as usize;
-                    let splits = tree[current_node].split_point.clone();
+                    let splits = util::ring_to_float(&tree[current_node].split_point.clone(), precision_int, precision_frac)?;
 
                     let val = transaction[chosen_attr];
 
