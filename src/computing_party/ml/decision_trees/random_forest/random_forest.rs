@@ -40,7 +40,7 @@ pub fn rf_preprocess(data: &Vec<Vec<Wrapping<u64>>>, classes: &Vec<Vec<Wrapping<
 
     let use_pregenerated_selections = false;
     let arv_path = "custom_randomness/arvs.csv";
-    let seed = 1;
+    let seed = 0;
     // let column_major_arvs_unexp = if use_pregenerated_selections {load_arvs_from_file(arv_path, ctx.num.asymm as usize, feature_count, attribute_count, tree_count)?} else {create_selection_vectors(fsv_amount, attribute_count, seed, ctx)?};
     let (column_major_arvs_unexp, column_major_arvs) = create_selection_vectors_rf(fsv_amount, attribute_count, feature_count, bucket_size, seed, ctx)?;
     println!("column_major_arvs_unexp");
