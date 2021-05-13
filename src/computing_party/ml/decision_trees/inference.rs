@@ -52,7 +52,7 @@ pub fn classify_softvote(trees: &Vec<Vec<TreeNode>>, transactions_wrapping: &Vec
 
                     let val = transaction[chosen_attr];
 
-                    let mut bin = 0;
+                    let mut bin = 1;
                     for split in splits {
                         if val < split {break};
                         bin += 1;
@@ -135,7 +135,7 @@ pub fn classify_softvote(trees: &Vec<Vec<TreeNode>>, transactions_wrapping: &Vec
 
                     let val = transaction[chosen_attr];
 
-                    let mut bin = 0;
+                    let mut bin = 1;
                     for split in splits {
                         if val < split {break};
                         bin += 1;
@@ -146,7 +146,6 @@ pub fn classify_softvote(trees: &Vec<Vec<TreeNode>>, transactions_wrapping: &Vec
                     // if valid
                     if tree[current_node].frequencies[0].0 != 0 || tree[current_node].frequencies[1].0 != 0 || d == infer_ctx.max_depth -1 {
                         // 'argmax'
-                        valid_vote = true;
                         if tree[current_node].frequencies[0] < tree[current_node].frequencies[1] {
                             votes[1] += 1;
                         } else {
