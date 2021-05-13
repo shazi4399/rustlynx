@@ -4,7 +4,6 @@ use std::num::Wrapping;
 use super::super::super::protocol;
 use super::super::super::super::util;
 use serde::{Serialize, Deserialize};
-use std::fs;
 
 
 #[derive(Default, Serialize, Deserialize)]
@@ -56,13 +55,6 @@ pub fn sid3t(input: &Vec<Vec<Vec<Wrapping<u64>>>>, class: &Vec<Vec<Vec<Wrapping<
     let feat_count = attribute_count / bin_count; //How many features are represented within the subset
     let epsilon = train_ctx.epsilon;
     let mut treenodes: Vec<Vec<TreeNode>> = vec![vec![]; tree_count];
-    for t in 0..tree_count {
-        treenodes[t].push(TreeNode {
-            attribute_sel_vec: vec![],
-            frequencies: vec![Wrapping(0)],
-            split_point: vec![],
-        });
-    }
     // input.iter().for_each(|x| x.iter().for_each(|y| println!("{:?}", protocol::open(&y, ctx).unwrap())));
 
     println!("Initialized ensemble structure.");
@@ -94,11 +86,15 @@ pub fn sid3t(input: &Vec<Vec<Vec<Wrapping<u64>>>>, class: &Vec<Vec<Vec<Wrapping<
             }
         } 
 
+        classifications_flattened.shrink_to_fit();
+        trans_bit_vecs_flattened.shrink_to_fit();
+
         // STEP 1: find most frequent classification
         classifications_flattened = classifications_flattened.iter().map(|x| util::truncate(*x, decimal_precision, asymmetric_bit)).collect();
         // println!("CLASSIFICATIONS FLATTENED: {:?}", protocol::open(&classifications_flattened, ctx));
 
-        let frequencies_flat_unsummed = protocol::multiply(&classifications_flattened, &trans_bit_vecs_flattened, ctx)?; 
+        let frequencies_flat_unsummed = protocol::multiply(&classifications_flattened, &trans_bit_vecs_flattened, ctx)?;
+        // println!("frequencies_flat_unsummed: {:?}", protocol::open(&frequencies_flat_unsummed, ctx));
         
         let mut frequencies_flat: Vec<Wrapping<u64>> = vec![];
 
@@ -108,7 +104,10 @@ pub fn sid3t(input: &Vec<Vec<Vec<Wrapping<u64>>>>, class: &Vec<Vec<Vec<Wrapping<
                                         (n * class_label_count + i + 1) * instance_count].iter().sum());
             }
         }
-       // println!("frequencies_flat{:?}", protocol::open(&frequencies_flat, ctx)?);
+
+        frequencies_flat.shrink_to_fit();
+
+        //println!("frequencies_flat{:?}", protocol::open(&frequencies_flat, ctx)?);
 
         // let frequencies_argmax = most_frequent_class(&frequencies_flat, number_of_nodes_to_process, ctx, train_ctx)?;
         // frequencies_argmax.iter().for_each(|x| println!("frequencies_argmax{:?}", protocol::open(&x, ctx).unwrap()));
@@ -129,7 +128,7 @@ pub fn sid3t(input: &Vec<Vec<Vec<Wrapping<u64>>>>, class: &Vec<Vec<Vec<Wrapping<
             // println!("ances_xor_asym{:?}", reveal(&ances_xor_asym, ctx, ctx.decimal_precision, false, false));
 
             let chosen_classifications_corrected = protocol::multiply(&frequencies_flat, &ances_class_bits_neg_exp, ctx)?;
-            //println!("chosen_classifications_corrected{:?}", protocol::open(&chosen_classifications_corrected, ctx)?);
+            // println!("chosen_classifications_corrected{:?}", protocol::open(&chosen_classifications_corrected, ctx)?);
             for t in 0 .. tree_count {
                 for n in 0 .. nodes_to_process_per_tree {
                     treenodes[t].push(TreeNode {
@@ -153,6 +152,9 @@ pub fn sid3t(input: &Vec<Vec<Vec<Wrapping<u64>>>>, class: &Vec<Vec<Vec<Wrapping<
                 size_of_tbv_array.push(size_of_tbvs[v]);
             }
         }
+
+        size_of_tbv_array.shrink_to_fit();
+
         let comparisons1 = protocol::batch_geq(&size_of_tbv_array, &frequencies_flat, ctx)?;
         let comparisons2 = protocol::batch_geq(&frequencies_flat, &size_of_tbv_array, ctx)?;
             
@@ -193,17 +195,19 @@ pub fn sid3t(input: &Vec<Vec<Vec<Wrapping<u64>>>>, class: &Vec<Vec<Vec<Wrapping<
         //nodes_to_process x feat_count
 
         let mut inputs_flattened = vec![];
-        let mut trans_bit_vecs_flattened = vec![];
+        let mut trans_bit_vecs_flattened_two = vec![];
         for t in 0 .. tree_count {
             for m in 0 .. nodes_to_process_per_tree {
                 inputs_flattened.append(&mut input[t].clone().into_iter().flatten().collect()); //POSSIBLE OPTIMIZATION
                 for a in 0 .. attribute_count {
-                    trans_bit_vecs_flattened.extend(&layer_trans_bit_vecs[t * nodes_to_process_per_tree + m]);
+                    trans_bit_vecs_flattened_two.extend(&layer_trans_bit_vecs[t * nodes_to_process_per_tree + m]);
                 }
             }
         } 
 
-        let input_subsets_flattened = protocol::multiply(&inputs_flattened, &trans_bit_vecs_flattened, ctx)?; 
+        trans_bit_vecs_flattened_two.shrink_to_fit();
+
+        let input_subsets_flattened = protocol::multiply(&inputs_flattened, &trans_bit_vecs_flattened_two, ctx)?; 
 
         // println!("{}", number_of_nodes_to_process);
         // println!("{}", attribute_count);
@@ -219,7 +223,7 @@ pub fn sid3t(input: &Vec<Vec<Vec<Wrapping<u64>>>>, class: &Vec<Vec<Vec<Wrapping<
             }
         }
 
-        let gini_argmax = gini_impurity(&input_subsets, &frequencies_flat_unsummed, number_of_nodes_to_process, ctx, train_ctx);
+        let gini_argmax = gini_impurity(input_subsets, frequencies_flat_unsummed, number_of_nodes_to_process, ctx, train_ctx);
 
         // // ADDED
         // let gini_argmax_rev: Vec<Vec<Wrapping<u64>>> = gini_argmax.iter().map(|x| protocol::open(&x, ctx).unwrap()).collect();
@@ -272,6 +276,9 @@ pub fn sid3t(input: &Vec<Vec<Vec<Wrapping<u64>>>>, class: &Vec<Vec<Vec<Wrapping<
                 }
             }
         }
+
+        gini_argmax_flat_exp.shrink_to_fit();
+
         let this_layer_classifies_exp = this_layer_classifies.iter().map(|x| vec![*x; class_label_count]).flatten().collect(); 
         let corrected_frequencies = protocol::multiply(&this_layer_classifies_exp, &frequencies_flat, ctx)?;
 
@@ -286,6 +293,9 @@ pub fn sid3t(input: &Vec<Vec<Vec<Wrapping<u64>>>>, class: &Vec<Vec<Vec<Wrapping<
                 fsvs_flat.append(&mut fsv);
             }
         }
+
+        fsvs_flat.shrink_to_fit();
+
         let uncompressed_selected_fsvs = protocol::multiply(&gini_argmax_flat_exp, &fsvs_flat, ctx)?;
 
         let mut selected_fsvs: Vec<Vec<Wrapping<u64>>> = vec![];
@@ -304,6 +314,8 @@ pub fn sid3t(input: &Vec<Vec<Vec<Wrapping<u64>>>>, class: &Vec<Vec<Vec<Wrapping<
             selected_fsvs.push(processed_fsv); //the corresponding fsv to the index of the gini argmax
         }
 
+        selected_fsvs.shrink_to_fit();
+
         let mut select_best_feat_vec = vec![];
         for i in 0 .. number_of_nodes_to_process {
             for j in 0 .. feat_count {
@@ -312,6 +324,9 @@ pub fn sid3t(input: &Vec<Vec<Vec<Wrapping<u64>>>>, class: &Vec<Vec<Vec<Wrapping<
                 }
             }
         }
+
+        select_best_feat_vec.shrink_to_fit();
+
         let mut flattened_dataset = vec![];
         for i in 0 .. tree_count {
             for j in 0 .. nodes_to_process_per_tree {
@@ -321,7 +336,13 @@ pub fn sid3t(input: &Vec<Vec<Vec<Wrapping<u64>>>>, class: &Vec<Vec<Vec<Wrapping<
             }
         }
 
-        let selected_columns_flat = protocol::multiply(&select_best_feat_vec, &flattened_dataset, ctx)?; 
+        flattened_dataset.shrink_to_fit();
+
+        // println!("select_best_feat_vec: {:?}", protocol::open(&select_best_feat_vec, ctx)?);
+        // println!("flattened_dataset: {:?}", protocol::open(&flattened_dataset, ctx)?);
+        let selected_columns_flat = protocol::multiply(&select_best_feat_vec, &flattened_dataset, ctx)?;
+
+        // println!("selected_columns_flat: {:?}", protocol::open(&selected_columns_flat, ctx)?);
         let mut chosen_bins: Vec<Wrapping<u64>> = vec![];
         for i in 0 .. number_of_nodes_to_process {
             let nps = instance_count * attribute_count; //number per set
@@ -336,6 +357,10 @@ pub fn sid3t(input: &Vec<Vec<Vec<Wrapping<u64>>>>, class: &Vec<Vec<Vec<Wrapping<
             }
             chosen_bins.extend(bins.into_iter().flatten());
         }
+
+        chosen_bins.shrink_to_fit();
+
+        //println!("chosen_bins: {:?}", protocol::open(&chosen_bins, ctx)?);
         let mut tbv_exp = vec![];
         for i in 0 .. tree_count {
             for j in 0 .. nodes_to_process_per_tree {
@@ -343,9 +368,12 @@ pub fn sid3t(input: &Vec<Vec<Vec<Wrapping<u64>>>>, class: &Vec<Vec<Vec<Wrapping<
                 tbv_exp.extend(vec![tbv; bin_count].into_iter().flatten());
             }
         }
+
+        tbv_exp.shrink_to_fit();
+
         let new_tbvs_flat = protocol::multiply(&chosen_bins, &tbv_exp, ctx)?;
         let new_tbvs : Vec<Vec<Wrapping<u64>>> = new_tbvs_flat.chunks(instance_count).map(|x| x.to_vec()).collect();
-        // new_tbvs.iter().for_each(|x| println!("new_tbvs: {:?}", protocol::open(&x, ctx).unwrap()));
+        //new_tbvs.iter().for_each(|x| println!("new_tbvs: {:?}", protocol::open(&x, ctx).unwrap()));
         
         let mut split_points_flat: Vec<Wrapping<u64>> = vec![];
         for i in 0 .. tree_count {
@@ -353,6 +381,8 @@ pub fn sid3t(input: &Vec<Vec<Vec<Wrapping<u64>>>>, class: &Vec<Vec<Vec<Wrapping<
                 split_points_flat.extend(split_points[i].clone().into_iter().flatten());
             }
         }
+
+        split_points_flat.shrink_to_fit();
 
         let gini_argmax_flat = gini_argmax.iter().map(|x| x.iter().map(|y| vec![*y; bin_count - 1]).flatten().collect::<Vec<Wrapping<u64>>>()).flatten().collect();
         let chosen_split_points_uncompressed = protocol::multiply(&gini_argmax_flat, &split_points_flat, ctx)?;
@@ -367,6 +397,8 @@ pub fn sid3t(input: &Vec<Vec<Vec<Wrapping<u64>>>>, class: &Vec<Vec<Vec<Wrapping<
             }
             chosen_splits.push(node_splits);
         }
+
+        chosen_splits.shrink_to_fit();
         
         for t in 0 .. tree_count {
             for n in 0 .. nodes_to_process_per_tree {
@@ -389,155 +421,8 @@ pub fn sid3t(input: &Vec<Vec<Vec<Wrapping<u64>>>>, class: &Vec<Vec<Vec<Wrapping<
 }
 
 
-pub fn most_frequent_class(frequencies_flat: &Vec<Wrapping<u64>>, 
-    number_of_nodes_to_process: usize, ctx: &mut Context, train_ctx: &mut TrainingContext) -> Result<Vec<Vec<Wrapping<u64>>>, Box<dyn Error>>{
-
-
-    let class_label_count = train_ctx.class_label_count;
-    let asymmetric_bit = ctx.num.asymm;
-
-
-    // for each set of frequencies logically partitioned by the nodes, find the most frequent classification.
-    let mut current_length_freq = class_label_count;
-
-    let mut logical_partition_lengths_freq = vec![];
-
-    let mut new_values = frequencies_flat.clone();
-
-    // this will allow us to calculate the arg_max
-    let mut past_assignments_freq = vec![];
-
-    // loop will continue until current_length_freq == 1
-    loop {
-
-        let odd_length = (current_length_freq % 2) == 1;
-
-        let mut forgotten_values = vec![];
-
-        let mut current_values = vec![];
-
-        // if its of odd length, make current nums/dems even lengthed, and store the 'forgotten' values
-        // it should be guarenteed that we have numerators/denonminators of even length
-        if odd_length {
-            for n in 0 .. number_of_nodes_to_process {
-                current_values.append(&mut new_values[n * (current_length_freq).. 
-                            (n + 1) * (current_length_freq - 1) + n].to_vec());
-
-                forgotten_values.push(new_values[(n + 1) * (current_length_freq - 1) + n]);
-            } 
-        } else {
-            current_values = new_values.clone();
-        }
-
-        let mut l_operands = vec![];
-        let mut r_operands = vec![];
-
-        for v in 0..current_values.len()/2 {
-            l_operands.push(current_values[2 * v]);
-            r_operands.push(current_values[2 * v + 1]);
-        }
-
-        // read this as "left is greater than or equal to right." value in array will be [1] if true, [0] if false.
-        let l_geq_r = protocol::z2_to_zq(&protocol::batch_geq(&l_operands, &r_operands, ctx).unwrap(), ctx).unwrap();
-        
-        // read this is "left is less than right"
-        let l_lt_r: Vec<Wrapping<u64>> = l_geq_r.iter().map(|x| -x + Wrapping(asymmetric_bit as u64)).collect();
-
-        // grab the original values 
-        let values = current_values.clone();
-
-        let mut assignments = vec![];
-        let mut freq_assignments = vec![];
-
-        // alternate the left/right values to help to cancel out the original values
-        // that 'lost' in their comparison
-        for v in 0..l_geq_r.len() {
-            assignments.push(l_geq_r[v]);
-            assignments.push(l_lt_r[v]);
-
-            freq_assignments.push(l_geq_r[v]);
-            freq_assignments.push(l_lt_r[v]);
-
-            let size = current_length_freq/2;
-            if odd_length && ((v + 1) % size == 0) {
-                freq_assignments.push(Wrapping(asymmetric_bit as u64));
-            }
-        }
-
-        logical_partition_lengths_freq.push(current_length_freq);
-        past_assignments_freq.push(freq_assignments);
-
-        // EXIT CONDITION
-        if (current_length_freq/2) + (current_length_freq % 2) == 1 {break;}
-
-        let comparison_results = protocol::multiply(&values, &assignments, ctx).unwrap();
-
-        new_values = vec![];
-
-        // re-construct values
-        for v in 0.. values.len()/2 {
-
-            new_values.push(comparison_results[2 * v] + comparison_results[2 * v + 1]);
-
-            if odd_length && ((v + 1) % current_length_freq/2) == 0 {
-                new_values.push(current_values[2 * (v + 1)]);
-            }
-        }
-
-        current_length_freq = (current_length_freq/2) + (current_length_freq % 2);
-    }
-
-    let mut frequencies_argmax = vec![];
-    println!("Calculate arg_max for frequencies");
-
-    // calculates flat arg_max in a tournament bracket style
-    for v in (1..past_assignments_freq.len()).rev() {
-
-        if past_assignments_freq[v].len() == past_assignments_freq[v - 1].len() {
-            past_assignments_freq[v - 1] = protocol::multiply(&past_assignments_freq[v - 1], &past_assignments_freq[v], ctx).unwrap();
-            continue;
-        }
-
-        let mut extended_past_assignment_v = vec![];
-        for w in 0.. past_assignments_freq[v].len() {
-            if ((w + 1) % logical_partition_lengths_freq[v] == 0) && ((logical_partition_lengths_freq[v - 1] % 2) == 1) {
-                extended_past_assignment_v.push(past_assignments_freq[v][w]);
-                continue;
-            }
-            extended_past_assignment_v.push(past_assignments_freq[v][w]);
-            extended_past_assignment_v.push(past_assignments_freq[v][w]);
-        }
-        past_assignments_freq[v - 1] = protocol::multiply(&past_assignments_freq[v - 1], &extended_past_assignment_v, ctx).unwrap();
-    }
-
-    // un-flatten arg_max
-    for n in 0.. number_of_nodes_to_process {
-        frequencies_argmax.push(past_assignments_freq[0][n * class_label_count.. (n + 1) * class_label_count].to_vec());
-    }
-
-    Ok(frequencies_argmax)
-}
-
-
-pub fn gini_impurity(input: &Vec<Vec<Vec<Wrapping<u64>>>>, u_decimal: &Vec<Wrapping<u64>>, 
+pub fn gini_impurity(input: Vec<Vec<Vec<Wrapping<u64>>>>, u_decimal: Vec<Wrapping<u64>>, 
     number_of_nodes_to_process: usize, ctx: &mut Context, train_ctx: &mut TrainingContext) -> Vec<Vec<Wrapping<u64>>> {
-
-
-
-
-
-        // let mut string: String = "".to_string();
-
-        // for subset in input.clone() {
-        //     for col in subset {
-        //         string = [string, format!("{:?}", protocol::open(&col, ctx).unwrap())].join("\n");
-        //     }
-        // }
-
-        // //println!("{}", string);
-
-        // fs::write("input_res.txt", string).expect("Unable to write file");
-
 
     let class_label_count = train_ctx.class_label_count;
     let decimal_precision = ctx.num.precision_frac;
@@ -592,7 +477,6 @@ pub fn gini_impurity(input: &Vec<Vec<Vec<Wrapping<u64>>>>, u_decimal: &Vec<Wrapp
 
                 u_decimal_extended.append(&mut u_decimal_clone);
 
-
                 for j in 0.. bin_count {
                     // grabs column of data, right?
                     discretized_sets[j].append(&mut input[n][k * bin_count + j].clone());
@@ -602,13 +486,16 @@ pub fn gini_impurity(input: &Vec<Vec<Vec<Wrapping<u64>>>>, u_decimal: &Vec<Wrapp
         }
     }
 
+    // Assumes binary classificaiton
     let mut u_decimal_vectors_clone = u_decimal_vectors.clone();
 
     for j in 0.. bin_count {
         discretized_sets_vectors.append(&mut discretized_sets[j]);
         u_decimal_vectors.append(&mut u_decimal_extended.clone());
-
     }
+
+    discretized_sets_vectors.shrink_to_fit();
+    u_decimal_vectors.shrink_to_fit();
 
     // Remenent of the past, helps me see how to code for j vals instead of 2.
 
@@ -664,9 +551,11 @@ pub fn gini_impurity(input: &Vec<Vec<Vec<Wrapping<u64>>>>, u_decimal: &Vec<Wrapp
         }
     }
 
+    all_x_values.shrink_to_fit();
+
     let all_x_values_squared: Vec<Wrapping<u64>> = protocol::multiply(&all_x_values, &all_x_values, ctx).unwrap();
 
-    for v in 0..all_x_values_squared.len() / 2 {
+    for v in 0..all_x_values_squared.len() / bin_count /*2*/ { //CHANGE THE 2 TO BINCOUNT? ADDED
         for j in 0.. bin_count {
             x2[v / (feat_count * class_label_count)][(v / class_label_count) % feat_count]
             [v % class_label_count][j] = all_x_values_squared[bin_count * v + j];
@@ -742,6 +631,8 @@ pub fn gini_impurity(input: &Vec<Vec<Vec<Wrapping<u64>>>>, u_decimal: &Vec<Wrapp
         }
     } 
 
+    sum_of_x2_j_flattend.shrink_to_fit();
+
     let d_exclude_j = protocol::pairwise_mult_zq(&d_exclude_j, ctx).unwrap();
     let d_include_j = protocol::pairwise_mult_zq(&d_include_j, ctx).unwrap();
 
@@ -774,6 +665,11 @@ pub fn gini_impurity(input: &Vec<Vec<Vec<Wrapping<u64>>>>, u_decimal: &Vec<Wrapp
     let mut new_numerators = gini_numerators.clone();
     let mut new_denominators = gini_denominators.clone();
 
+    // let rev_num = protocol::open(&gini_numerators, ctx).unwrap();
+    // let rev_denom = protocol::open(&gini_denominators, ctx).unwrap();
+    // let ratios: Vec<f64> = rev_num.iter().zip(rev_denom.iter()).map(|(x, y)| x.0 as f64 / y.0 as f64).collect();
+    // ratios.chunks(feat_count).for_each(|x| println!("{:?}", x));
+
     // this will allow us to calculate the arg_max
     let mut past_assignments = vec![];
 
@@ -801,10 +697,17 @@ pub fn gini_impurity(input: &Vec<Vec<Vec<Wrapping<u64>>>>, u_decimal: &Vec<Wrapp
                 forgotten_denominators.push(new_denominators[(n + 1) * (current_length - 1) + n]);
 
             }
+
+            forgotten_numerators.shrink_to_fit();
+            forgotten_denominators.shrink_to_fit();
+
         } else {
             current_numerators = new_numerators.clone();
             current_denominators = new_denominators.clone();
         }
+
+        current_numerators.shrink_to_fit();
+        current_denominators.shrink_to_fit();
 
         // if denominators were originally indexed as d_1, d_2, d_3, d_4... then they are now represented
         // as d_2, d_1, d_4, d_3... This is helpful for comparisons
@@ -813,6 +716,8 @@ pub fn gini_impurity(input: &Vec<Vec<Vec<Wrapping<u64>>>>, u_decimal: &Vec<Wrapp
             current_denominators_flipped.push(current_denominators[2 * v + 1]);
             current_denominators_flipped.push(current_denominators[2 * v]);
         }
+
+        current_denominators_flipped.shrink_to_fit();
 
         let product = protocol::multiply(&current_numerators, &current_denominators_flipped, ctx).unwrap();
 
@@ -825,6 +730,9 @@ pub fn gini_impurity(input: &Vec<Vec<Vec<Wrapping<u64>>>>, u_decimal: &Vec<Wrapp
             l_operands.push(product[2 * v]);
             r_operands.push(product[2 * v + 1]);
         }
+
+        l_operands.shrink_to_fit();
+        r_operands.shrink_to_fit();
 
         // read this as "left is greater than or equal to right." value in array will be [1] if true, [0] if false.
         let l_geq_r = protocol::z2_to_zq(&protocol::batch_geq(&l_operands, &r_operands, ctx).unwrap(), ctx).unwrap();  
@@ -856,6 +764,9 @@ pub fn gini_impurity(input: &Vec<Vec<Vec<Wrapping<u64>>>>, u_decimal: &Vec<Wrapp
             }
         }
 
+        assignments.shrink_to_fit();
+        gini_assignments.shrink_to_fit();
+
         logical_partition_lengths.push(current_length);
         past_assignments.push(gini_assignments); 
 
@@ -881,7 +792,6 @@ pub fn gini_impurity(input: &Vec<Vec<Vec<Wrapping<u64>>>>, u_decimal: &Vec<Wrapp
                 new_numerators.push(forgotten_numerators[(v/divisor)]);
                 new_denominators.push(forgotten_denominators[(v/divisor)]);
             }
-
         }
 
         current_length = (current_length/2) + (current_length % 2);
@@ -932,7 +842,6 @@ pub fn reveal_tree(nodes: &Vec<TreeNode>, ctx: &mut Context) -> Result<Vec<TreeN
     let mut att_sel_vecs = vec![];
     let mut rev_node = vec![];
     for i in 0..nodes.len() {
-        //index changing is because dummy is in pos 0
         freqs.push(nodes[i].frequencies.clone());
         split_points.push(nodes[i].split_point.clone());
         att_sel_vecs.push(nodes[i].attribute_sel_vec.clone());
