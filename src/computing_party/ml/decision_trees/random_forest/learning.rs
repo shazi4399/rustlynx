@@ -7,11 +7,21 @@ use crate::computing_party::protocol;
 use super::super::inference::classify_softvote;
 use super::super::inference::classify_argmax;
 use super::super::extra_trees;
+use std::fs::OpenOptions;
+use std::io::{BufWriter, Write};
+use std::time::{Duration, Instant};
+use std::fs::File;
 
 pub fn run(ctx: &mut Context) -> Result<(), Box<dyn Error>> {
+
+    let start = Instant::now();
+
     let (mut rfctx, data, classes ) = random_forest::init(&ctx.ml.cfg)?;
     let (processed_data, modified_classes, arvs, splits) = random_forest::rf_preprocess(&data, &classes, &mut rfctx, ctx)?;
     let trees = decision_tree::sid3t(&processed_data, &modified_classes, &arvs, &splits, ctx, &mut rfctx.tc)?;
+
+    let duration = start.elapsed();
+
     let path = format!("cfg/ml/randomforest/inference{}.toml", ctx.num.asymm);
     let (_x, test_data, classes_single_col, ic) = inference::init(&path, false)?;
     let mut rev_trees = vec![];
@@ -33,7 +43,32 @@ pub fn run(ctx: &mut Context) -> Result<(), Box<dyn Error>> {
     println!("{} %", argmax_results * 100.0);
 
     let softvote_results = classify_softvote(&rev_trees, &test_data_open, &test_lab_open_trunc, &ic, ctx.num.precision_int, ctx.num.precision_frac)?;
-    
-    println!("{} %", softvote_results * 100.0);
+
+    let result = format!("argmax: {} %, softvote: {} %, {:?} seconds", argmax_results * 100.0, softvote_results * 100.0, duration);
+
+
+    let path = "results_rf.txt";
+
+    let b = std::path::Path::new(path).exists();
+
+    if ctx.num.asymm == 0 {
+
+        if !b {
+            let f = File::create(path).expect("unable to create file");
+            let mut f = BufWriter::new(f);
+            write!(f, "{}\n", result).expect("unable to write");
+        } else {
+            let f = OpenOptions::new()
+            .write(true)
+            .append(true)
+            .open(path)
+            .expect("unable to open file");
+            let mut f = BufWriter::new(f);
+
+            write!(f, "{}\n", result).expect("unable to write");
+        }
+
+    }
+
     Ok(())
 }

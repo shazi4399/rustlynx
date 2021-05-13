@@ -997,8 +997,8 @@ pub fn discretize_into_ohe_batch(x_list: &Vec<Vec<Wrapping<u64>>>,
         height_markers.push(height_marker_vector);
     }
 
-    println!("height_markers");
-    height_markers.iter().for_each(|x| println!("{:?}", open(&x, ctx).unwrap()));
+    // println!("height_markers");
+    // height_markers.iter().for_each(|x| println!("{:?}", open(&x, ctx).unwrap()));
 
     let mut l_operands: Vec<Wrapping<u64>> = Vec::new();
     let mut r_operands: Vec<Wrapping<u64>> = Vec::new();
