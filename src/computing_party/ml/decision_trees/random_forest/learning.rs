@@ -38,16 +38,16 @@ pub fn run(ctx: &mut Context) -> Result<(), Box<dyn Error>> {
 
     let test_lab_open_trunc: Vec<u64> = test_lab_open.iter().map(|x| x.0 >> ctx.num.precision_frac).collect();
 
-    for row in test_data{
+    for row in test_data {
         test_data_open.push(protocol::open(&row, ctx)?);
     }
     
     let argmax_results = classify_argmax(&rev_trees, &test_data_open, &test_lab_open_trunc, &ic, ctx.num.precision_int, ctx.num.precision_frac)?;
-    println!("argmax results complete, now calculating softvote");
     let softvote_results = classify_softvote(&rev_trees, &test_data_open, &test_lab_open_trunc, &ic, ctx.num.precision_int, ctx.num.precision_frac)?;
 
     let result = format!("argmax: {} %, softvote: {} %, {:?} seconds", argmax_results * 100.0, softvote_results * 100.0, duration);
 
+    println!("{}", result);
 
     let path = "results_rf.txt";
 
