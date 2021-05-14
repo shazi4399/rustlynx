@@ -132,9 +132,9 @@ pub fn sid3t(input: &Vec<Vec<Vec<Wrapping<u64>>>>, class: &Vec<Vec<Vec<Wrapping<
             for t in 0 .. tree_count {
                 for n in 0 .. nodes_to_process_per_tree {
                     treenodes[t].push(TreeNode {
-                        attribute_sel_vec: vec![],
+                        attribute_sel_vec: vec![Wrapping(0); original_attr_count],
                         frequencies: chosen_classifications_corrected[t * nodes_to_process_per_tree * class_label_count + n * class_label_count .. t * nodes_to_process_per_tree * class_label_count + (n + 1) * class_label_count].to_vec(),
-                        split_point: vec![Wrapping(0)],
+                        split_point: vec![Wrapping(0); bin_count - 1],
                     });
                 }
             }
@@ -841,25 +841,30 @@ pub fn reveal_tree(nodes: &Vec<TreeNode>, ctx: &mut Context) -> Result<Vec<TreeN
     let mut split_points = vec![];
     let mut att_sel_vecs = vec![];
     let mut rev_node = vec![];
+    let total_nodes = nodes.len();
+    let attr_count = nodes[0].attribute_sel_vec.len();
+    let class_val_count = nodes[0].frequencies.len();
+    let split_count = nodes[0].split_point.len();
+
     for i in 0..nodes.len() {
-        freqs.push(nodes[i].frequencies.clone());
-        split_points.push(nodes[i].split_point.clone());
-        att_sel_vecs.push(nodes[i].attribute_sel_vec.clone());
+        freqs.extend(nodes[i].frequencies.iter());
+        split_points.extend(nodes[i].split_point.iter());
+        att_sel_vecs.extend(nodes[i].attribute_sel_vec.iter());
     }
+    let freqs_rev = protocol::open(&freqs, ctx)?;
+    let split_points_rev = protocol::open(&split_points, ctx)?;
+    let att_sel_vecs_rev = protocol::open(&att_sel_vecs, ctx)?;
+    let float_splits: Vec<f64> = split_points_rev.iter().map(|x| x.0 as f64 / 2f64.powf(ctx.num.precision_frac as f64)).collect();
     //println!("\n");
     for i in 0..nodes.len() {
-        let att_sel_vecs_rev = protocol::open(&att_sel_vecs[i], ctx)?;
-        let split_points_rev = protocol::open(&split_points[i], ctx)?;
-        let freqs_rev = protocol::open(&freqs[i], ctx)?;
-        let mut attr = att_sel_vecs_rev.iter().position(|x| *x == Wrapping(1u64));
+        let att_sel_vec = att_sel_vecs_rev[i * attr_count .. (i + 1) * attr_count].to_vec(); 
+        let mut attr = att_sel_vec.iter().position(|x| *x == Wrapping(1u64));
         let attr_wrap: Wrapping<u64> = if attr.is_some() {Wrapping(attr.unwrap() as u64)} else {Wrapping(0)};
-        let float_splits: Vec<f64> = split_points_rev.iter().map(|x| x.0 as f64 / 2f64.powf(ctx.num.precision_frac as f64)).collect();
-        
-        //println!("Node#{:?}, frequencies:{:?}, split_point:{:?}, att_sel_vec:{:?}", i , freqs_rev,  float_splits, att_sel_vecs_rev);
+        // println!("Node#{:?}, frequencies:{:?}, split_point:{:?}, att_sel_vec:{:?}", i , freqs_rev[i * class_val_count .. (i + 1) * class_val_count].to_vec(),  split_points_rev[i * split_count .. (i + 1) * split_count].to_vec(), att_sel_vec);
         rev_node.push(TreeNode {
             attribute_sel_vec: vec![attr_wrap],
-            frequencies: freqs_rev,
-            split_point: split_points_rev
+            frequencies: freqs_rev[i * class_val_count .. (i + 1) * class_val_count].to_vec(),
+            split_point: split_points_rev[i * split_count .. (i + 1) * split_count].to_vec(),
         })
     }
     Ok(rev_node)
