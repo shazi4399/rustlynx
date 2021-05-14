@@ -140,6 +140,9 @@ pub fn init(cfg_file: &String) -> Result<(RFContext, Vec<Vec<Wrapping<u64>>>, Ve
     let data = io::matrix_csv_to_wrapping_vec(&settings.get_str("data")?)?;
     let mut classes = io::matrix_csv_to_wrapping_vec(&settings.get_str("classes")?)?;
 
+    let instance_count = data.len(); // ADDED BY DAVID, hopefully won't cause issues. This relives huge headaches though
+    let attribute_count = data[0].len(); // ADDED BY DAVID, hopefully won't cause issues. This relives huge headaches though
+
     classes = util::transpose(&classes)?;
     let tc = TrainingContext {
         instance_count,
