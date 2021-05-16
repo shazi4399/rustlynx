@@ -1293,6 +1293,7 @@ pub fn batch_matmul(a: &Vec<Vec<Wrapping<u64>>>, b: &Vec<Vec<Vec<Wrapping<u64>>>
                 //println!("kk = {}", kk);
                 for mm in 0..m {
                     for rr in 0..r {
+                        println!("mm * rr = {}", mm * rr);
                         mat_subset[kk - lb][mm][rr] = (0..n)
                             .fold(Wrapping(0u64), |acc, nn| acc +
                                 data.2[kk][mm][rr] + 
