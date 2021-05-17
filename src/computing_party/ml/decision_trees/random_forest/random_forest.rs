@@ -136,8 +136,8 @@ pub fn init(cfg_file: &String) -> Result<(RFContext, Vec<Vec<Wrapping<u64>>>, Ve
         .merge(config::Environment::with_prefix("APP")).unwrap();
 
     let class_label_count: usize = settings.get_int("class_label_count")? as usize;
-    let attribute_count: usize = settings.get_int("attribute_count")? as usize;
-    let instance_count: usize = settings.get_int("instance_count")? as usize;
+    let mut attribute_count: usize = settings.get_int("attribute_count")? as usize;
+    let mut instance_count: usize = settings.get_int("instance_count")? as usize;
     let feature_count: usize = settings.get_int("feature_count")? as usize;
     let attr_value_count: usize = settings.get_int("attr_value_count")? as usize;
     let tree_count: usize = settings.get_int("tree_count")? as usize;
@@ -145,7 +145,7 @@ pub fn init(cfg_file: &String) -> Result<(RFContext, Vec<Vec<Wrapping<u64>>>, Ve
     let bulk_qty: usize = settings.get_int("bulk_qty")? as usize;
     let single_tree_training: bool = settings.get_bool("single_tree_training")? as bool;
     let decision_tree: bool = settings.get_bool("decision_tree")? as bool;
-    let instance_selected_count: usize = settings.get_int("instance_selected_count")? as usize;
+    let mut instance_selected_count: usize = settings.get_int("instance_selected_count")? as usize;
     let epsilon: f64 = settings.get_int("epsilon")? as f64;
     let save_location = settings.get_str("save_location")?;
     let original_attr_count = attribute_count;
@@ -153,8 +153,16 @@ pub fn init(cfg_file: &String) -> Result<(RFContext, Vec<Vec<Wrapping<u64>>>, Ve
     let data = io::matrix_csv_to_wrapping_vec(&settings.get_str("data")?)?;
     let mut classes = io::matrix_csv_to_wrapping_vec(&settings.get_str("classes")?)?;
 
-    let attribute_count: usize = data[0].len() as usize;
-    let instance_count: usize = data.len() as usize;
+    if instance_count == instance_selected_count {
+        instance_count = data.len() as usize;
+        attribute_count = data[0].len() as usize;
+        instance_selected_count = instance_count;
+    } else {
+        instance_count = data.len() as usize;
+        attribute_count = data[0].len() as usize;
+    }
+
+    
 
     classes = util::transpose(&classes)?;
     let tc = TrainingContext {
