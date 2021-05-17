@@ -14,6 +14,8 @@ key_word=args[7]
 epsilon=args[8]
 attr_value_count=args[9]
 instance_selected_count=args[10]
+single_tree_training=args[11]
+bulk_qty=args[12]
 
 toml_learn_path = "cfg/ml/randomforest/learning{}.toml".format(party)
 toml_inference_path = "cfg/ml/randomforest/inference{}.toml".format(party)
@@ -36,10 +38,14 @@ with open(toml_learn_path, 'w') as file:
     file.write("epsilon = {}\n".format(epsilon))
     file.write("attr_value_count = {}\n".format(attr_value_count))
     file.write("instance_selected_count = {}\n".format(instance_selected_count))
+    file.write("single_tree_training = {}\n".format(single_tree_training))
+    file.write("bulk_qty = {}\n".format(bulk_qty))
     file.write("data = \"data/Party{}_{}/{}X_train.csv\"\n".format(party, key_word, fold))
     file.write("classes = \"data/Party{}_{}/{}y_train.csv\"\n".format(party, key_word, fold))
     file.write("save_location = \"treedata/Party{}_trees.json\"".format(party))
-    
+    file.write("classes = \"data/Party{}_{}/{}y_train.csv\"\n".format(party, key_word, fold))
+    file.write("save_location = \"treedata/Party{}_trees.json\"".format(party))
+
 
 with open(toml_inference_path, 'w') as file:
     file.write("class_label_count = 2\n")

@@ -28,12 +28,15 @@ pub struct TrainingContext {
     pub instance_count: usize,
     pub class_label_count: usize,
     pub original_attr_count: usize,
+    pub original_instance_count: usize,
     pub attribute_count: usize, //attribute count in training context
     pub bin_count: usize,
     pub tree_count: usize,
     pub max_depth: usize,
     pub epsilon: f64,
     pub save_location: String,
+    pub single_tree_training: bool,
+    pub bulk_qty: usize,
 }
 
 pub fn run(ctx: &mut Context) -> Result<(), Box<dyn Error>> {
