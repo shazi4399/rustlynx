@@ -1,12 +1,16 @@
 class_label_count = 2
 attribute_count = 30
 instance_count = 455
-tree_count = 10
+tree_count = 1
 max_depth = 3
-feature_count = 5
+feature_count = 30
 attr_value_count = 5
 instance_selected_count = 455
 epsilon = 0.05
+decision_tree = 0
 data = "data/Party1_breast/1X_train.csv"
 classes = "data/Party1_breast/1y_train.csv"
 save_location = "treedata/Party1_trees.json"
+
+single_tree_training = 0
+bulk_qty = 2
