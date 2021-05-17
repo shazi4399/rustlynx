@@ -45,8 +45,6 @@ with open(toml_learn_path, 'w') as file:
     file.write("data = \"data/Party{}_{}/{}X_train.csv\"\n".format(party, key_word, fold))
     file.write("classes = \"data/Party{}_{}/{}y_train.csv\"\n".format(party, key_word, fold))
     file.write("save_location = \"treedata/Party{}_trees.json\"\n".format(party))
-    file.write("classes = \"data/Party{}_{}/{}y_train.csv\"\n".format(party, key_word, fold))
-    file.write("save_location = \"treedata/Party{}_trees.json\"".format(party))
 
 
 with open(toml_inference_path, 'w') as file:
