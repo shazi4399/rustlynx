@@ -2,8 +2,6 @@ use std::error::Error;
 use std::num::Wrapping;
 use super::super::super::super::Context;
 use super::extra_trees::*;
-// use std::fs::File;
-// use std::io::prelude::*;
 use super::super::decision_tree::*;
 use super::super::inference::classify_softvote;
 use super::super::inference::classify_argmax;
@@ -12,11 +10,19 @@ use crate::util;
 use serde_json;
 use crate::computing_party::protocol;
 use super::inference;
+use std::fs::OpenOptions;
+use std::io::{BufWriter, Write};
+use std::fs::File;
+
+use std::time::{Duration, Instant};
 
 pub fn run(ctx: &mut Context) -> Result<(), Box<dyn Error>> {
+
+    let start = Instant::now();
+
     let (mut xt_ctx, data, classes) = init(&ctx.ml.cfg)?;
     let mut rev_trees = vec![];
-    let iterations = if xt_ctx.tc.single_tree_training {xt_ctx.tc.bulk_qty} else {1};
+    let iterations = if xt_ctx.tc.single_tree_training {xt_ctx.tc.bulk_qty} else {1}; // TODO: Exclude the time it takes to reveal the trees when iterations != 1
     for i in 0 .. iterations {
         let (processed_data, arvs, splits) = xt_preprocess(&data, &mut xt_ctx, ctx)?;
 
@@ -30,6 +36,16 @@ pub fn run(ctx: &mut Context) -> Result<(), Box<dyn Error>> {
     let path = format!("cfg/ml/extratrees/inference{}.toml", ctx.num.asymm);
     let (_, test_data, test_lab, infctx) = inference::init(&path, true)?;
 
+
+    let duration = start.elapsed();
+
+
+    if ctx.num.asymm == 1 {
+        io::write_to_file("treedata/rev_trees.json", &serde_json::to_string_pretty(&rev_trees)?)?;
+    }
+    let path = format!("cfg/ml/extratrees/inference{}.toml", ctx.num.asymm);
+    let (_, test_data, test_lab, infctx) = inference::init(&path, true)?; 
+
     // --------------
     // Done to streamline testing, in general, the inference should be seperate from the learning phase
     let mut test_data_open = vec![];
@@ -42,20 +58,43 @@ pub fn run(ctx: &mut Context) -> Result<(), Box<dyn Error>> {
         test_data_open.push(protocol::open(&row, ctx)?);
     }
 
-    
     //let mut file = File::open("treedata/rev_trees.json")?;
     // let mut contents = String::new();
     // file.read_to_string(&mut contents)?;
 
+    println!("finished training, now classifying test data");
     // let trees: Vec<Vec<TreeNode>> = serde_json::from_str(&contents)?;
     let argmax_results = classify_argmax(&rev_trees, &test_data_open, &test_lab_open_trunc, &infctx, ctx.num.precision_int, ctx.num.precision_frac)?;
-    
-    println!("{} %", argmax_results * 100.0);
-
+    println!("argmax results complete, now calculating softvote");
     let softvote_results = classify_softvote(&rev_trees, &test_data_open, &test_lab_open_trunc, &infctx, ctx.num.precision_int, ctx.num.precision_frac)?;
-    
-    println!("{} %", softvote_results * 100.0);
 
+    let result = format!("argmax: {} %, softvote: {} %, {:?} seconds", argmax_results * 100.0, softvote_results * 100.0, duration);
+
+    println!("{}", result);
+
+    let path = "results.txt";
+
+    let b = std::path::Path::new(path).exists();
+
+    if ctx.num.asymm == 0 {
+
+        if !b {
+            let f = File::create(path).expect("unable to create file");
+            let mut f = BufWriter::new(f);
+            write!(f, "{}\n", result).expect("unable to write");
+        } else {
+            let f = OpenOptions::new()
+            .write(true)
+            .append(true)
+            .open(path)
+            .expect("unable to open file");
+            let mut f = BufWriter::new(f);
+
+            write!(f, "{}\n", result).expect("unable to write");
+        }
+
+    }
+    
     Ok(())
 }
 
@@ -81,7 +120,9 @@ pub fn init(cfg_file: &String) -> Result<(XTContext, Vec<Vec<Wrapping<u64>>>, Ve
     let data = io::matrix_csv_to_wrapping_vec(&settings.get_str("data")?)?;
     let mut classes = io::matrix_csv_to_wrapping_vec(&settings.get_str("classes")?)?;
 
-    let instance_count: usize = settings.get_int("instance_count")? as usize;
+    let instance_count = data.len(); // ADDED BY DAVID, hopefully won't cause issues. This relives huge headaches though
+    let attribute_count = data[0].len(); // ADDED BY DAVID, hopefully won't cause issues. This relives huge headaches though
+    println!("{}", attribute_count);
 
     classes = util::transpose(&classes)?;
     let mut dup_classes = vec![];
