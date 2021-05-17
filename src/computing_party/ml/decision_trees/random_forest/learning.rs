@@ -7,72 +7,34 @@ use crate::computing_party::protocol;
 use super::super::inference::classify_softvote;
 use super::super::inference::classify_argmax;
 use super::super::extra_trees;
-use std::fs::OpenOptions;
-use std::io::{BufWriter, Write};
-use std::time::{Duration, Instant};
-use std::fs::File;
 
 pub fn run(ctx: &mut Context) -> Result<(), Box<dyn Error>> {
-
-    let start = Instant::now();
-
     let mut rev_trees = vec![];
     let (mut rfctx, data, classes ) = random_forest::init(&ctx.ml.cfg)?;
-    let iterations = if rfctx.tc.single_tree_training {rfctx.tc.bulk_qty} else {1}; // TODO: Exclude the time it takes to reveal the trees when iterations != 1
-    for i in 0 .. iterations { 
+    let iterations = if rfctx.tc.single_tree_training {rfctx.tc.bulk_qty} else {1};
+    for i in 0 .. iterations {
         let (processed_data, modified_classes, arvs, splits) = random_forest::rf_preprocess(&data, &classes, &mut rfctx, ctx)?;
         let trees = decision_tree::sid3t(&processed_data, &modified_classes, &arvs, &splits, ctx, &mut rfctx.tc)?;
         println!("Training complete, revealing trees for testing");
         trees.iter().for_each(|x| rev_trees.push(decision_tree::reveal_tree(x, ctx).unwrap()));
     }
-
-    let duration = start.elapsed();
-
     let path = format!("cfg/ml/randomforest/inference{}.toml", ctx.num.asymm);
     let (_x, test_data, classes_single_col, ic) = inference::init(&path, false)?;
-    let mut rev_trees = vec![];
-
-    println!("Trees open, now openning test data");
-
     let mut test_data_open = vec![];
 
     let test_lab_open = protocol::open(&classes_single_col, ctx)?;
 
     let test_lab_open_trunc: Vec<u64> = test_lab_open.iter().map(|x| x.0 >> ctx.num.precision_frac).collect();
 
-    for row in test_data {
+    for row in test_data{
         test_data_open.push(protocol::open(&row, ctx)?);
     }
-    
     let argmax_results = classify_argmax(&rev_trees, &test_data_open, &test_lab_open_trunc, &ic, ctx.num.precision_int, ctx.num.precision_frac)?;
+    
+    println!("{} %", argmax_results * 100.0);
+
     let softvote_results = classify_softvote(&rev_trees, &test_data_open, &test_lab_open_trunc, &ic, ctx.num.precision_int, ctx.num.precision_frac)?;
-
-    let result = format!("argmax: {} %, softvote: {} %, {:?} seconds", argmax_results * 100.0, softvote_results * 100.0, duration);
-
-    println!("{}", result);
-
-    let path = "results_rf.txt";
-
-    let b = std::path::Path::new(path).exists();
-
-    if ctx.num.asymm == 0 {
-
-        if !b {
-            let f = File::create(path).expect("unable to create file");
-            let mut f = BufWriter::new(f);
-            write!(f, "{}\n", result).expect("unable to write");
-        } else {
-            let f = OpenOptions::new()
-            .write(true)
-            .append(true)
-            .open(path)
-            .expect("unable to open file");
-            let mut f = BufWriter::new(f);
-
-            write!(f, "{}\n", result).expect("unable to write");
-        }
-
-    }
-
+    
+    println!("{} %", softvote_results * 100.0);
     Ok(())
 }
