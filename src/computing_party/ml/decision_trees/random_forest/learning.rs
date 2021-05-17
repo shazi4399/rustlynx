@@ -6,10 +6,17 @@ use super::super::decision_tree;
 use crate::computing_party::protocol;
 use super::super::inference::classify_softvote;
 use super::super::inference::classify_argmax;
-use super::super::extra_trees;
+use std::fs::OpenOptions;
+use std::io::{BufWriter, Write};
+use std::time::{Instant};
+use std::fs::File;
 
 pub fn run(ctx: &mut Context) -> Result<(), Box<dyn Error>> {
+
     let mut rev_trees = vec![];
+
+    let start = Instant::now();
+
     let (mut rfctx, data, classes ) = random_forest::init(&ctx.ml.cfg)?;
     let iterations = if rfctx.tc.single_tree_training {rfctx.tc.bulk_qty} else {1};
     for i in 0 .. iterations {
@@ -18,6 +25,9 @@ pub fn run(ctx: &mut Context) -> Result<(), Box<dyn Error>> {
         println!("Training complete, revealing trees for testing");
         trees.iter().for_each(|x| rev_trees.push(decision_tree::reveal_tree(x, ctx).unwrap()));
     }
+
+    let duration = start.elapsed();
+
     let path = format!("cfg/ml/randomforest/inference{}.toml", ctx.num.asymm);
     let (_x, test_data, classes_single_col, ic) = inference::init(&path, false)?;
     let mut test_data_open = vec![];
@@ -30,11 +40,33 @@ pub fn run(ctx: &mut Context) -> Result<(), Box<dyn Error>> {
         test_data_open.push(protocol::open(&row, ctx)?);
     }
     let argmax_results = classify_argmax(&rev_trees, &test_data_open, &test_lab_open_trunc, &ic, ctx.num.precision_int, ctx.num.precision_frac)?;
-    
-    println!("{} %", argmax_results * 100.0);
-
     let softvote_results = classify_softvote(&rev_trees, &test_data_open, &test_lab_open_trunc, &ic, ctx.num.precision_int, ctx.num.precision_frac)?;
-    
-    println!("{} %", softvote_results * 100.0);
+
+    let result = format!("argmax: {} %, softvote: {} %, {:?} seconds", argmax_results * 100.0, softvote_results * 100.0, duration);
+
+    println!("{}", result);
+
+    let path = "results_rf.txt";
+
+    let b = std::path::Path::new(path).exists();
+
+    if ctx.num.asymm == 0 {
+
+        if !b {
+            let f = File::create(path).expect("unable to create file");
+            let mut f = BufWriter::new(f);
+            write!(f, "{}\n", result).expect("unable to write");
+        } else {
+            let f = OpenOptions::new()
+            .write(true)
+            .append(true)
+            .open(path)
+            .expect("unable to open file");
+            let mut f = BufWriter::new(f);
+
+            write!(f, "{}\n", result).expect("unable to write");
+        }
+
+    }
     Ok(())
 }
