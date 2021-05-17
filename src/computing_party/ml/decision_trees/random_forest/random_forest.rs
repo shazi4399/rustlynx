@@ -153,12 +153,12 @@ pub fn init(cfg_file: &String) -> Result<(RFContext, Vec<Vec<Wrapping<u64>>>, Ve
     let data = io::matrix_csv_to_wrapping_vec(&settings.get_str("data")?)?;
     let mut classes = io::matrix_csv_to_wrapping_vec(&settings.get_str("classes")?)?;
 
+    if instance_count == instance_selected_count {
+        instance_selected_count = data.len() as usize;
+    }
+
     instance_count = data.len() as usize;
     attribute_count = data[0].len() as usize;
-
-    if instance_count == instance_selected_count {
-        instance_selected_count = instance_count;
-    }
 
     classes = util::transpose(&classes)?;
     let tc = TrainingContext {
