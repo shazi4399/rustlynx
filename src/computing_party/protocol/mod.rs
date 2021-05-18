@@ -125,12 +125,12 @@ fn multiply_single_thread(x: &Vec<Wrapping<u64>>, y: &Vec<Wrapping<u64>>, ctx: &
 */
 pub fn open(vec: &Vec<Wrapping<u64>>, ctx: &mut Context) 
     -> Result<Vec<Wrapping<u64>>, Box<dyn Error>> {
-    println!("open");
+    //println!("open");
     let len = vec.len();
     let mut t_handles: Vec<thread::JoinHandle<Vec<Wrapping<u64>>>> = Vec::new();
     
     for i in 0..ctx.sys.threads.online {
-        println!("thread {} in open", i);
+        //println!("thread {} in open", i);
         let lb = cmp::min((i * len) / ctx.sys.threads.online, (Wrapping(len) - Wrapping(1)).0);
         let ub = cmp::min(((i+1) * len) / ctx.sys.threads.online, len);
         let subvec = vec[lb..ub].to_vec();
@@ -169,20 +169,20 @@ pub fn open(vec: &Vec<Wrapping<u64>>, ctx: &mut Context)
                 };
             }
         
-            println!("performing unsafe operation for thread {}", i);
+            //println!("performing unsafe operation for thread {}", i);
             let other: Vec<Wrapping<u64>> = unsafe { rx_handle.join().unwrap().align_to().1.to_vec() };
-            println!("unsafe operation for thread {} complete", i);
+            //println!("unsafe operation for thread {} complete", i);
 
             subvec.iter().zip(&other).map(|(&x, &y)| x + y).collect()
         });
 
-        println!("pushing onto open");
+        //println!("pushing onto open");
         t_handles.push(t_handle);
     }
 
-    println!("joining in open");
+    //println!("joining in open");
     let mut subvecs: Vec<Vec<Wrapping<u64>>> = t_handles.into_iter().map(|t| t.join().unwrap()).collect();
-    println!("joined in open");
+    //println!("joined in open");
     let mut result: Vec<Wrapping<u64>> = Vec::new(); 
     
     for i in 0..ctx.sys.threads.online {
@@ -1341,7 +1341,7 @@ pub fn batch_matmul(a: &Vec<Vec<Wrapping<u64>>>, b: &Vec<Vec<Vec<Wrapping<u64>>>
             let mut mat_subset = vec![vec![vec![Wrapping(0u64); r]; m]; ub - lb];
             for kk in lb..ub {
                 for mm in 0..m {
-                    println!("{} <> {}   -   {}", m, mm, m * r * ub);
+                    //println!("{} <> {}   -   {}", m, mm, m * r * ub);
                     for rr in 0..r {
                         mat_subset[kk - lb][mm][rr] = (0..n)
                             .fold(Wrapping(0u64), |acc, nn| acc +
@@ -1356,16 +1356,16 @@ pub fn batch_matmul(a: &Vec<Vec<Wrapping<u64>>>, b: &Vec<Vec<Vec<Wrapping<u64>>>
 
             mat_subset
         });   
-        println!("push");
+        //println!("push");
         t_handles.push(t_handle);
     }
 
-    println!("joining");
+    //println!("joining");
     let mut result = t_handles.into_iter()
     .map(|t| t.join().unwrap())
     .flatten()
     .collect::<Vec<Vec<Vec<Wrapping<u64>>>>>();
-    println!("joined");
+    //println!("joined");
 
 
     result.shrink_to_fit();
