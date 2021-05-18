@@ -9,6 +9,8 @@ use std::error::Error;
 use std::num::Wrapping;
 use std::cmp;
 use std::sync::{Arc, RwLock};
+use std::time::{Duration, Instant};
+use std::{time};
 // use std::time::SystemTime;
 
 
@@ -1292,6 +1294,8 @@ pub fn batch_matmul(a: &Vec<Vec<Wrapping<u64>>>, b: &Vec<Vec<Vec<Wrapping<u64>>>
 
     let dv = data_vec.clone();
 
+    let start = Instant::now();
+
     let mut t_handles: Vec<thread::JoinHandle<Vec<Vec<Vec<Wrapping<u64>>>>>> = Vec::new();
     for i in 0..ctx.sys.threads.offline {
 
@@ -1308,7 +1312,6 @@ pub fn batch_matmul(a: &Vec<Vec<Wrapping<u64>>>, b: &Vec<Vec<Vec<Wrapping<u64>>>
             let mut mat_subset = vec![vec![vec![Wrapping(0u64); r]; m]; ub - lb];
             for kk in lb..ub {
                 for mm in 0..m {
-                    let stall = open(vec![Wrapping(1)], ctx);
                     println!("{} <> {}   -   {}", m, mm, m * r * ub);
                     for rr in 0..r {
                         mat_subset[kk - lb][mm][rr] = (0..n)
@@ -1334,6 +1337,15 @@ pub fn batch_matmul(a: &Vec<Vec<Wrapping<u64>>>, b: &Vec<Vec<Vec<Wrapping<u64>>>
     .flatten()
     .collect::<Vec<Vec<Vec<Wrapping<u64>>>>>();
     println!("joined");
+
+    let duration = start.elapsed().as_secs(); 
+
+    if duration >= 1200 {
+        let ten_millis = time::Duration::from_secs(1200 - duration);
+        println!("Sleeping for {} seconds", 1200 - duration);
+        thread::sleep(ten_millis);
+    }
+
     result.shrink_to_fit();
 
     Ok(result)
