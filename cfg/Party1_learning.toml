@@ -16,7 +16,7 @@
 [sys]
 	[sys.threads]
 	optimise = false
-	offline = 48
+	offline = 96
 	online = 96
 
 [numbersystem]
