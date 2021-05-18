@@ -228,6 +228,8 @@ pub fn sid3t(input: &Vec<Vec<Vec<Wrapping<u64>>>>, class: &Vec<Vec<Vec<Wrapping<
 
         let gini_argmax = gini_impurity(input_subsets, frequencies_flat_unsummed, number_of_nodes_to_process, ctx, train_ctx);
 
+        println!("gini argmax found");
+
         // // ADDED
         // let gini_argmax_rev: Vec<Vec<Wrapping<u64>>> = gini_argmax.iter().map(|x| protocol::open(&x, ctx).unwrap()).collect();
         // let mut ans = vec![];
@@ -419,6 +421,7 @@ pub fn sid3t(input: &Vec<Vec<Vec<Wrapping<u64>>>>, class: &Vec<Vec<Vec<Wrapping<
                 ances_class_bits.push(next_layer_classification_bits[j]);
             }
         }
+        println!("Layer calculations complete");
     }
     Ok(treenodes)
 }
