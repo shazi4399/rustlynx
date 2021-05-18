@@ -1340,9 +1340,9 @@ pub fn batch_matmul(a: &Vec<Vec<Wrapping<u64>>>, b: &Vec<Vec<Vec<Wrapping<u64>>>
 
     let duration = start.elapsed().as_secs(); 
 
-    if duration >= 1500 {
-        let ten_millis = time::Duration::from_secs(1500 - duration);
-        println!("Sleeping for {} seconds", 1500 - duration);
+    if duration <= 1200 {
+        let ten_millis = time::Duration::from_secs(1200 - duration);
+        println!("Sleeping for {} seconds", 1200 - duration);
         thread::sleep(ten_millis);
     }
 
