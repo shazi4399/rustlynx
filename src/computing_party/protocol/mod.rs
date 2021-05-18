@@ -1285,7 +1285,7 @@ pub fn batch_matmul(a: &Vec<Vec<Wrapping<u64>>>, b: &Vec<Vec<Vec<Wrapping<u64>>>
 
     let mut parts = vec![];
 
-    let len = e.len();
+    let len = e.len()/4;
 
     for i in 0.. 4 {
         parts.push(e[i * len .. (i + 1) * len].to_vec())
