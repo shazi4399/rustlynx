@@ -18,8 +18,8 @@
 
 	[sys.threads]
 	optimise = false
-	offline = 2
-	online = 2
+	offline = 48
+	online = 24
 
 
 [numbersystem]
