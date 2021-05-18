@@ -1308,7 +1308,8 @@ pub fn batch_matmul(a: &Vec<Vec<Wrapping<u64>>>, b: &Vec<Vec<Vec<Wrapping<u64>>>
             let mut mat_subset = vec![vec![vec![Wrapping(0u64); r]; m]; ub - lb];
             for kk in lb..ub {
                 for mm in 0..m {
-                    println!("{} <> {}", m, mm);
+                    let stall = open(vec![Wrapping(1)], ctx);
+                    println!("{} <> {}   -   {}", m, mm, m * r * ub);
                     for rr in 0..r {
                         mat_subset[kk - lb][mm][rr] = (0..n)
                             .fold(Wrapping(0u64), |acc, nn| acc +
