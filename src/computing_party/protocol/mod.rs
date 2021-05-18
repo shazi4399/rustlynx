@@ -206,6 +206,8 @@ fn open_single_thread(vec: &Vec<Wrapping<u64>>, mut istream: TcpStream, mut ostr
 		let mut bytes_read = 0;
 		while bytes_read < msg_len {
 
+            println!("{} >= {}", bytes_read, msg_len);
+
 			bytes_read += match istream.read(&mut rx_buf[bytes_read..]) {
 				Ok(size) => size,
 				Err(_) => {println!("rustlynx::computing_party::protocol::open: std::IO:ErrorKind::Interrupted -- retrying"); 0},
