@@ -133,7 +133,7 @@ Result<(Vec<Vec<Vec<Wrapping<u64>>>>, Vec<Vec<Vec<Wrapping<u64>>>>, Vec<Vec<Vec<
     // }
 
     for (x) in izip!(&selected_ranges_1) {
-        selected_ranges.push(x);
+        selected_ranges.push(*x);
     }
 
     selected_ranges.shrink_to_fit();
