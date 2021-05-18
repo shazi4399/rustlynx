@@ -123,9 +123,7 @@ fn multiply_single_thread(x: &Vec<Wrapping<u64>>, y: &Vec<Wrapping<u64>>, ctx: &
 */
 pub fn open(vec: &Vec<Wrapping<u64>>, ctx: &mut Context) 
     -> Result<Vec<Wrapping<u64>>, Box<dyn Error>> {
-
-
-    println!("Oppening"); //ADDED
+    println!("open");
     let len = vec.len();
     let mut t_handles: Vec<thread::JoinHandle<Vec<Wrapping<u64>>>> = Vec::new();
     
@@ -1260,6 +1258,8 @@ fn shared_or(
 }
 
 pub fn batch_matmul(a: &Vec<Vec<Wrapping<u64>>>, b: &Vec<Vec<Vec<Wrapping<u64>>>>, ctx: &mut Context) -> Result<Vec<Vec<Vec<Wrapping<u64>>>>, Box<dyn Error>> {
+
+    println!("batch matmul");
 
     let asymm = Wrapping(ctx.num.asymm);
 	let m = a.len();
