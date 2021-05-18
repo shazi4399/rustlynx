@@ -1277,25 +1277,33 @@ pub fn batch_matmul(a: &Vec<Vec<Wrapping<u64>>>, b: &Vec<Vec<Vec<Wrapping<u64>>>
     e.append(&mut f);
     let ef = open(&e, ctx)?;
 
-    let lock = Arc::new(RwLock::new( (u, v, z, ef) ));
+    //let lock = Arc::new(RwLock::new( (u, v, z, ef) ));
+
+    let d = (u, v, z, ef);
+    let mut data_vec = vec![];
+    for i in 0..ctx.sys.threads.offline {
+        data_vec.push(d.clone())
+    }
+
+    let dv = data_vec.clone();
 
     let mut t_handles: Vec<thread::JoinHandle<Vec<Vec<Vec<Wrapping<u64>>>>>> = Vec::new();
     for i in 0..ctx.sys.threads.offline {
 
         let lb = cmp::min((i * k) / ctx.sys.threads.offline, (Wrapping(k) - Wrapping(1)).0);
         let ub = cmp::min(((i+1) * k) / ctx.sys.threads.offline, k);
-        let lock = Arc::clone(&lock);
+        //let lock = Arc::clone(&lock);
+
+        let data = dv[i].clone();
 
         let t_handle = thread::spawn(move || {
 
-            let data = lock.read().unwrap();
+            //let data = lock.read().unwrap();
+            
             let mut mat_subset = vec![vec![vec![Wrapping(0u64); r]; m]; ub - lb];
-            //println!("lb = {}, ub = {}", lb, ub);
             for kk in lb..ub {
-                //println!("kk = {}", kk);
                 for mm in 0..m {
                     for rr in 0..r {
-                        //println!("mm * rr = {}", mm * rr);
                         mat_subset[kk - lb][mm][rr] = (0..n)
                             .fold(Wrapping(0u64), |acc, nn| acc +
                                 data.2[kk][mm][rr] + 
