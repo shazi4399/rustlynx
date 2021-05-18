@@ -1283,21 +1283,29 @@ pub fn batch_matmul(a: &Vec<Vec<Wrapping<u64>>>, b: &Vec<Vec<Vec<Wrapping<u64>>>
     let mut f: Vec<Wrapping<u64>> = b.iter().flatten().flatten().zip(v.iter().flatten().flatten()).map(|(bb, vv)| bb - vv).collect();
     e.append(&mut f);
 
+    // ADDED BY DAVID vvv
     let mut parts = vec![];
 
     let breaker = 64;
 
     let len = e.len()/breaker;
 
-    let rem = 1 - ((breaker * len == e.len()) as u64);
+    let rem = e.len() - breaker * len;
 
     for i in 0.. breaker {
         parts.push(e[i * len .. (i + 1) * len].to_vec())
     }
 
-    if rem == 1 {
-        parts.push(vec![e[e.len() - 1]]);
+    let mut rem_vec = vec![];
+
+    for i in 0.. rem {
+        rem_vec.push(e[e.len() - rem + i]);
     }
+
+    if rem > 0 {
+        parts.push(rem_vec);
+    }
+    // ADDED BY DAVID ^^^
 
     let mut ef = vec![];
 
