@@ -11,8 +11,9 @@ feat=args[4]
 fold=args[5]
 party=args[6]
 key_word=args[7]
-single_tree_training=args[8]
-bulk_qty=args[9]
+epsilon=args[8]
+single_tree_training=args[9]
+bulk_qty=args[10]
 
 toml_learn_path = "cfg/ml/extratrees/learning{}.toml".format(party)
 toml_inference_path = "cfg/ml/extratrees/inference{}.toml".format(party)
@@ -32,7 +33,7 @@ with open(toml_learn_path, 'w') as file:
     file.write("tree_count = {}\n".format(trees))
     file.write("max_depth = {}\n".format(depth))
     file.write("feature_count = {}\n".format(feat))
-    file.write("epsilon = 0.05\n")
+    file.write("epsilon = {}\n".format(epsilon))
     file.write("single_tree_training = {}\n".format(single_tree_training))
     file.write("bulk_qty = {}\n".format(bulk_qty))
     file.write("data = \"data/Party{}_{}/{}X_train.csv\"\n".format(party, key_word, fold))
