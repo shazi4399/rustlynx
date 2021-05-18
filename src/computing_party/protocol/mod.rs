@@ -1303,6 +1303,7 @@ pub fn batch_matmul(a: &Vec<Vec<Wrapping<u64>>>, b: &Vec<Vec<Vec<Wrapping<u64>>>
             let mut mat_subset = vec![vec![vec![Wrapping(0u64); r]; m]; ub - lb];
             for kk in lb..ub {
                 for mm in 0..m {
+                    println!("{}", m * mm);
                     for rr in 0..r {
                         mat_subset[kk - lb][mm][rr] = (0..n)
                             .fold(Wrapping(0u64), |acc, nn| acc +
@@ -1317,15 +1318,16 @@ pub fn batch_matmul(a: &Vec<Vec<Wrapping<u64>>>, b: &Vec<Vec<Vec<Wrapping<u64>>>
 
             mat_subset
         });   
-
+        println!("push");
         t_handles.push(t_handle);
     }
 
+    println!("joining");
     let mut result = t_handles.into_iter()
     .map(|t| t.join().unwrap())
     .flatten()
     .collect::<Vec<Vec<Vec<Wrapping<u64>>>>>();
-
+    println!("joined");
     result.shrink_to_fit();
 
     Ok(result)
