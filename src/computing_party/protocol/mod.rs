@@ -1289,8 +1289,14 @@ pub fn batch_matmul(a: &Vec<Vec<Wrapping<u64>>>, b: &Vec<Vec<Vec<Wrapping<u64>>>
 
     let len = e.len()/breaker;
 
+    let rem = (breaker * len == e.len()) as u64;
+
     for i in 0.. breaker {
         parts.push(e[i * len .. (i + 1) * len].to_vec())
+    }
+
+    if rem == 1 {
+        parts.push(vec![e[e.len() - 1]]);
     }
 
     let mut ef = vec![];
