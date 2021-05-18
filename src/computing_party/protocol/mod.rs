@@ -1282,7 +1282,22 @@ pub fn batch_matmul(a: &Vec<Vec<Wrapping<u64>>>, b: &Vec<Vec<Vec<Wrapping<u64>>>
     let mut e: Vec<Wrapping<u64>> = a.iter().flatten().zip(u.iter().flatten()).map(|(aa, uu)| aa - uu).collect();
     let mut f: Vec<Wrapping<u64>> = b.iter().flatten().flatten().zip(v.iter().flatten().flatten()).map(|(bb, vv)| bb - vv).collect();
     e.append(&mut f);
-    let ef = open(&e, ctx)?;
+
+    let mut parts = vec![];
+
+    let len = e.len();
+
+    for i in 0.. 4 {
+        parts.push(e[i * len .. (i + 1) * len].to_vec())
+    }
+
+    let mut ef = vec![];
+
+    for part in parts {
+        ef.append(&mut open(&part, ctx)?)
+    }
+
+    // let ef = open(&e, ctx)?;
 
     //let lock = Arc::new(RwLock::new( (u, v, z, ef) ));
 
@@ -1338,13 +1353,6 @@ pub fn batch_matmul(a: &Vec<Vec<Wrapping<u64>>>, b: &Vec<Vec<Vec<Wrapping<u64>>>
     .collect::<Vec<Vec<Vec<Wrapping<u64>>>>>();
     println!("joined");
 
-    let duration = start.elapsed().as_secs(); 
-
-    if duration <= 1200 {
-        let ten_millis = time::Duration::from_secs(1200 - duration);
-        println!("Sleeping for {} seconds", 1200 - duration);
-        thread::sleep(ten_millis);
-    }
 
     result.shrink_to_fit();
 
