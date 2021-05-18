@@ -103,45 +103,49 @@ Result<(Vec<Vec<Vec<Wrapping<u64>>>>, Vec<Vec<Vec<Wrapping<u64>>>>, Vec<Vec<Vec<
 
     // correct way for (1)
     let selected_ranges_1: Vec<Wrapping<u64>> = selected_mins.iter().zip(selected_maxes.iter()).map(|(x, y)| y - x).collect();
-    let option1_valid = multiply(&selected_mins_cmp_res.clone(), &selected_maxes_cmp_res.clone(), ctx)?;
+    // let option1_valid = multiply(&selected_mins_cmp_res.clone(), &selected_maxes_cmp_res.clone(), ctx)?;
 
-    let selected_ranges_1 = multiply(&selected_ranges_1, &option1_valid, ctx)?;
+    // let selected_ranges_1 = multiply(&selected_ranges_1, &option1_valid, ctx)?;
 
-    let bit_pos_msb = ctx.num.precision_int + ctx.num.precision_frac + 1;
-    // eliminates the negative bit (if it exists, otherwise makes a number negative)
-    let complement = Wrapping(asym * 2u64.pow(bit_pos_msb as u32)); // does this assume that Lambda = 64?
+    // let bit_pos_msb = ctx.num.precision_int + ctx.num.precision_frac + 1;
+    // // eliminates the negative bit (if it exists, otherwise makes a number negative)
+    // let complement = Wrapping(asym * 2u64.pow(bit_pos_msb as u32)); // does this assume that Lambda = 64?
 
-    // correct way for (2)
-    let selected_ranges_2: Vec<Wrapping<u64>> = selected_mins.iter().zip(selected_maxes.iter()).map(|(x, y)| y + (complement - (x + complement))).collect();
-    let selected_mins_cmp_res_neg: Vec<Wrapping<u64>> = selected_mins_cmp_res.iter().map(|x| -x + Wrapping(asym as u64)).collect();
-    let option2_valid = multiply(&selected_mins_cmp_res_neg.clone(), &selected_maxes_cmp_res.clone(), ctx)?;
+    // // correct way for (2)
+    // let selected_ranges_2: Vec<Wrapping<u64>> = selected_mins.iter().zip(selected_maxes.iter()).map(|(x, y)| y + (complement - (x + complement))).collect();
+    // let selected_mins_cmp_res_neg: Vec<Wrapping<u64>> = selected_mins_cmp_res.iter().map(|x| -x + Wrapping(asym as u64)).collect();
+    // let option2_valid = multiply(&selected_mins_cmp_res_neg.clone(), &selected_maxes_cmp_res.clone(), ctx)?;
 
-    let selected_ranges_2 = multiply(&selected_ranges_2, &option2_valid, ctx)?;
+    // let selected_ranges_2 = multiply(&selected_ranges_2, &option2_valid, ctx)?;
 
-    // correct way for (3)
-    let selected_ranges_3: Vec<Wrapping<u64>> = selected_mins.iter().zip(selected_maxes.iter()).map(|(x, y)| (y + complement) - (x + complement)).collect();
-    let selected_maxes_cmp_res_neg: Vec<Wrapping<u64>> = selected_maxes_cmp_res.iter().map(|x| -x + Wrapping(asym as u64)).collect();
-    let option3_valid = multiply(&selected_mins_cmp_res_neg, &selected_maxes_cmp_res_neg, ctx)?;
+    // // correct way for (3)
+    // let selected_ranges_3: Vec<Wrapping<u64>> = selected_mins.iter().zip(selected_maxes.iter()).map(|(x, y)| (y + complement) - (x + complement)).collect();
+    // let selected_maxes_cmp_res_neg: Vec<Wrapping<u64>> = selected_maxes_cmp_res.iter().map(|x| -x + Wrapping(asym as u64)).collect();
+    // let option3_valid = multiply(&selected_mins_cmp_res_neg, &selected_maxes_cmp_res_neg, ctx)?;
 
-    let selected_ranges_3 = multiply(&selected_ranges_3, &option3_valid, ctx)?;
+    // let selected_ranges_3 = multiply(&selected_ranges_3, &option3_valid, ctx)?;
 
 
     let mut selected_ranges = vec![];
     
-    for (x, y, z) in izip!(&selected_ranges_1, &selected_ranges_2, &selected_ranges_3) {
-        selected_ranges.push(x + y + z);
+    // for (x, y, z) in izip!(&selected_ranges_1, &selected_ranges_2, &selected_ranges_3) {
+    //     selected_ranges.push(x + y + z);
+    // }
+
+    for (x) in izip!(&selected_ranges_1) {
+        selected_ranges.push(x);
     }
 
     selected_ranges.shrink_to_fit();
 
     drop(selected_ranges_1);
-    drop(selected_ranges_2);
-    drop(selected_ranges_3);
-    drop(selected_maxes_cmp_res_neg);
-    drop(selected_mins_cmp_res_neg);
-    drop(option1_valid);
-    drop(option2_valid);
-    drop(option3_valid);
+    // drop(selected_ranges_2);
+    // drop(selected_ranges_3);
+    // drop(selected_maxes_cmp_res_neg);
+    // drop(selected_mins_cmp_res_neg);
+    // drop(option1_valid);
+    // drop(option2_valid);
+    // drop(option3_valid);
     drop(pos_neg_minmaxes);
     drop(smallest_neg_array);
     drop(mul_min_max);
