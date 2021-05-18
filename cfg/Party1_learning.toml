@@ -17,7 +17,7 @@
 	[sys.threads]
 	optimise = false
 	offline = 48
-	online = 1
+	online = 96
 
 [numbersystem]
 precision_frac = 10
