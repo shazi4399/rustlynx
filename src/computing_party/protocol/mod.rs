@@ -1295,7 +1295,9 @@ pub fn batch_matmul(a: &Vec<Vec<Wrapping<u64>>>, b: &Vec<Vec<Vec<Wrapping<u64>>>
         parts.push(e[i * len .. (i + 1) * len].to_vec())
     }
 
+    println!("\n\n\n\n\n\n{}\n\n\n\n\n", rem);
     if rem == 1 {
+        println!("\n\n\n\n\n\nin\n\n\n\n\n");
         parts.push(vec![e[e.len() - 1]]);
     }
 
@@ -1316,8 +1318,6 @@ pub fn batch_matmul(a: &Vec<Vec<Wrapping<u64>>>, b: &Vec<Vec<Vec<Wrapping<u64>>>
     }
 
     let dv = data_vec.clone();
-
-    let start = Instant::now();
 
     let mut t_handles: Vec<thread::JoinHandle<Vec<Vec<Vec<Wrapping<u64>>>>>> = Vec::new();
     for i in 0..ctx.sys.threads.offline {
