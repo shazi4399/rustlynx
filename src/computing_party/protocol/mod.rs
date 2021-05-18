@@ -152,7 +152,7 @@ pub fn open(vec: &Vec<Wrapping<u64>>, ctx: &mut Context)
         
                     bytes_read += match istream.read(&mut rx_buf[bytes_read..]) {
                         Ok(size) => size,
-                        Err(_) => {println!("rustlynx::computing_party::protocol::open: std::IO:ErrorKind::Interrupted -- retrying"); 0},
+                        Err(_) => {println!("rustlynx::computing_party::protocol::open: std::IO:ErrorKind::Interrupted -- retrying"); 10},
                     };
                 }
                 rx_buf
@@ -163,7 +163,7 @@ pub fn open(vec: &Vec<Wrapping<u64>>, ctx: &mut Context)
         
                 bytes_written += match ostream.write(&tx_buf[bytes_written..]) {
                     Ok(size) => size,
-                    Err(_) => {println!("rustlynx::computing_party::protocol::open: std::IO:ErrorKind::Interrupted -- retrying"); 0},
+                    Err(_) => {println!("rustlynx::computing_party::protocol::open: std::IO:ErrorKind::Interrupted -- retrying"); 10},
                 };
             }
         
@@ -208,7 +208,7 @@ fn open_single_thread(vec: &Vec<Wrapping<u64>>, mut istream: TcpStream, mut ostr
 
 			bytes_read += match istream.read(&mut rx_buf[bytes_read..]) {
 				Ok(size) => size,
-				Err(_) => {println!("rustlynx::computing_party::protocol::open: std::IO:ErrorKind::Interrupted -- retrying"); 0},
+				Err(_) => {println!("rustlynx::computing_party::protocol::open: std::IO:ErrorKind::Interrupted -- retrying"); 10},
 			};
 		}
 		rx_buf
@@ -219,7 +219,7 @@ fn open_single_thread(vec: &Vec<Wrapping<u64>>, mut istream: TcpStream, mut ostr
 
 		bytes_written += match ostream.write(&tx_buf[bytes_written..]) {
 			Ok(size) => size,
-			Err(_) => {println!("rustlynx::computing_party::protocol::open: std::IO:ErrorKind::Interrupted -- retrying"); 0},
+			Err(_) => {println!("rustlynx::computing_party::protocol::open: std::IO:ErrorKind::Interrupted -- retrying"); 10},
 		};
 	}
 
@@ -247,7 +247,7 @@ fn open_z2_single_thread(vec: &Vec<u128>, mut istream: TcpStream, mut ostream: T
 
             bytes_read += match istream.read(&mut rx_buf[bytes_read..]) {
                 Ok(size) => size,
-                Err(_) => {println!("rustlynx::computing_party::protocol::open: std::IO:ErrorKind::Interrupted -- retrying"); 0},
+                Err(_) => {println!("rustlynx::computing_party::protocol::open: std::IO:ErrorKind::Interrupted -- retrying"); 10},
             };
         }
         rx_buf
@@ -258,7 +258,7 @@ fn open_z2_single_thread(vec: &Vec<u128>, mut istream: TcpStream, mut ostream: T
 
         bytes_written += match ostream.write(&tx_buf[bytes_written..]) {
             Ok(size) => size,
-            Err(_) => {println!("rustlynx::computing_party::protocol::open: std::IO:ErrorKind::Interrupted -- retrying"); 0},
+            Err(_) => {println!("rustlynx::computing_party::protocol::open: std::IO:ErrorKind::Interrupted -- retrying"); 10},
         };
     }
 
@@ -298,7 +298,7 @@ pub fn open_z2(vec: &Vec<u128>, ctx: &mut Context)
         
                     bytes_read += match istream.read(&mut rx_buf[bytes_read..]) {
                         Ok(size) => size,
-                        Err(_) => {println!("rustlynx::computing_party::protocol::open: std::IO:ErrorKind::Interrupted -- retrying"); 0},
+                        Err(_) => {println!("rustlynx::computing_party::protocol::open: std::IO:ErrorKind::Interrupted -- retrying"); 10},
                     };
                 }
                 rx_buf
@@ -309,7 +309,7 @@ pub fn open_z2(vec: &Vec<u128>, ctx: &mut Context)
         
                 bytes_written += match ostream.write(&tx_buf[bytes_written..]) {
                     Ok(size) => size,
-                    Err(_) => {println!("rustlynx::computing_party::protocol::open: std::IO:ErrorKind::Interrupted -- retrying"); 0},
+                    Err(_) => {println!("rustlynx::computing_party::protocol::open: std::IO:ErrorKind::Interrupted -- retrying"); 10},
                 };
             }
         
@@ -1303,7 +1303,7 @@ pub fn batch_matmul(a: &Vec<Vec<Wrapping<u64>>>, b: &Vec<Vec<Vec<Wrapping<u64>>>
             let mut mat_subset = vec![vec![vec![Wrapping(0u64); r]; m]; ub - lb];
             for kk in lb..ub {
                 for mm in 0..m {
-                    println!("{}", m * mm);
+                    println!("{} <> {}", m, mm);
                     for rr in 0..r {
                         mat_subset[kk - lb][mm][rr] = (0..n)
                             .fold(Wrapping(0u64), |acc, nn| acc +
