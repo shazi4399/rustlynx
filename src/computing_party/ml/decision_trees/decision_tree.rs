@@ -123,6 +123,7 @@ pub fn sid3t(input: &Vec<Vec<Vec<Wrapping<u64>>>>, class: &Vec<Vec<Vec<Wrapping<
         // }
 
         if max_depth {   
+            println!("\nmax depth reached, exititng");
             // println!("chosen_classifications{:?}", protocol::open(&chosen_classifications, ctx)?);
             // println!("ances_class_bits{:?}", protocol::open(&ances_class_bits, ctx)?);
 
