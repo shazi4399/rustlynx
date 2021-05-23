@@ -48,6 +48,30 @@ pub fn test_protocol(tctx: &mut TestContext, ctx: &mut Context) {
     protocol::minmax_batch(&vec![test_vec1] ctx);
     let minmax_time = format!("{:?}", start.elapsed());
 
+    let result = format!("\n<><><><><><> SIZE: {} <><><><><><>\ninequality: {} 2toq: {} seconds, minmax: {} seconds", geq_time, z2_conversion_time, minmax_time);
+
+    println!("{}", result);
+
+    let path = "results_rf.txt";
+
+    let b = std::path::Path::new(path).exists();
+
+    if ctx.num.asymm == 0 {
+
+        if !b {
+            let f = File::create(path).expect("unable to create file");
+            let mut f = BufWriter::new(f);
+            write!(f, "{}\n", result).expect("unable to write");
+        } else {
+            let f = OpenOptions::new()
+            .write(true)
+            .append(true)
+            .open(path)
+            .expect("unable to open file");
+            let mut f = BufWriter::new(f);
+
+            write!(f, "{}\n", result).expect("unable to write");
+        }
 
 }
 
