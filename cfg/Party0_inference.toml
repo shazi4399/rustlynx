@@ -31,7 +31,7 @@ debug = true
 
 [ml]
 phase = "inference"                      
-model = "randomforest"           
+model = "extratrees"           
 
 	[ml.naivebayes]
 	learning_cfg = "cfg/ml/naivebayes/learning0.toml"
