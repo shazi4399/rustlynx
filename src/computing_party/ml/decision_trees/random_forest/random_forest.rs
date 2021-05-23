@@ -67,7 +67,7 @@ pub fn rf_preprocess(data: &Vec<Vec<Wrapping<u64>>>, classes: &Vec<Vec<Wrapping<
         final_datasets = attribute_reduced_sets;
     } else {
         for i in 0 .. tree_count {
-            println!("tree {} matmul", i);
+            //println!("tree {} matmul", i);
             final_datasets.push(batch_matmul(&util::transpose(&attribute_reduced_sets[i])?,&vec![util::transpose(&instance_selection[i])?],ctx)?.into_iter().flatten().collect());
         }
     }
