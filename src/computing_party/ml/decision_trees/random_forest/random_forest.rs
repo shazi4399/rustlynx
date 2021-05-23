@@ -154,7 +154,7 @@ pub fn init(cfg_file: &String) -> Result<(RFContext, Vec<Vec<Wrapping<u64>>>, Ve
     let mut classes = io::matrix_csv_to_wrapping_vec(&settings.get_str("classes")?)?;
 
     instance_count = data.len() as usize;
-    //instance_selected_count = instance_count; // TEMP JUST FOR DT
+    if decision_tree {instance_selected_count = instance_count}
     attribute_count = data[0].len() as usize;
 
     classes = util::transpose(&classes)?;

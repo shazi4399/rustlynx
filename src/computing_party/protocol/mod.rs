@@ -169,9 +169,9 @@ pub fn open(vec: &Vec<Wrapping<u64>>, ctx: &mut Context)
                 };
             }
         
-            //println!("performing unsafe operation for thread {}", i);
+            //println!("performing operation for thread {}", i);
             let other: Vec<Wrapping<u64>> = unsafe { rx_handle.join().unwrap().align_to().1.to_vec() };
-            //println!("unsafe operation for thread {} complete", i);
+            //println!("operation for thread {} complete", i);
 
             subvec.iter().zip(&other).map(|(&x, &y)| x + y).collect()
         });
