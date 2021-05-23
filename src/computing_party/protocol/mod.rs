@@ -1266,7 +1266,7 @@ fn shared_or(
 
 pub fn batch_matmul(a: &Vec<Vec<Wrapping<u64>>>, b: &Vec<Vec<Vec<Wrapping<u64>>>>, ctx: &mut Context) -> Result<Vec<Vec<Vec<Wrapping<u64>>>>, Box<dyn Error>> {
 
-    println!("batch matmul");
+    //println!("batch matmul");
 
     let asymm = Wrapping(ctx.num.asymm);
 	let m = a.len();
@@ -1283,60 +1283,20 @@ pub fn batch_matmul(a: &Vec<Vec<Wrapping<u64>>>, b: &Vec<Vec<Vec<Wrapping<u64>>>
     let mut f: Vec<Wrapping<u64>> = b.iter().flatten().flatten().zip(v.iter().flatten().flatten()).map(|(bb, vv)| bb - vv).collect();
     e.append(&mut f);
 
-    // ADDED BY DAVID vvv
-    let mut parts = vec![];
+    let ef = open(&e, ctx)?;
 
-    let breaker = 64;
-
-    let len = e.len()/breaker;
-
-    let rem = e.len() - breaker * len;
-
-    for i in 0.. breaker {
-        parts.push(e[i * len .. (i + 1) * len].to_vec())
-    }
-
-    let mut rem_vec = vec![];
-
-    for i in 0.. rem {
-        rem_vec.push(e[e.len() - rem + i]);
-    }
-
-    if rem > 0 {
-        parts.push(rem_vec);
-    }
-    // ADDED BY DAVID ^^^
-
-    let mut ef = vec![];
-
-    for part in parts {
-        ef.append(&mut open(&part, ctx)?)
-    }
-
-    // let ef = open(&e, ctx)?;
-
-    //let lock = Arc::new(RwLock::new( (u, v, z, ef) ));
-
-    let d = (u, v, z, ef);
-    let mut data_vec = vec![];
-    for i in 0..ctx.sys.threads.offline {
-        data_vec.push(d.clone())
-    }
-
-    let dv = data_vec.clone();
+    let lock = Arc::new(RwLock::new( (u, v, z, ef) ));
 
     let mut t_handles: Vec<thread::JoinHandle<Vec<Vec<Vec<Wrapping<u64>>>>>> = Vec::new();
     for i in 0..ctx.sys.threads.offline {
 
         let lb = cmp::min((i * k) / ctx.sys.threads.offline, (Wrapping(k) - Wrapping(1)).0);
         let ub = cmp::min(((i+1) * k) / ctx.sys.threads.offline, k);
-        //let lock = Arc::clone(&lock);
-
-        let data = dv[i].clone();
+        let lock = Arc::clone(&lock);
 
         let t_handle = thread::spawn(move || {
 
-            //let data = lock.read().unwrap();
+            let data = lock.read().unwrap();
             
             let mut mat_subset = vec![vec![vec![Wrapping(0u64); r]; m]; ub - lb];
             for kk in lb..ub {
