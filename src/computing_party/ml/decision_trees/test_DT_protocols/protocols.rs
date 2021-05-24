@@ -23,7 +23,7 @@ pub fn test_protocol(ctx: &mut Context) -> Result<(), Box<dyn Error>> {
 
     let tctx = init(&ctx.ml.cfg)?;
 
-    let initial_size = 1000;
+    let initial_size = 100000;
 
     let test_sizes = vec![10, 100, 1000, 10000, 100000];
 
@@ -56,28 +56,25 @@ pub fn test_protocol(ctx: &mut Context) -> Result<(), Box<dyn Error>> {
     
         println!("{}", result);
     
-        let path = "results_rf.txt";
+        let path = "results_runtime.txt";
     
         let b = std::path::Path::new(path).exists();
     
-        if ctx.num.asymm == 0 {
-    
-            if !b {
-                let f = File::create(path).expect("unable to create file");
-                let mut f = BufWriter::new(f);
-                write!(f, "{}\n", result).expect("unable to write");
-            } else {
-                let f = OpenOptions::new()
-                .write(true)
-                .append(true)
-                .open(path)
-                .expect("unable to open file");
-                let mut f = BufWriter::new(f);
-    
-                write!(f, "{}\n", result).expect("unable to write");
-            }
-    
+        if !b {
+            let f = File::create(path).expect("unable to create file");
+            let mut f = BufWriter::new(f);
+            write!(f, "{}\n", result).expect("unable to write");
+        } else {
+            let f = OpenOptions::new()
+            .write(true)
+            .append(true)
+            .open(path)
+            .expect("unable to open file");
+            let mut f = BufWriter::new(f);
+
+            write!(f, "{}\n", result).expect("unable to write");
         }
+    
     }
 
 
