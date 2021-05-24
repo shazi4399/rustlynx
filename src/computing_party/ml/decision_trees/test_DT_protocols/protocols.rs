@@ -1,9 +1,3 @@
-
-
-//TODO LIST
-//Write init, setting up context
-//port the preprocessing phase
-
 use std::num::Wrapping;
 use crate::computing_party::Context;
 use crate::computing_party::ml::decision_trees::decision_tree::TrainingContext;
@@ -15,13 +9,19 @@ use rand::{self, Rng};
 use rand::SeedableRng;
 use std::io::{Write, Read};
 use crate::computing_party::protocol;
+use std::fs::OpenOptions;
+use std::io::{BufWriter};
+use std::time::{Instant};
+use std::fs::File;
 
 #[derive(Default)]
 pub struct TestContext {
     pub test_size: usize,
 }
 
-pub fn test_protocol(tctx: &mut TestContext, ctx: &mut Context) {
+pub fn test_protocol(ctx: &mut Context) -> Result<vec![], Box<dyn Error>> {
+
+    let tctx = init(&ctx.ml.cfg)?;
 
     let test_size = tctx.test_size;
     // let processed_data_com = discretize_into_ohe_batch(&util::transpose(data)?,bucket_size,ctx);
@@ -35,7 +35,7 @@ pub fn test_protocol(tctx: &mut TestContext, ctx: &mut Context) {
 
     //inequality
     let start = Instant::now();
-    let res = protocol::batch_geq(&test_vec1, &test_vec2, ctx);
+    let res = protocol::batch_geq(&test_vec1, &test_vec2, ctx)?;
     let geq_time = format!("{:?}", start.elapsed());
     
     //2toq
@@ -45,10 +45,10 @@ pub fn test_protocol(tctx: &mut TestContext, ctx: &mut Context) {
 
     //minmax
     let start = Instant::now();
-    protocol::minmax_batch(&vec![test_vec1] ctx);
+    protocol::minmax_batch(&vec![test_vec1], ctx);
     let minmax_time = format!("{:?}", start.elapsed());
 
-    let result = format!("\n<><><><><><> SIZE: {} <><><><><><>\ninequality: {} 2toq: {} seconds, minmax: {} seconds", geq_time, z2_conversion_time, minmax_time);
+    let result = format!("\n<><><><><><> SIZE: {} <><><><><><>\ninequality: {} 2toq: {} seconds, minmax: {} seconds", test_size, geq_time, z2_conversion_time, minmax_time);
 
     println!("{}", result);
 
@@ -73,6 +73,9 @@ pub fn test_protocol(tctx: &mut TestContext, ctx: &mut Context) {
             write!(f, "{}\n", result).expect("unable to write");
         }
 
+    return vec![];
+
+    }
 }
 
 pub fn init(cfg_file: &String) -> Result<(TestContext), Box<dyn Error>>{
@@ -84,9 +87,9 @@ pub fn init(cfg_file: &String) -> Result<(TestContext), Box<dyn Error>>{
 
     let test_size: usize = settings.get_int("test_size")? as usize;
 
-    let rf = TestContext {
+    let tctx = TestContext {
         test_size,
     };
 
-    Ok((rf))
+    Ok((tctx))
 }

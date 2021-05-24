@@ -92,6 +92,7 @@ pub enum MLModel {
 	NaiveBayes,
 	ExtraTrees,
 	RandomForest,
+	TimeTest
 }
 
 #[derive(Debug, Clone)]

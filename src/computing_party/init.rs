@@ -138,6 +138,15 @@ fn parse_ml_settings(phase: &String, model: &String, settings: &config::Config) 
 		} else {
 			return Err("invalid ml.phase".into())
 		}	
+	} else if model == "time_test" {
+		ml_model = Some(MLModel::TimeTest);
+		if phase == "learning" {
+			ml_phase = Some(MLPhase::Learning);
+			cfg = settings.get_str("ml.time_test.learning_cfg")?;
+			callable = Some(super::ml::decision_trees::test_DT_protocols::protocols::test_protocol);
+		} else {
+			return Err("invalid ml.phase".into())
+		}	
 	}else {
 		return Err("invalid or unimplemented ml.model".into())
 	}
