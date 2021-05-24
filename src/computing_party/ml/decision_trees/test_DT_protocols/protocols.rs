@@ -30,7 +30,7 @@ pub fn test_protocol(ctx: &mut Context) -> Result<(), Box<dyn Error>> {
     let bucket_sizes = vec![2,3,5,8];
 
     let col_size = 1000;
-    let row_sizes = vec![1000, 10000, 100000];
+    let row_sizes = vec![1000000, 10000000];
 
     for b in bucket_sizes {
 
