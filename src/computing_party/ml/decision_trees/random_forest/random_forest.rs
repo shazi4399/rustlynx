@@ -35,7 +35,7 @@ pub fn rf_preprocess(data: &Vec<Vec<Wrapping<u64>>>, classes: &Vec<Vec<Wrapping<
     
     // data.iter().for_each(|x| println!("{:?}", protocol::open(&x, ctx).unwrap()));
 
-    let processed_data_com = discretize_into_ohe_batch(&util::transpose(data)?,bucket_size,ctx );
+    let processed_data_com = discretize_into_ohe_batch(&util::transpose(data)?,bucket_size, ctx);
     let discretized_ohe_data = processed_data_com.0;
     let full_splits = processed_data_com.1;
     println!("discretized_ohe_data");
