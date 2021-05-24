@@ -29,7 +29,7 @@ debug = true							   #true doesn't interact with TI
 
 [ml]
 phase = "learning"                      
-model = "randomforest"           
+model = "extratrees"           
 
 	[ml.naivebayes]
 	learning_cfg = "cfg/ml/naivebayes/learning0.toml"
