@@ -40,13 +40,12 @@ model = "extratrees"
 	inference_cfg = "cfg/ml/logisticregression/inference0.toml"
 
 	[ml.extratrees]
-	learning_cfg = "cfg/ml/extratrees/learning0.toml"
-	inference_cfg = "cfg/ml/extratrees/inference0.toml"
+	learning_cfg = "cfg/ml/extratrees/learning1.toml"
+	inference_cfg = "cfg/ml/extratrees/inference1.toml"
 
 	[ml.time_test]
-	learning_cfg = "cfg/ml/time_test/learning0.toml"
-	inference_cfg = "cfg/ml/time_test/inference0.toml"
+	learning_cfg = "cfg/ml/time_test/learning1.toml"
 
 	[ml.randomforest]
-	learning_cfg = "cfg/ml/randomforest/learning0.toml"
-	inference_cfg = "cfg/ml/randomforest/inference0.toml"
+	learning_cfg = "cfg/ml/randomforest/learning1.toml"
+	inference_cfg = "cfg/ml/randomforest/inference1.toml"
