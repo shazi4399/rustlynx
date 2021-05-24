@@ -28,21 +28,25 @@ precision_int  = 52
 debug = true							   #true doesn't interact with TI
 
 [ml]
-phase = "learning"                      #or, "inference"
-model = "extratrees"           
+phase = "inference"                      
+model = "time_test"           
 
 	[ml.naivebayes]
-	learning_cfg = "cfg/ml/naivebayes/learning1.toml"
-	inference_cfg = "cfg/ml/naivebayes/inference1.toml"
+	learning_cfg = "cfg/ml/naivebayes/learning0.toml"
+	inference_cfg = "cfg/ml/naivebayes/inference0.toml"
 
 	[ml.logisticregression]
-	learning_cfg = "cfg/ml/logisticregression/learning1.toml"
-	inference_cfg = "cfg/ml/logisticregression/inference1.toml"
+	learning_cfg = "cfg/ml/logisticregression/learning0.toml"
+	inference_cfg = "cfg/ml/logisticregression/inference0.toml"
 
 	[ml.extratrees]
-	learning_cfg = "cfg/ml/extratrees/learning1.toml"
-	inference_cfg = "cfg/ml/extratrees/inference1.toml"
+	learning_cfg = "cfg/ml/extratrees/learning0.toml"
+	inference_cfg = "cfg/ml/extratrees/inference0.toml"
+
+	[ml.time_test]
+	learning_cfg = "cfg/ml/time_test/learning0.toml"
+	inference_cfg = "cfg/ml/time_test/inference0.toml"
 
 	[ml.randomforest]
-	learning_cfg = "cfg/ml/randomforest/learning1.toml"
-	inference_cfg = "cfg/ml/randomforest/inference1.toml"
+	learning_cfg = "cfg/ml/randomforest/learning0.toml"
+	inference_cfg = "cfg/ml/randomforest/inference0.toml"

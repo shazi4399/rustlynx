@@ -31,7 +31,7 @@ debug = true
 
 [ml]
 phase = "inference"                      
-model = "extratrees"           
+model = "time_test"           
 
 	[ml.naivebayes]
 	learning_cfg = "cfg/ml/naivebayes/learning0.toml"
@@ -44,6 +44,10 @@ model = "extratrees"
 	[ml.extratrees]
 	learning_cfg = "cfg/ml/extratrees/learning0.toml"
 	inference_cfg = "cfg/ml/extratrees/inference0.toml"
+
+	[ml.time_test]
+	learning_cfg = "cfg/ml/time_test/learning0.toml"
+	inference_cfg = "cfg/ml/time_test/inference0.toml"
 
 	[ml.randomforest]
 	learning_cfg = "cfg/ml/randomforest/learning0.toml"
