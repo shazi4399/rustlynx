@@ -23,57 +23,63 @@ pub fn test_protocol(ctx: &mut Context) -> Result<(), Box<dyn Error>> {
 
     let tctx = init(&ctx.ml.cfg)?;
 
-    let test_size = tctx.test_size;
-    // let processed_data_com = discretize_into_ohe_batch(&util::transpose(data)?,bucket_size,ctx);
-    // let discretized_ohe_data = processed_data_com.0;
-    // let full_splits = processed_data_com.1;
-    // println!("discretized_ohe_data");
-    // // discretized_ohe_data.iter().for_each(|x| println!("{:?}", protocol::open(&x, ctx).unwrap()));
+    let initial_size = 1000;
 
-    let test_vec1 = vec![Wrapping(0); test_size];
-    let test_vec2 = vec![Wrapping(0); test_size];
+    let test_sizes = vec![10, 100, 1000, 10000, 100000];
 
-    //inequality
-    let start = Instant::now();
-    let res = protocol::batch_geq(&test_vec1, &test_vec2, ctx)?;
-    let geq_time = format!("{:?}", start.elapsed());
+    for i in test_sizes {
+
+        let test_size = initial_size * i;
+
+        let test_vec1 = vec![Wrapping(0); test_size];
+        let test_vec2 = vec![Wrapping(0); test_size];
     
-    //2toq
-    let start = Instant::now();
-    protocol::z2_to_zq(&res, ctx);
-    let z2_conversion_time = format!("{:?}", start.elapsed());
-
-    //minmax
-    let start = Instant::now();
-    protocol::minmax_batch(&vec![test_vec1], ctx);
-    let minmax_time = format!("{:?}", start.elapsed());
-
-    let result = format!("\n<><><><><><> SIZE: {} <><><><><><>\ninequality: {} 2toq: {} seconds, minmax: {} seconds", test_size, geq_time, z2_conversion_time, minmax_time);
-
-    println!("{}", result);
-
-    let path = "results_rf.txt";
-
-    let b = std::path::Path::new(path).exists();
-
-    if ctx.num.asymm == 0 {
-
-        if !b {
-            let f = File::create(path).expect("unable to create file");
-            let mut f = BufWriter::new(f);
-            write!(f, "{}\n", result).expect("unable to write");
-        } else {
-            let f = OpenOptions::new()
-            .write(true)
-            .append(true)
-            .open(path)
-            .expect("unable to open file");
-            let mut f = BufWriter::new(f);
-
-            write!(f, "{}\n", result).expect("unable to write");
+        println!("performing inequality for size of {}", test_size);
+        //inequality
+        let start = Instant::now();
+        let res = protocol::batch_geq(&test_vec1, &test_vec2, ctx)?;
+        let geq_time = format!("{:?}", start.elapsed());
+        
+        println!("performing conversion for size of {}", test_size);
+        //2toq
+        let start = Instant::now();
+        protocol::z2_to_zq(&res, ctx);
+        let z2_conversion_time = format!("{:?}", start.elapsed());
+    
+        println!("performing minmax for size of {}", test_size);
+        //minmax
+        let start = Instant::now();
+        protocol::minmax_batch(&vec![test_vec1], ctx);
+        let minmax_time = format!("{:?}", start.elapsed());
+    
+        let result = format!("\n<><><><><><> SIZE: {} <><><><><><>\ninequality: {} 2toq: {} seconds, minmax: {} seconds", test_size, geq_time, z2_conversion_time, minmax_time);
+    
+        println!("{}", result);
+    
+        let path = "results_rf.txt";
+    
+        let b = std::path::Path::new(path).exists();
+    
+        if ctx.num.asymm == 0 {
+    
+            if !b {
+                let f = File::create(path).expect("unable to create file");
+                let mut f = BufWriter::new(f);
+                write!(f, "{}\n", result).expect("unable to write");
+            } else {
+                let f = OpenOptions::new()
+                .write(true)
+                .append(true)
+                .open(path)
+                .expect("unable to open file");
+                let mut f = BufWriter::new(f);
+    
+                write!(f, "{}\n", result).expect("unable to write");
+            }
+    
         }
-
     }
+
 
     Ok(())
 }
