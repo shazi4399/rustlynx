@@ -73,7 +73,7 @@ pub fn rf_preprocess(data: &Vec<Vec<Wrapping<u64>>>, classes: &Vec<Vec<Wrapping<
     }
     let final_classes: Vec<Vec<Vec<Wrapping<u64>>>> = if decision_tree {vec![classes.clone()]} else {batch_matmul(&classes, &instance_selection.iter().map(|x| util::transpose(&x).unwrap()).collect(), ctx)?};
     println!("final_splits");
-    let final_splits = if decision_tree {vec![full_splits]} else {batch_matmul(&util::transpose(&full_splits)?, &column_major_arvs_unexp_row_maj, ctx)?.iter().map(|x| util::transpose(&x).unwrap()).collect()};
+    let final_splits = if decision_tree {vec![util::transpose(&full_splits)?]} else {batch_matmul(&util::transpose(&full_splits)?, &column_major_arvs_unexp_row_maj, ctx)?.iter().map(|x| util::transpose(&x).unwrap()).collect()};
     rfctx.tc.attribute_count = if decision_tree {attribute_count * bucket_size} else {bucket_size * feature_count};
     rfctx.tc.instance_count = if instance_select_count == 0 || instance_select_count >= instance_count {instance_count} else {instance_select_count};
 
