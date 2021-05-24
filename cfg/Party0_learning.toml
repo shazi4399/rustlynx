@@ -30,7 +30,7 @@ precision_int  = 52
 debug = true							  
 
 [ml]
-phase = "inference"                      
+phase = "learning"                      
 model = "time_test"           
 
 	[ml.naivebayes]

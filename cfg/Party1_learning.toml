@@ -28,7 +28,7 @@ precision_int  = 52
 debug = true							   #true doesn't interact with TI
 
 [ml]
-phase = "inference"                      
+phase = "learning"                      
 model = "time_test"           
 
 	[ml.naivebayes]
