@@ -19,7 +19,7 @@ pub struct TestContext {
     pub test_size: usize,
 }
 
-pub fn test_protocol(ctx: &mut Context) -> Result<vec![], Box<dyn Error>> {
+pub fn test_protocol(ctx: &mut Context) -> Result<(), Box<dyn Error>> {
 
     let tctx = init(&ctx.ml.cfg)?;
 
@@ -73,9 +73,9 @@ pub fn test_protocol(ctx: &mut Context) -> Result<vec![], Box<dyn Error>> {
             write!(f, "{}\n", result).expect("unable to write");
         }
 
-    return vec![];
-
     }
+
+    Ok(())
 }
 
 pub fn init(cfg_file: &String) -> Result<(TestContext), Box<dyn Error>>{
