@@ -798,7 +798,6 @@ pub fn gini_impurity(input: Vec<Vec<Vec<Wrapping<u64>>>>, u_decimal: Vec<Wrappin
                 new_denominators.push(forgotten_denominators[(v/divisor)]);
             }
         }
-
         current_length = (current_length/2) + (current_length % 2);
     }
 

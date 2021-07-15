@@ -913,7 +913,7 @@ pub fn discretize_into_ohe_batch(x_list: &Vec<Vec<Wrapping<u64>>>,
                            bin_count: usize,
                            ctx: &mut Context) -> (Vec<Vec<Wrapping<u64>>>,Vec<Vec<Wrapping<u64>>>) {
 
-    let asym = ctx.num.asymm;
+    // let asym = ctx.num.asymm;
 
     let cols = x_list.len();
     let rows = x_list[0].len();
@@ -939,14 +939,14 @@ pub fn discretize_into_ohe_batch(x_list: &Vec<Vec<Wrapping<u64>>>,
     // There are three options. Either (1) max,min are positive, (2) max is positive, min is negative, or (3) both max and min are negative.
     // Each operation requires a different way to calculate the range, so, make comparisons to determine which setting we are in
     
-    let smallest_neg_value = if asym == 0 {u64::MAX} else {0}; // This assumes Lambda = 64 TODO: Make more general
+    // let smallest_neg_value = if asym == 0 {u64::MAX} else {0}; // This assumes Lambda = 64 TODO: Make more general
 
-    let smallest_neg_array = vec![Wrapping(smallest_neg_value); mins_maxes.len()];
-    let pos_neg_minmaxes = z2_to_zq(&batch_geq(&mins_maxes.clone(), &smallest_neg_array, ctx).unwrap(), ctx).unwrap();
+    // let smallest_neg_array = vec![Wrapping(smallest_neg_value); mins_maxes.len()];
+    // let pos_neg_minmaxes = z2_to_zq(&batch_geq(&mins_maxes.clone(), &smallest_neg_array, ctx).unwrap(), ctx).unwrap();
 
     let (selected_mins, selected_maxes) = mins_maxes.split_at(mins_maxes.len()/2);
-    let (selected_mins_cmp_res, selected_maxes_cmp_res) = pos_neg_minmaxes.split_at(pos_neg_minmaxes.len()/2);
-    let (selected_mins_cmp_res, selected_maxes_cmp_res) = (selected_mins_cmp_res.to_vec(), selected_maxes_cmp_res.to_vec());
+    // let (selected_mins_cmp_res, selected_maxes_cmp_res) = pos_neg_minmaxes.split_at(pos_neg_minmaxes.len()/2);
+    // let (selected_mins_cmp_res, selected_maxes_cmp_res) = (selected_mins_cmp_res.to_vec(), selected_maxes_cmp_res.to_vec());
 
     let selected_ranges_1: Vec<Wrapping<u64>> = selected_mins.iter().zip(selected_maxes.iter()).map(|(x, y)| y - x).collect();
 
@@ -1044,7 +1044,7 @@ pub fn discretize_into_ohe_batch(x_list: &Vec<Vec<Wrapping<u64>>>,
     // println!("\nl_operands: {:?}", open_z2(&l_operands, ctx).unwrap());
     // println!("\nl_operands: {:?}", open_z2(&l_operands, ctx).unwrap());
     // println!("\nr_operands: {:?}", open_z2(&r_operands, ctx).unwrap());
-    let tempf = &multiply_z2(&l_operands, &r_operands, ctx).unwrap().iter().map(|x| x & 1).collect(); //WHY DOES THIS WORK??????
+    let tempf = &multiply_z2(&l_operands, &r_operands, ctx).unwrap().iter().map(|x| x & 1).collect(); //WHY DOES THIS WORK?????? ~Sam
     // println!("\n\ntempf: {:?}", open_z2(&tempf, ctx).unwrap());
     
     let f = z2_to_zq(&tempf, ctx).unwrap();

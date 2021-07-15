@@ -50,6 +50,9 @@ pub fn rf_preprocess(data: &Vec<Vec<Wrapping<u64>>>, classes: &Vec<Vec<Wrapping<
     // column_major_arvs_unexp.iter().for_each(|x| println!("{:?}", protocol::open(&x, ctx).unwrap()));
     println!("column_major_arvs");
     // column_major_arvs.iter().for_each(|x| println!("{:?}", protocol::open(&x, ctx).unwrap()));
+
+    // TODO: We are taking functionality from XT, but this is innapropiate. Functions like two_dim_to_3_dim should be shared in a common util module
+    // We should address this
     let column_major_arvs_unexp_row_maj: Vec<Vec<Vec<Wrapping<u64>>>> = two_dim_to_3_dim(&column_major_arvs_unexp, feature_count)?.iter().map(|x| util::transpose(&x).unwrap()).collect();
     let row_major_arvs: Vec<Vec<Vec<Wrapping<u64>>>> = two_dim_to_3_dim(&column_major_arvs, feature_count * bucket_size)?.iter().map(|x| util::transpose(&x).unwrap()).collect();
     // let row_major_arvs: Vec<Vec<Vec<Wrapping<u64>>>> = two_dim_to_3_dim(&column_major_arvs, feature_count)?;
@@ -58,7 +61,7 @@ pub fn rf_preprocess(data: &Vec<Vec<Wrapping<u64>>>, classes: &Vec<Vec<Wrapping<
     let final_row_major_arvs: Vec<Vec<Vec<Wrapping<u64>>>> =  column_major_arvs_grouped.iter().map(|x| util::transpose(&x).unwrap()).collect();
     println!("final_row_major_arvs");
     // final_row_major_arvs.iter().for_each(|x| x.iter().for_each(|y| println!("{:?}", protocol::open(&y, ctx).unwrap())));
-    let mut attribute_reduced_sets = if decision_tree {vec![util::transpose(&discretized_ohe_data)?]} else {batch_matmul(&discretized_ohe_data,&final_row_major_arvs, ctx)?};
+    let mut attribute_reduced_sets = if decision_tree {vec![util::transpose(&discretized_ohe_data)?]} else {batch_matmul(&discretized_ohe_data, &final_row_major_arvs, ctx)?};
     println!("attribute_reduced_sets");
     // attribute_reduced_sets.iter().for_each(|x| x.iter().for_each(|y| println!("{:?}", protocol::open(&y, ctx).unwrap())));
     let instance_selection = instance_selection(instance_count, instance_select_count, tree_count, seed, ctx)?;
@@ -82,6 +85,7 @@ pub fn rf_preprocess(data: &Vec<Vec<Wrapping<u64>>>, classes: &Vec<Vec<Wrapping<
 
 }
 
+// From a narrative perspective, these values are sellected by the TI. If the TI is unavailable, this would have to be done obliviously between the parties
 fn instance_selection(total_instances: usize, instances_to_select: usize, tree_count: usize, seed: usize, ctx: &Context) -> Result<Vec<Vec<Vec<Wrapping<u64>>>>, Box<dyn Error>> {
     let mut ret = vec![vec![vec![Wrapping(0); total_instances]; instances_to_select]; tree_count];
     if ctx.num.asymm == 0 {

@@ -72,14 +72,13 @@ Result<(Vec<Vec<Vec<Wrapping<u64>>>>, Vec<Vec<Vec<Wrapping<u64>>>>, Vec<Vec<Vec<
         mins_concat.extend(&mins);
         maxes_concat.extend(&maxes);
     }
+    
     mins_concat.append(&mut maxes_concat); //consolidate into mins, now mins represents both mins and maxes
     //let split_select = SystemTime::now();
     let mul_min_max = multiply(&column_major_arvs_flat_dup, &mins_concat, ctx)?;
     // println!("mul_min_max: {:?}", open(&mul_min_max, ctx));
     let selected_vals: Vec<Wrapping<u64>> = mul_min_max.chunks(attribute_count).map(|x| x.iter().fold(Wrapping(0), |acc, y| acc + y)).collect();
     // println!("selected_vals: {:?}", open(&selected_vals, ctx));
-
-
 
 
     // ADDED BY DAVID, NEEDS TO BE TESTED!
@@ -132,7 +131,7 @@ Result<(Vec<Vec<Vec<Wrapping<u64>>>>, Vec<Vec<Vec<Wrapping<u64>>>>, Vec<Vec<Vec<
     //     selected_ranges.push(x + y + z);
     // }
 
-    for (x) in izip!(&selected_ranges_1) {
+    for x in izip!(&selected_ranges_1) {
         selected_ranges.push(*x);
     }
 
