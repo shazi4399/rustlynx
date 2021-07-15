@@ -6,6 +6,7 @@ use super::super::decision_tree;
 use crate::computing_party::protocol;
 use super::super::inference::classify_softvote;
 use super::super::inference::classify_argmax;
+use super::super::inference::count_dummy_nodes;
 use std::fs::OpenOptions;
 use std::io::{BufWriter, Write};
 use std::time::{Instant};
@@ -41,8 +42,10 @@ pub fn run(ctx: &mut Context) -> Result<(), Box<dyn Error>> {
     }
     let argmax_results = classify_argmax(&rev_trees, &test_data_open, &test_lab_open_trunc, &ic, ctx.num.precision_int, ctx.num.precision_frac)?;
     let softvote_results = classify_softvote(&rev_trees, &test_data_open, &test_lab_open_trunc, &ic, ctx.num.precision_int, ctx.num.precision_frac)?;
+    let dummy_nodes = count_dummy_nodes(&rev_trees, &test_data_open, &test_lab_open_trunc, &ic, ctx.num.precision_int, ctx.num.precision_frac)?;
 
-    let result = format!("argmax: {} %, softvote: {} %, {:?} seconds", argmax_results * 100.0, softvote_results * 100.0, duration);
+    let result = format!("argmax: {} %, softvote: {} %, {:?} seconds - real nodes: {}, dummy nodes {}, ratio: {}", 
+    argmax_results * 100.0, softvote_results * 100.0, duration, dummy_nodes.0, dummy_nodes.1, dummy_nodes.0 as f64 / dummy_nodes.1 as f64);
 
     println!("{}", result);
 

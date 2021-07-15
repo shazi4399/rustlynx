@@ -99,7 +99,7 @@ pub fn classify_softvote(trees: &Vec<Vec<TreeNode>>, transactions_wrapping: &Vec
 
 
     pub fn classify_argmax(trees: &Vec<Vec<TreeNode>>, transactions_wrapping: &Vec<Vec<Wrapping<u64>>>, labels: &Vec<u64>, 
-        infer_ctx: &InferenceContext, precision_int: usize, precision_frac: usize) -> Result<f64, Box<dyn Error>> {
+        infer_ctx: &InferenceContext, precision_int: usize, precision_frac: usize) -> Result<f64, Box<dyn Error>> {        
 
         let mut transactions = vec![];
 
@@ -176,3 +176,43 @@ pub fn classify_softvote(trees: &Vec<Vec<TreeNode>>, transactions_wrapping: &Vec
 
         Ok((correctly_classified as f64) / (total_rows as f64))
     }
+
+    
+pub fn count_dummy_nodes(trees: &Vec<Vec<TreeNode>>, transactions_wrapping: &Vec<Vec<Wrapping<u64>>>, labels: &Vec<u64>, 
+    infer_ctx: &InferenceContext, precision_int: usize, precision_frac: usize) -> Result<(usize, usize), Box<dyn Error>> {
+        let depth = infer_ctx.max_depth - 1;
+        let bin_count = infer_ctx.bin_count;
+
+        let mut total_valid_nodes = 0;
+        
+        let mut total_nodes_ensemble = trees.len() * (usize::pow(bin_count, depth as u32) + 1);
+        // Works as long as depth is not 0
+        let total_nodes = usize::pow(bin_count, depth as u32) + 1;
+
+        for tree in trees {
+            
+            let mut valid_nodes = total_nodes;
+
+            let mut counter = 0;
+
+            for d in 0.. depth {
+
+                let num_of_nodes = usize::pow(bin_count, d as u32);
+                counter += num_of_nodes;
+
+                for j in 0.. num_of_nodes {
+                    let current_node = counter + j;
+                    // if valid
+                    if tree[current_node].frequencies[0].0 != 0 || tree[current_node].frequencies[1].0 != 0 {
+                        valid_nodes -= usize::pow(bin_count, (depth - d) as u32);
+                    }
+                }   
+
+            }
+
+            total_valid_nodes += valid_nodes;
+
+        }
+
+    Ok((total_valid_nodes, total_nodes_ensemble - total_valid_nodes))
+}
