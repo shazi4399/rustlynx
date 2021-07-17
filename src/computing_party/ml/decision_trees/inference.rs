@@ -195,7 +195,7 @@ pub fn count_dummy_nodes(trees: &Vec<Vec<TreeNode>>, transactions_wrapping: &Vec
 
             let mut counter = 0;
 
-            for d in 0.. depth {
+            for d in 0.. depth - 1 {
 
                 let num_of_nodes = usize::pow(bin_count, d as u32);
                 counter += num_of_nodes;
