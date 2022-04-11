@@ -9,11 +9,57 @@ use std::error::Error;
 use std::num::Wrapping;
 use std::cmp;
 use std::sync::{Arc, RwLock};
-use std::time::{Duration, Instant};
-use std::{time};
-// use std::time::SystemTime;
+
+//pub fn share(x: &Vec<Wrapping<u64>>, ctx &mut Context) -> Result<Vec<Wrapping<u64>>, Box<dyn Error>> {}
+
+pub fn clipped_relu(x: &Vec<Wrapping<u64>>, ctx: &mut Context) -> Result<Vec<Wrapping<u64>>, Box<dyn Error>> {
+    let half = Wrapping(ctx.num.asymm) * util::float_to_ring(0.5, ctx.num.precision_frac);
+    let mut l_op = vec![-half; x.len()]; 
+    l_op.append(&mut x.clone());
+    let mut r_op = x.clone(); 
+    r_op.append(&mut vec![half; x.len()]);
+    let l_op = z2_to_zq(&batch_geq(&l_op, &r_op, ctx)?, ctx)?;
+    let mut r_op = x.iter().map(|x| -x - half).collect::<Vec<Wrapping<u64>>>(); 
+    r_op.append(&mut x.iter().map(|x| -x + half).collect::<Vec<Wrapping<u64>>>());
+   
+    let thresholds = multiply(&l_op, &r_op, ctx)?;
+    let lt_neg_half = thresholds[..x.len()].to_vec();
+    let geq_half = thresholds[x.len()..].to_vec();
+
+    // (x + 1/2) + x_lt_neg_one_hald * (-x - 1/2) + x_geq_one_half * (-x + 1/2)
+    Ok(x.iter().zip(lt_neg_half.iter().zip(geq_half.iter()))
+        .map(|(x, (lt, geq))| x + half + lt + geq)
+        .collect()
+    )
+    
+}
+
+/*TODO: INSECURE*/
+pub fn inverse_square_root(x: &Vec<Wrapping<u64>>, ctx: &mut Context) -> Result<Vec<Wrapping<u64>>, Box<dyn Error>> {
+    let x: Vec<Wrapping<u64>> = open(&x, ctx)?;
+    let x: Vec<f64> = x.iter().map(|x| util::ring_to_float(*x, ctx.num.precision_frac)).collect();
+    let x: Vec<f64> = x.iter().map(|x| 1f64 / f64::sqrt(*x)).collect();
+    let x: Vec<Wrapping<u64>> = x.iter().map(|x| util::float_to_ring(*x, ctx.num.precision_frac)).collect();
+    
+    if ctx.num.asymm == 1 {
+        return Ok(vec![Wrapping(0u64) ; x.len()]);
+    }
+
+    Ok(x)
+}
 
 
+
+pub fn normalize(x: &Vec<Vec<Wrapping<u64>>>, ctx: &mut Context) -> Result<Vec<Vec<Wrapping<u64>>>, Box<dyn Error>> {
+    
+    let x_sum_of_squares: Vec<Wrapping<u64>> = x.iter().map(|c| multiply(&c, &c, ctx).unwrap().iter().sum()).collect();
+    let x_inverse_square_roots: Vec<Wrapping<u64>> = inverse_square_root(&x_sum_of_squares, ctx)?;
+    let x: Vec<Vec<Wrapping<u64>>> = x.iter()
+        .zip(x_inverse_square_roots.iter())
+        .map(|(c, s)| multiply(&c, &vec![*s ; c.len()], ctx).unwrap()).collect();
+    
+    Ok(x)    
+}
 
 /*
     Input: two vectors x, y of n secret shares in Z_2^64
@@ -956,7 +1002,7 @@ pub fn discretize_into_ohe_batch(x_list: &Vec<Vec<Wrapping<u64>>>,
     //     selected_ranges.push(x + y + z);
     // }
 
-    for (x) in izip!(&selected_ranges_1) {
+    for x in izip!(&selected_ranges_1) {
         ranges.push(*x);
     }
 
@@ -1245,26 +1291,23 @@ fn shared_or(
     Ok(res)
 }
 
-pub fn batch_matmul(a: &Vec<Vec<Wrapping<u64>>>, b: &Vec<Vec<Vec<Wrapping<u64>>>>, ctx: &mut Context) -> Result<Vec<Vec<Vec<Wrapping<u64>>>>, Box<dyn Error>> {
-
-    //println!("batch matmul");
+pub fn batch_matmul(u: &Vec<Vec<Wrapping<u64>>>, e: &Vec<Wrapping<u64>>, b: &Vec<Vec<Vec<Wrapping<u64>>>>, ctx: &mut Context) -> Result<Vec<Vec<Vec<Wrapping<u64>>>>, Box<dyn Error>> {
+    let u = u.clone();
 
     let asymm = Wrapping(ctx.num.asymm);
-	let m = a.len();
-	let n = a[0].len();
+	let m = u.len();
+	let n = u[0].len();
 	let r = b[0][0].len();
     let k = b.len();
 
-    // TODO: replace with real correlated randomness
-    let u = vec![vec![Wrapping(0u64); n]; m];
     let v = vec![vec![vec![Wrapping(0u64); r]; n]; k];
     let z = vec![vec![vec![Wrapping(0u64); r]; m]; k];
     
-    let mut e: Vec<Wrapping<u64>> = a.iter().flatten().zip(u.iter().flatten()).map(|(aa, uu)| aa - uu).collect();
     let mut f: Vec<Wrapping<u64>> = b.iter().flatten().flatten().zip(v.iter().flatten().flatten()).map(|(bb, vv)| bb - vv).collect();
-    e.append(&mut f);
 
-    let ef = open(&e, ctx)?;
+    let mut ef = e.clone();
+    f = open(&f, ctx)?;
+    ef.append(&mut f);
 
     let lock = Arc::new(RwLock::new( (u, v, z, ef) ));
 
@@ -1282,7 +1325,6 @@ pub fn batch_matmul(a: &Vec<Vec<Wrapping<u64>>>, b: &Vec<Vec<Vec<Wrapping<u64>>>
             let mut mat_subset = vec![vec![vec![Wrapping(0u64); r]; m]; ub - lb];
             for kk in lb..ub {
                 for mm in 0..m {
-                    //println!("{} <> {}   -   {}", m, mm, m * r * ub);
                     for rr in 0..r {
                         mat_subset[kk - lb][mm][rr] = (0..n)
                             .fold(Wrapping(0u64), |acc, nn| acc +
@@ -1297,19 +1339,13 @@ pub fn batch_matmul(a: &Vec<Vec<Wrapping<u64>>>, b: &Vec<Vec<Vec<Wrapping<u64>>>
 
             mat_subset
         });   
-        //println!("push");
         t_handles.push(t_handle);
     }
 
-    //println!("joining");
-    let mut result = t_handles.into_iter()
+    let result = t_handles.into_iter()
     .map(|t| t.join().unwrap())
     .flatten()
     .collect::<Vec<Vec<Vec<Wrapping<u64>>>>>();
-    //println!("joined");
-
-
-    result.shrink_to_fit();
 
     Ok(result)
 }

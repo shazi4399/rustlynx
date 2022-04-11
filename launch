@@ -1,0 +1,4 @@
+export RUST_BACKTRACE=1
+cargo build --release
+cargo run cfg=./cfg/Party0_learning.toml &
+cargo run cfg=./cfg/Party1_learning.toml > /dev/null 2>&1

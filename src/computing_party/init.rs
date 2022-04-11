@@ -86,7 +86,7 @@ fn parse_ml_settings(phase: &String, model: &String, settings: &config::Config) 
 	let callable: Option<fn(&mut Context) -> Result<(), Box<dyn Error>>>;
 	let cfg: String;
 
-	if model == "logisticregression" {
+	if model == "logistic_regression" {
 		ml_model = Some(MLModel::LogisticRegression);
 		if phase == "learning" {
 			ml_phase = Some(MLPhase::Learning);
@@ -109,41 +109,6 @@ fn parse_ml_settings(phase: &String, model: &String, settings: &config::Config) 
 			ml_phase = Some(MLPhase::Inference);
 			cfg = settings.get_str("ml.naivebayes.inference_cfg")?;
 			callable = Some(super::ml::naive_bayes::inference::run);
-		} else {
-			return Err("invalid ml.phase".into())
-		}	
-	} else if model == "extratrees" {
-		ml_model = Some(MLModel::ExtraTrees);
-		if phase == "learning" {
-			ml_phase = Some(MLPhase::Learning);
-			cfg = settings.get_str("ml.extratrees.learning_cfg")?;
-			callable = Some(super::ml::decision_trees::extra_trees::learning::run);
-		} else if phase == "inference" {
-			ml_phase = Some(MLPhase::Inference);
-			cfg = settings.get_str("ml.extratrees.inference_cfg")?;
-			callable = Some(super::ml::decision_trees::extra_trees::inference::run);
-		} else {
-			return Err("invalid ml.phase".into())
-		}	
-	} else if model == "randomforest" {
-		ml_model = Some(MLModel::RandomForest);
-		if phase == "learning" {
-			ml_phase = Some(MLPhase::Learning);
-			cfg = settings.get_str("ml.randomforest.learning_cfg")?;
-			callable = Some(super::ml::decision_trees::random_forest::learning::run);
-		} else if phase == "inference" {
-			ml_phase = Some(MLPhase::Inference);
-			cfg = settings.get_str("ml.randomforest.inference_cfg")?;
-			callable = Some(super::ml::decision_trees::random_forest::inference::run);
-		} else {
-			return Err("invalid ml.phase".into())
-		}	
-	} else if model == "time_test" {
-		ml_model = Some(MLModel::TimeTest);
-		if phase == "learning" {
-			ml_phase = Some(MLPhase::Learning);
-			cfg = settings.get_str("ml.time_test.learning_cfg")?;
-			callable = Some(super::ml::decision_trees::test_DT_protocols::protocols::test_protocol);
 		} else {
 			return Err("invalid ml.phase".into())
 		}	
@@ -227,8 +192,6 @@ pub fn connection(ctx: &mut Context) -> Result<(), Box<dyn Error>> {
 			loop {
 				match listener.accept() {
 					Ok((stream, _addr)) => {
-						// println!("rustlynx::computing_party::init::connection:thread{}: TcpListener {:?} established connection with {:?}",
-						// 	i, &listener.local_addr(), &addr);
 						return stream
 					},
 					Err(_) => continue,
@@ -241,8 +204,6 @@ pub fn connection(ctx: &mut Context) -> Result<(), Box<dyn Error>> {
 			loop {
 				match TcpStream::connect(client_s_addr) {
 					Ok(stream) => {
-						// println!("rustlynx::computing_party::init::connection:thread{}: TcpClient {:?} established connection with {:?}",
-						// i, &client_s_addr, &stream.local_addr());
 						return stream
 					},
 					Err(_) => { 
@@ -273,32 +234,3 @@ pub fn connection(ctx: &mut Context) -> Result<(), Box<dyn Error>> {
 	Ok(())
 }
 
-
-
-
-	// let ti_s_addr = if ctx.net.ti.is_some() {
-	// 	Some(SocketAddr::new(
-	// 		IpAddr::V4(ctx.net.ti.as_ref().unwrap().ip.as_ref().unwrap().clone()), 
-	// 		ctx.net.ti.as_ref().unwrap().portrange.0))
-	// } else {
-	// 	None
-	// };
-
-	// let ti_o_stream_handle = if ctx.network.ti.is_some() {
-	// 	Some(thread::spawn(move || { try_connect(&ti_s_addr.unwrap()) } ))
-	// } else {
-	// 	None
-	// };
-
-	// ctx.network.external.tcp = Some(IoStream{ 
-	// 	i_stream: i_stream_handle.join().unwrap(),
-	// 	o_stream: o_stream_handle.join().unwrap() });
-
-	// if ctx.network.ti.is_some() {
-
-	// 	let stream = ti_o_stream_handle.unwrap().join().unwrap();
-	// 	ctx.network.ti.as_mut().unwrap().tcp = Some(IoStream {
-	// 		o_stream: stream.try_clone().unwrap(),
-	// 		i_stream: stream.try_clone().unwrap()
-	// 	});
-	// }

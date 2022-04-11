@@ -329,29 +329,19 @@ pub fn transpose(mat: &Vec<Vec<Wrapping<u64>>>) -> Result<Vec<Vec<Wrapping<u64>>
 
 }
 
-/**
- * Converts an opened u64 to it's corresponding float.
- */
-pub fn ring_to_float(vec: &Vec<Wrapping<u64>>, precision_int: usize, precision_frac: usize) 
-    -> Result<Vec<f64>, Box<dyn Error>> {
 
-        let mut result = vec![];
-
-        let bit_pos_msb = precision_int + precision_frac + 1;
-        let complement = Wrapping(2u64.pow(bit_pos_msb as u32));
-
-        for val in vec {
-            let is_negative = (val.0 >> bit_pos_msb) == 1;
-
-            if is_negative {
-
-                result.push( - ((complement - (val + complement)).0 as f64) / 2f64.powf(precision_frac as f64))
-
-            } else {result.push(val.0 as f64 / 2f64.powf(precision_frac as f64))}
-
-        }
-
-        result.shrink_to_fit();
-
-        Ok(result)
+pub fn float_to_ring(x: f64, precision: usize) -> Wrapping<u64> {
+    if x >= 0.0 {
+        return Wrapping((x * 2f64.powf(precision as f64)) as u64);
     }
+
+    -Wrapping(((-x) * 2f64.powf(precision as f64)) as u64)
+}
+
+pub fn ring_to_float(x: Wrapping<u64>, precision: usize) -> f64 {
+    if x.0 >> 63 == 0 {
+        return (x.0 as f64) / 2f64.powf(precision as f64);
+    }
+
+    -((-x).0 as f64) / 2f64.powf(precision as f64)
+}

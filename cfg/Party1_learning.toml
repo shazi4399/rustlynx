@@ -1,12 +1,12 @@
 [net]
 	[net.local]
 	party_id   = 1
-	ip         = "10.0.0.32"
+	ip         = "127.0.0.1"
 	portrange  = "5000:6000"
 
 	[net.extern]
 	party_id  = 0
-	ip        = "168.62.167.8"
+	ip        = "127.0.0.1"
 	portrange = "6000:7000"
 
 	[net.ti]
@@ -16,8 +16,8 @@
 [sys]
 	[sys.threads]
 	optimise = false
-	offline = 48
-	online = 24
+	offline = 8
+	online = 4
 	
 
 [numbersystem]
@@ -29,7 +29,7 @@ debug = true							   #true doesn't interact with TI
 
 [ml]
 phase = "learning"                      
-model = "extratrees"           
+model = "logistic_regression"           
 
 	[ml.naivebayes]
 	learning_cfg = "cfg/ml/naivebayes/learning0.toml"
