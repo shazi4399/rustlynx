@@ -5,6 +5,7 @@ use super::super::super::Context;
 use super::super::super::super::util;
 use super::super::super::protocol;
 use super::super::super::super::io;
+use std::fmt;
 
 #[derive(Default)]
 struct LRLearningContext {
@@ -17,11 +18,25 @@ struct LRLearningContext {
     n_iterations: usize,
 }
 
+impl fmt::Display for LRLearningContext {
+     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+         
+         write!(f, "rustlynx::computing_party::ml::logistic_regression::learning::LRLearningContext:
+     n_attributes.:{}
+     n_instances..:{}
+     n_iterations.:{}
+     learning_rate:{:?}",
+        self.n_attributes, self.n_instances, self.n_iterations, self.learning_rate)   
+     }       
+ }
+
 pub fn run(ctx: &mut Context) -> Result<(), Box<dyn Error>> {
     
     let mut lr = init(ctx)?;
-    
+
     println!("rustlynx::computing_party::ml::logistic_regression::learning::run: done parsing cfg");
+    println!("{}", lr);
+    
     let runtime = SystemTime::now();
 
     // lr.data = protocol::normalize(&lr.data, ctx)?;
@@ -59,10 +74,10 @@ pub fn run(ctx: &mut Context) -> Result<(), Box<dyn Error>> {
         println!("_____________________________________");
     }
     
-    println!("training complete.........: {} ms", runtime.elapsed()?.as_millis());
-    let parameters = protocol::open(&vec![], ctx)?;
 
-    println!("rustlynx::computing_party::ml::logistic_regression::learning::run: outputting model parameters to file");
+    println!("training complete.........: {} ms", runtime.elapsed()?.as_millis());
+    let parameters = protocol::open(&lr.weights, ctx)?;
+    //println!("rustlynx::computing_party::ml::logistic_regression::learning::run: outputting model parameters to file");
     Ok(())
 }
 
