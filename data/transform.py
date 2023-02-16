@@ -18,7 +18,7 @@ df['cohort_type'] = df['cohort_type'].apply(lambda x: 1 if x == 'Wild Type' else
 df = df.apply(lambda x: pd.Series(list(map(float_to_fixed_point, x))))
 
 """ Secret Share """
-share0 = pd.DataFrame(np.random.randint(0, (1<<BITLENGTH)-1,size=df.shape,dtype=np.uint64),columns=list(df))
+share0 = pd.DataFrame(np.random.randint(0, (1<<BITLENGTH)-1, size=df.shape, dtype=np.uint64),columns=list(df))
 share1 = (df - share0) % (1 << BITLENGTH)
 share1 = share1.apply(lambda x : pd.to_numeric(x, downcast='unsigned'))
 

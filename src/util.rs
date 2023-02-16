@@ -307,7 +307,6 @@ pub fn hex(val: u128) -> String {
 pub fn truncate(x: Wrapping<u64>, decimal_precision : usize, asymm: u64) -> Wrapping<u64> {
 
     if asymm == 0 {
-
         return  - Wrapping( ( - x).0 >> decimal_precision )  
     }
 

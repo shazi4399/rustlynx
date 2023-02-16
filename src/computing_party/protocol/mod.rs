@@ -149,8 +149,11 @@ fn multiply_single_thread(x: &Vec<Wrapping<u64>>, y: &Vec<Wrapping<u64>>, ctx: &
     } else {
         constants::TEST_CR_WRAPPING_U64_1
     };
-	let triples = vec![ (Wrapping(u), Wrapping(v), Wrapping(w)) ; len];
-
+        let triples = vec![ (Wrapping(u), Wrapping(v), Wrapping(w)) ; len];
+//    1. Obtain uniformly random sharings [u],[v] and [w] = [u * v]
+//    2. Additively hide [x] and [y] with appropriately sized [u] and [v]
+//    3. Open ([delta] = [x] - [u]) and ([epsilon] = [y] - [v])
+//    4. Return [z] = [w] + (delta * [v]) + ([u] * epsilon) + (epsilon * delta)
 	let mut d_share: Vec<Wrapping<u64>> = x.iter().zip(&triples).map(|(&x, (u, _v, _w))| x - u ).collect();  
 	let mut e_share: Vec<Wrapping<u64>> = y.iter().zip(&triples).map(|(&y, (_u, v, _w))| y - v ).collect();  
 	d_share.append(&mut e_share); 
@@ -171,7 +174,7 @@ fn multiply_single_thread(x: &Vec<Wrapping<u64>>, y: &Vec<Wrapping<u64>>, ctx: &
 */
 pub fn open(vec: &Vec<Wrapping<u64>>, ctx: &mut Context) 
     -> Result<Vec<Wrapping<u64>>, Box<dyn Error>> {
-    //println!("open");
+    println!("open");
     let len = vec.len();
     let mut t_handles: Vec<thread::JoinHandle<Vec<Wrapping<u64>>>> = Vec::new();
     
@@ -215,20 +218,20 @@ pub fn open(vec: &Vec<Wrapping<u64>>, ctx: &mut Context)
                 };
             }
         
-            //println!("performing operation for thread {}", i);
+            println!("performing operation for thread {}", i);
             let other: Vec<Wrapping<u64>> = unsafe { rx_handle.join().unwrap().align_to().1.to_vec() };
-            //println!("operation for thread {} complete", i);
+            println!("operation for thread {} complete", i);
 
             subvec.iter().zip(&other).map(|(&x, &y)| x + y).collect()
         });
 
-        //println!("pushing onto open");
+        println!("pushing onto open");
         t_handles.push(t_handle);
     }
 
-    //println!("joining in open");
+    println!("joining in open");
     let mut subvecs: Vec<Vec<Wrapping<u64>>> = t_handles.into_iter().map(|t| t.join().unwrap()).collect();
-    //println!("joined in open");
+    println!("joined in open");
     let mut result: Vec<Wrapping<u64>> = Vec::new(); 
     
     for i in 0..ctx.sys.threads.online {

@@ -10,7 +10,7 @@ pub mod ml;
 
 pub fn run( cfg_file : String ) -> Result<(), Box<dyn Error>> {
 
-	let mut ctx = 
+	let mut ctx =
 		init::runtime_context( &cfg_file )?;
 		init::connection( &mut ctx )?;
 
@@ -19,6 +19,7 @@ pub fn run( cfg_file : String ) -> Result<(), Box<dyn Error>> {
 		Some(callable) => callable(&mut ctx),
 		_ => Err("unexpected failure while calling ml model".into()),
 	}
+
 }
 
 #[derive(Debug, Default, Clone)]

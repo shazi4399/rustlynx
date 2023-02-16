@@ -39,7 +39,7 @@ pub fn run(ctx: &mut Context) -> Result<(), Box<dyn Error>> {
     
     let runtime = SystemTime::now();
 
-    // lr.data = protocol::normalize(&lr.data, ctx)?;
+    lr.data = protocol::normalize(&lr.data, ctx)?;
     let data_mask = vec![vec![Wrapping(0u64); lr.n_instances]; lr.n_attributes]; /* TODO: Get from TI instead */
     let masked_data = protocol::open(
         &lr.data.iter().flatten().zip(data_mask.iter().flatten()).map(|(a, u)| a - u).collect(), 
@@ -77,7 +77,8 @@ pub fn run(ctx: &mut Context) -> Result<(), Box<dyn Error>> {
 
     println!("training complete.........: {} ms", runtime.elapsed()?.as_millis());
     let parameters = protocol::open(&lr.weights, ctx)?;
-    //println!("rustlynx::computing_party::ml::logistic_regression::learning::run: outputting model parameters to file");
+    println!("model is :{:?}!!!", parameters);
+    println!("rustlynx::computing_party::ml::logistic_regression::learning::run: outputting model parameters to file");
     Ok(())
 }
 

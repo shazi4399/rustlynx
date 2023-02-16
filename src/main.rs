@@ -8,5 +8,4 @@ fn main() -> Result<(), Box<dyn Error>> {
 	let args = rustlynx::init::argparse( env::args().collect() )?;
 
 	rustlynx::run( args )
-
 }
