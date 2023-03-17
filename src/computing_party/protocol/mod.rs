@@ -14,14 +14,14 @@ use std::sync::{Arc, RwLock};
 
 pub fn clipped_relu(x: &Vec<Wrapping<u64>>, ctx: &mut Context) -> Result<Vec<Wrapping<u64>>, Box<dyn Error>> {
     let half = Wrapping(ctx.num.asymm) * util::float_to_ring(0.5, ctx.num.precision_frac);
-    let mut l_op = vec![-half; x.len()]; 
+    let mut l_op = vec![-half; x.len()];
     l_op.append(&mut x.clone());
-    let mut r_op = x.clone(); 
+    let mut r_op = x.clone();
     r_op.append(&mut vec![half; x.len()]);
     let l_op = z2_to_zq(&batch_geq(&l_op, &r_op, ctx)?, ctx)?;
-    let mut r_op = x.iter().map(|x| -x - half).collect::<Vec<Wrapping<u64>>>(); 
+    let mut r_op = x.iter().map(|x| -x - half).collect::<Vec<Wrapping<u64>>>();
     r_op.append(&mut x.iter().map(|x| -x + half).collect::<Vec<Wrapping<u64>>>());
-   
+
     let thresholds = multiply(&l_op, &r_op, ctx)?;
     let lt_neg_half = thresholds[..x.len()].to_vec();
     let geq_half = thresholds[x.len()..].to_vec();
@@ -31,7 +31,7 @@ pub fn clipped_relu(x: &Vec<Wrapping<u64>>, ctx: &mut Context) -> Result<Vec<Wra
         .map(|(x, (lt, geq))| x + half + lt + geq)
         .collect()
     )
-    
+
 }
 
 /*TODO: INSECURE*/
@@ -40,7 +40,7 @@ pub fn inverse_square_root(x: &Vec<Wrapping<u64>>, ctx: &mut Context) -> Result<
     let x: Vec<f64> = x.iter().map(|x| util::ring_to_float(*x, ctx.num.precision_frac)).collect();
     let x: Vec<f64> = x.iter().map(|x| 1f64 / f64::sqrt(*x)).collect();
     let x: Vec<Wrapping<u64>> = x.iter().map(|x| util::float_to_ring(*x, ctx.num.precision_frac)).collect();
-    
+
     if ctx.num.asymm == 1 {
         return Ok(vec![Wrapping(0u64) ; x.len()]);
     }
@@ -51,24 +51,24 @@ pub fn inverse_square_root(x: &Vec<Wrapping<u64>>, ctx: &mut Context) -> Result<
 
 
 pub fn normalize(x: &Vec<Vec<Wrapping<u64>>>, ctx: &mut Context) -> Result<Vec<Vec<Wrapping<u64>>>, Box<dyn Error>> {
-    
+
     let x_sum_of_squares: Vec<Wrapping<u64>> = x.iter().map(|c| multiply(&c, &c, ctx).unwrap().iter().sum()).collect();
     let x_inverse_square_roots: Vec<Wrapping<u64>> = inverse_square_root(&x_sum_of_squares, ctx)?;
     let x: Vec<Vec<Wrapping<u64>>> = x.iter()
         .zip(x_inverse_square_roots.iter())
         .map(|(c, s)| multiply(&c, &vec![*s ; c.len()], ctx).unwrap()).collect();
-    
-    Ok(x)    
+
+    Ok(x)
 }
 
 /*
     Input: two vectors x, y of n secret shares in Z_2^64
     Output: one vector z_i = {x_i * y_i} of n secret shares in Z_2^64
     CR: 2n Beaver Triples in Z_2^64
-    Threads: local: ctx.sys.threads.online, online: 2*ctx.sys.threads.online 
+    Threads: local: ctx.sys.threads.online, online: 2*ctx.sys.threads.online
 */
-pub fn multiply(x: &Vec<Wrapping<u64>>, y: &Vec<Wrapping<u64>>, ctx: &mut Context) 
-    -> Result<Vec<Wrapping<u64>>, Box<dyn Error>> {
+pub fn multiply(x: &Vec<Wrapping<u64>>, y: &Vec<Wrapping<u64>>, ctx: &mut Context)
+                -> Result<Vec<Wrapping<u64>>, Box<dyn Error>> {
 
     assert!(x.len() == y.len());
     let len = x.len();
@@ -79,7 +79,7 @@ pub fn multiply(x: &Vec<Wrapping<u64>>, y: &Vec<Wrapping<u64>>, ctx: &mut Contex
     } else {
         constants::TEST_CR_WRAPPING_U64_1
     };
-	let triples = vec![ (Wrapping(u), Wrapping(v), Wrapping(w)) ; len];
+    let triples = vec![ (Wrapping(u), Wrapping(v), Wrapping(w)) ; len];
 
     let mut t_handles: Vec<thread::JoinHandle<Vec<Wrapping<u64>>>> = Vec::new();
     for i in 0..ctx.sys.threads.online {
@@ -92,22 +92,22 @@ pub fn multiply(x: &Vec<Wrapping<u64>>, y: &Vec<Wrapping<u64>>, ctx: &mut Contex
         let len = ub - lb;
 
         let istream = ctx.net.external.tcp.as_ref().unwrap()[i].istream.try_clone()
-		    .expect("rustlynx::computing_party::protocol::multiply: failed cloning tcp istream");
-	    let ostream = ctx.net.external.tcp.as_ref().unwrap()[i].ostream.try_clone()
-		    .expect("rustlynx::computing_party::protocol::multiply: failed cloning tcp ostream");
+            .expect("rustlynx::computing_party::protocol::multiply: failed cloning tcp istream");
+        let ostream = ctx.net.external.tcp.as_ref().unwrap()[i].ostream.try_clone()
+            .expect("rustlynx::computing_party::protocol::multiply: failed cloning tcp ostream");
 
         let t_handle = thread::spawn(move || {
 
-            let mut d_share: Vec<Wrapping<u64>> = 
+            let mut d_share: Vec<Wrapping<u64>> =
                 x_sub.iter().zip(&triple_sub).map(|(&x, (u, _v, _w))| x - u ).collect();
-            let mut e_share: Vec<Wrapping<u64>> = 
-                y_sub.iter().zip(&triple_sub).map(|(&y, (_u, v, _w))| y - v ).collect();  
-            
-            d_share.append(&mut e_share); 
+            let mut e_share: Vec<Wrapping<u64>> =
+                y_sub.iter().zip(&triple_sub).map(|(&y, (_u, v, _w))| y - v ).collect();
+
+            d_share.append(&mut e_share);
             let de_shares = d_share;
 
             let de = open_single_thread(&de_shares, istream, ostream).unwrap();
-        
+
             triple_sub.iter().zip(de[..len].to_vec().iter().zip(&de[len..].to_vec()))
                 .map(|((u, v, w), (d, e))| w + d*v + u*e + asymm*d*e)
                 .collect()
@@ -117,10 +117,10 @@ pub fn multiply(x: &Vec<Wrapping<u64>>, y: &Vec<Wrapping<u64>>, ctx: &mut Contex
     }
 
     let mut subvecs: Vec<Vec<Wrapping<u64>>> = t_handles.into_iter().map(|t| t.join().unwrap()).collect();
-    let mut result: Vec<Wrapping<u64>> = Vec::new(); 
-    
+    let mut result: Vec<Wrapping<u64>> = Vec::new();
+
     for i in 0..ctx.sys.threads.online {
-        result.append(&mut subvecs[i]); 
+        result.append(&mut subvecs[i]);
     }
 
     result.shrink_to_fit();
@@ -135,11 +135,11 @@ pub fn multiply(x: &Vec<Wrapping<u64>>, y: &Vec<Wrapping<u64>>, ctx: &mut Contex
     Data Transfer..: 2n * sizeof(u64) bytes
     Comm Complexity: 1
     Threads........: local: 1, online: 2
-    Ref............: 
+    Ref............:
 */
 #[allow(dead_code)]
-fn multiply_single_thread(x: &Vec<Wrapping<u64>>, y: &Vec<Wrapping<u64>>, ctx: &mut Context) 
-    -> Result<Vec<Wrapping<u64>>, Box<dyn Error>> {
+fn multip3ly_single_thread(x: &Vec<Wrapping<u64>>, y: &Vec<Wrapping<u64>>, ctx: &mut Context)
+                           -> Result<Vec<Wrapping<u64>>, Box<dyn Error>> {
 
     let len = x.len();
     let asymm = Wrapping(ctx.num.asymm);
@@ -149,58 +149,55 @@ fn multiply_single_thread(x: &Vec<Wrapping<u64>>, y: &Vec<Wrapping<u64>>, ctx: &
     } else {
         constants::TEST_CR_WRAPPING_U64_1
     };
-        let triples = vec![ (Wrapping(u), Wrapping(v), Wrapping(w)) ; len];
-//    1. Obtain uniformly random sharings [u],[v] and [w] = [u * v]
-//    2. Additively hide [x] and [y] with appropriately sized [u] and [v]
-//    3. Open ([delta] = [x] - [u]) and ([epsilon] = [y] - [v])
-//    4. Return [z] = [w] + (delta * [v]) + ([u] * epsilon) + (epsilon * delta)
-	let mut d_share: Vec<Wrapping<u64>> = x.iter().zip(&triples).map(|(&x, (u, _v, _w))| x - u ).collect();  
-	let mut e_share: Vec<Wrapping<u64>> = y.iter().zip(&triples).map(|(&y, (_u, v, _w))| y - v ).collect();  
-	d_share.append(&mut e_share); 
-	let de_shares = d_share;
-    
+    let triples = vec![ (Wrapping(u), Wrapping(v), Wrapping(w)) ; len];
+
+    let mut d_share: Vec<Wrapping<u64>> = x.iter().zip(&triples).map(|(&x, (u, _v, _w))| x - u ).collect();
+    let mut e_share: Vec<Wrapping<u64>> = y.iter().zip(&triples).map(|(&y, (_u, v, _w))| y - v ).collect();
+    d_share.append(&mut e_share);
+    let de_shares = d_share;
+
     let de = open(&de_shares, ctx)?;
 
-	Ok(triples.iter().zip(de[..len].to_vec().iter().zip(&de[len..].to_vec()))
-		.map(|((u, v, w), (d, e))| w + d*v + u*e + asymm*d*e)
-		.collect())
+    Ok(triples.iter().zip(de[..len].to_vec().iter().zip(&de[len..].to_vec()))
+        .map(|((u, v, w), (d, e))| w + d*v + u*e + asymm*d*e)
+        .collect())
 }
 
-/* 
+/*
     Input: vector of n secret shares in Z_2^64
-    Output: vector of n revealed secrets 
+    Output: vector of n revealed secrets
     CR: None
     Threads: local: 1, online: 2 * ctx.sys.threads.online
 */
-pub fn open(vec: &Vec<Wrapping<u64>>, ctx: &mut Context) 
-    -> Result<Vec<Wrapping<u64>>, Box<dyn Error>> {
-    println!("open");
+pub fn open(vec: &Vec<Wrapping<u64>>, ctx: &mut Context)
+            -> Result<Vec<Wrapping<u64>>, Box<dyn Error>> {
+    //println!("open");
     let len = vec.len();
     let mut t_handles: Vec<thread::JoinHandle<Vec<Wrapping<u64>>>> = Vec::new();
-    
+
     for i in 0..ctx.sys.threads.online {
         //println!("thread {} in open", i);
         let lb = cmp::min((i * len) / ctx.sys.threads.online, (Wrapping(len) - Wrapping(1)).0);
         let ub = cmp::min(((i+1) * len) / ctx.sys.threads.online, len);
         let subvec = vec[lb..ub].to_vec();
-        
+
         let mut istream = ctx.net.external.tcp.as_ref().unwrap()[i].istream.try_clone()
-		    .expect("rustlynx::computing_party::protocol::open: failed cloning tcp istream");
-	    let mut ostream = ctx.net.external.tcp.as_ref().unwrap()[i].ostream.try_clone()
-		    .expect("rustlynx::computing_party::protocol::open: failed cloning tcp ostream");
+            .expect("rustlynx::computing_party::protocol::open: failed cloning tcp istream");
+        let mut ostream = ctx.net.external.tcp.as_ref().unwrap()[i].ostream.try_clone()
+            .expect("rustlynx::computing_party::protocol::open: failed cloning tcp ostream");
 
         let t_handle = thread::spawn(move || {
 
             let tx_buf: &[u8] = unsafe { subvec.align_to().1 };
             let msg_len = tx_buf.len();
-            
+
             let rx_handle = thread::spawn(move || {
 
                 let mut rx_buf = vec![0u8 ; msg_len];
-        
+
                 let mut bytes_read = 0;
                 while bytes_read < msg_len {
-        
+
                     bytes_read += match istream.read(&mut rx_buf[bytes_read..]) {
                         Ok(size) => size,
                         Err(_) => {println!("rustlynx::computing_party::protocol::open: std::IO:ErrorKind::Interrupted -- retrying"); 10},
@@ -211,31 +208,31 @@ pub fn open(vec: &Vec<Wrapping<u64>>, ctx: &mut Context)
 
             let mut bytes_written = 0;
             while bytes_written < msg_len {
-        
+
                 bytes_written += match ostream.write(&tx_buf[bytes_written..]) {
                     Ok(size) => size,
                     Err(_) => {println!("rustlynx::computing_party::protocol::open: std::IO:ErrorKind::Interrupted -- retrying"); 10},
                 };
             }
-        
-            println!("performing operation for thread {}", i);
+
+            //println!("performing operation for thread {}", i);
             let other: Vec<Wrapping<u64>> = unsafe { rx_handle.join().unwrap().align_to().1.to_vec() };
-            println!("operation for thread {} complete", i);
+            //println!("operation for thread {} complete", i);
 
             subvec.iter().zip(&other).map(|(&x, &y)| x + y).collect()
         });
 
-        println!("pushing onto open");
+        //println!("pushing onto open");
         t_handles.push(t_handle);
     }
 
-    println!("joining in open");
+    //println!("joining in open");
     let mut subvecs: Vec<Vec<Wrapping<u64>>> = t_handles.into_iter().map(|t| t.join().unwrap()).collect();
-    println!("joined in open");
-    let mut result: Vec<Wrapping<u64>> = Vec::new(); 
-    
+    //println!("joined in open");
+    let mut result: Vec<Wrapping<u64>> = Vec::new();
+
     for i in 0..ctx.sys.threads.online {
-        result.append(&mut subvecs[i]); 
+        result.append(&mut subvecs[i]);
     }
 
     result.shrink_to_fit();
@@ -243,45 +240,45 @@ pub fn open(vec: &Vec<Wrapping<u64>>, ctx: &mut Context)
     Ok(result)
 }
 
-/* 
+/*
     Input: vector of n secret shares in Z_2^64
-    Output: vector of n revealed secrets 
+    Output: vector of n revealed secrets
     CR: None
     Threads: local: 1, online: 2
 */
-fn open_single_thread(vec: &Vec<Wrapping<u64>>, mut istream: TcpStream, mut ostream: TcpStream) 
-    -> Result<Vec<Wrapping<u64>>, Box<dyn Error>> {
+fn open_single_thread(vec: &Vec<Wrapping<u64>>, mut istream: TcpStream, mut ostream: TcpStream)
+                      -> Result<Vec<Wrapping<u64>>, Box<dyn Error>> {
 
-	let tx_buf: &[u8] = unsafe { vec.align_to().1 };
-	let msg_len = tx_buf.len();
+    let tx_buf: &[u8] = unsafe { vec.align_to().1 };
+    let msg_len = tx_buf.len();
 
-	let rx_handle = thread::spawn(move || {
+    let rx_handle = thread::spawn(move || {
 
-		let mut rx_buf = vec![0u8 ; msg_len];
+        let mut rx_buf = vec![0u8 ; msg_len];
 
-		let mut bytes_read = 0;
-		while bytes_read < msg_len {
+        let mut bytes_read = 0;
+        while bytes_read < msg_len {
 
-			bytes_read += match istream.read(&mut rx_buf[bytes_read..]) {
-				Ok(size) => size,
-				Err(_) => {println!("rustlynx::computing_party::protocol::open: std::IO:ErrorKind::Interrupted -- retrying"); 10},
-			};
-		}
-		rx_buf
-	});
+            bytes_read += match istream.read(&mut rx_buf[bytes_read..]) {
+                Ok(size) => size,
+                Err(_) => {println!("rustlynx::computing_party::protocol::open: std::IO:ErrorKind::Interrupted -- retrying"); 10},
+            };
+        }
+        rx_buf
+    });
 
-	let mut bytes_written = 0;
-	while bytes_written < msg_len {
+    let mut bytes_written = 0;
+    while bytes_written < msg_len {
 
-		bytes_written += match ostream.write(&tx_buf[bytes_written..]) {
-			Ok(size) => size,
-			Err(_) => {println!("rustlynx::computing_party::protocol::open: std::IO:ErrorKind::Interrupted -- retrying"); 10},
-		};
-	}
+        bytes_written += match ostream.write(&tx_buf[bytes_written..]) {
+            Ok(size) => size,
+            Err(_) => {println!("rustlynx::computing_party::protocol::open: std::IO:ErrorKind::Interrupted -- retrying"); 10},
+        };
+    }
 
-	let other: Vec<Wrapping<u64>> = unsafe { rx_handle.join().unwrap().align_to().1.to_vec() };
+    let other: Vec<Wrapping<u64>> = unsafe { rx_handle.join().unwrap().align_to().1.to_vec() };
 
-	Ok(vec.iter().zip(&other).map(|(&x, &y)| x + y).collect())
+    Ok(vec.iter().zip(&other).map(|(&x, &y)| x + y).collect())
 }
 
 /*
@@ -323,35 +320,35 @@ fn open_z2_single_thread(vec: &Vec<u128>, mut istream: TcpStream, mut ostream: T
     Ok(vec.iter().zip(&other).map(|(&x, &y)| x ^ y).collect())
 }
 
-pub fn open_z2(vec: &Vec<u128>, ctx: &mut Context) 
-    -> Result<Vec<u128>, Box<dyn Error>> {
+pub fn open_z2(vec: &Vec<u128>, ctx: &mut Context)
+               -> Result<Vec<u128>, Box<dyn Error>> {
 
     let len = vec.len();
     let mut t_handles: Vec<thread::JoinHandle<Vec<u128>>> = Vec::new();
-    
+
     for i in 0..ctx.sys.threads.online {
 
         let lb = cmp::min((i * len) / ctx.sys.threads.online, (Wrapping(len) - Wrapping(1)).0);
         let ub = cmp::min(((i+1) * len) / ctx.sys.threads.online, len);
         let subvec = vec[lb..ub].to_vec();
-        
+
         let mut istream = ctx.net.external.tcp.as_ref().unwrap()[i].istream.try_clone()
-		    .expect("rustlynx::computing_party::protocol::open: failed cloning tcp istream");
-	    let mut ostream = ctx.net.external.tcp.as_ref().unwrap()[i].ostream.try_clone()
-		    .expect("rustlynx::computing_party::protocol::open: failed cloning tcp ostream");
+            .expect("rustlynx::computing_party::protocol::open: failed cloning tcp istream");
+        let mut ostream = ctx.net.external.tcp.as_ref().unwrap()[i].ostream.try_clone()
+            .expect("rustlynx::computing_party::protocol::open: failed cloning tcp ostream");
 
         let t_handle = thread::spawn(move || {
 
             let tx_buf: &[u8] = unsafe { subvec.align_to().1 };
             let msg_len = tx_buf.len();
-            
+
             let rx_handle = thread::spawn(move || {
 
                 let mut rx_buf = vec![0u8 ; msg_len];
-        
+
                 let mut bytes_read = 0;
                 while bytes_read < msg_len {
-        
+
                     bytes_read += match istream.read(&mut rx_buf[bytes_read..]) {
                         Ok(size) => size,
                         Err(_) => {println!("rustlynx::computing_party::protocol::open: std::IO:ErrorKind::Interrupted -- retrying"); 10},
@@ -362,13 +359,13 @@ pub fn open_z2(vec: &Vec<u128>, ctx: &mut Context)
 
             let mut bytes_written = 0;
             while bytes_written < msg_len {
-        
+
                 bytes_written += match ostream.write(&tx_buf[bytes_written..]) {
                     Ok(size) => size,
                     Err(_) => {println!("rustlynx::computing_party::protocol::open: std::IO:ErrorKind::Interrupted -- retrying"); 10},
                 };
             }
-        
+
             let other: Vec<u128> = unsafe { rx_handle.join().unwrap().align_to().1.to_vec() };
 
             subvec.iter().zip(&other).map(|(&x, &y)| x ^ y).collect()
@@ -378,17 +375,17 @@ pub fn open_z2(vec: &Vec<u128>, ctx: &mut Context)
     }
 
     let mut subvecs: Vec<Vec<u128>> = t_handles.into_iter().map(|t| t.join().unwrap()).collect();
-    let mut result: Vec<u128> = Vec::new(); 
-    
+    let mut result: Vec<u128> = Vec::new();
+
     for i in 0..ctx.sys.threads.online {
-        result.append(&mut subvecs[i]); 
+        result.append(&mut subvecs[i]);
     }
 
     Ok(result)
 }
 
-pub fn multiply_z2(x: &Vec<u128>, y: &Vec<u128>, ctx: &mut Context) 
-    -> Result<Vec<u128>, Box<dyn Error>> {
+pub fn multiply_z2(x: &Vec<u128>, y: &Vec<u128>, ctx: &mut Context)
+                   -> Result<Vec<u128>, Box<dyn Error>> {
 
     let len = x.len();
     let asymm = (- Wrapping(ctx.num.asymm as u128)).0;
@@ -398,7 +395,7 @@ pub fn multiply_z2(x: &Vec<u128>, y: &Vec<u128>, ctx: &mut Context)
     } else {
         constants::TEST_CR_XOR_U128_1
     };
-	let triples = vec![ (u, v, w) ; len];
+    let triples = vec![ (u, v, w) ; len];
 
     let mut t_handles: Vec<thread::JoinHandle<Vec<u128>>> = Vec::new();
     for i in 0..ctx.sys.threads.online {
@@ -411,22 +408,22 @@ pub fn multiply_z2(x: &Vec<u128>, y: &Vec<u128>, ctx: &mut Context)
         let len = ub - lb;
 
         let istream = ctx.net.external.tcp.as_ref().unwrap()[i].istream.try_clone()
-		    .expect("rustlynx::computing_party::protocol::multiply: failed cloning tcp istream");
-	    let ostream = ctx.net.external.tcp.as_ref().unwrap()[i].ostream.try_clone()
-		    .expect("rustlynx::computing_party::protocol::multiply: failed cloning tcp ostream");
+            .expect("rustlynx::computing_party::protocol::multiply: failed cloning tcp istream");
+        let ostream = ctx.net.external.tcp.as_ref().unwrap()[i].ostream.try_clone()
+            .expect("rustlynx::computing_party::protocol::multiply: failed cloning tcp ostream");
 
         let t_handle = thread::spawn(move || {
 
-            let mut d_share: Vec<u128> = 
+            let mut d_share: Vec<u128> =
                 x_sub.iter().zip(&triple_sub).map(|(&x, (u, _v, _w))| x ^ u ).collect();
-            let mut e_share: Vec<u128> = 
-                y_sub.iter().zip(&triple_sub).map(|(&y, (_u, v, _w))| y ^ v ).collect();  
-            
-            d_share.append(&mut e_share); 
+            let mut e_share: Vec<u128> =
+                y_sub.iter().zip(&triple_sub).map(|(&y, (_u, v, _w))| y ^ v ).collect();
+
+            d_share.append(&mut e_share);
             let de_shares = d_share;
-            
+
             let de = open_z2_single_thread(&de_shares, istream, ostream).unwrap();
-        
+
             triple_sub.iter().zip(de[..len].to_vec().iter().zip(&de[len..].to_vec()))
                 .map(|((u, v, w), (d, e))| w ^ d & v ^ u & e ^ asymm & d & e)
                 .collect()
@@ -436,17 +433,17 @@ pub fn multiply_z2(x: &Vec<u128>, y: &Vec<u128>, ctx: &mut Context)
     }
 
     let mut subvecs: Vec<Vec<u128>> = t_handles.into_iter().map(|t| t.join().unwrap()).collect();
-    let mut result: Vec<u128> = Vec::new(); 
-    
+    let mut result: Vec<u128> = Vec::new();
+
     for i in 0..ctx.sys.threads.online {
-        result.append(&mut subvecs[i]); 
+        result.append(&mut subvecs[i]);
     }
 
     Ok(result)
 }
 
 // TODO: remove unused n_elems and bitlen parameters
-pub fn pairwise_mult_z2(bitset: &Vec<u128>, _n_elems: usize, _bitlen: usize, ctx: &mut Context) -> Result<Vec<u128>, Box<dyn Error>> { 
+pub fn pairwise_mult_z2(bitset: &Vec<u128>, _n_elems: usize, _bitlen: usize, ctx: &mut Context) -> Result<Vec<u128>, Box<dyn Error>> {
 
     let len = bitset.len();
     let bitmask = 0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaau128;
@@ -469,9 +466,9 @@ pub fn pairwise_mult_z2(bitset: &Vec<u128>, _n_elems: usize, _bitlen: usize, ctx
         let triple_sub = triples[lb..ub].to_vec();
 
         let istream = ctx.net.external.tcp.as_ref().unwrap()[i].istream.try_clone()
-		    .expect("rustlynx::computing_party::protocol::pairswise_mult_z2: failed cloning tcp istream");
-	    let ostream = ctx.net.external.tcp.as_ref().unwrap()[i].ostream.try_clone()
-		    .expect("rustlynx::computing_party::protocol::pairswise_mult_z2: failed cloning tcp ostream");
+            .expect("rustlynx::computing_party::protocol::pairswise_mult_z2: failed cloning tcp istream");
+        let ostream = ctx.net.external.tcp.as_ref().unwrap()[i].ostream.try_clone()
+            .expect("rustlynx::computing_party::protocol::pairswise_mult_z2: failed cloning tcp ostream");
 
         let t_handle = thread::spawn(move || {
 
@@ -479,8 +476,8 @@ pub fn pairwise_mult_z2(bitset: &Vec<u128>, _n_elems: usize, _bitlen: usize, ctx
 
             let de = open_z2_single_thread(&de_share, istream, ostream).unwrap();
 
-            de.iter().zip(&triple_sub).map(|(&de, (uv, w))| 
-                    (bitmask & (((w >> 1) ^ de & (uv >> 1) ^ (de >> 1) & uv ^ (de >> 1) & de & asymm) << 1))) 
+            de.iter().zip(&triple_sub).map(|(&de, (uv, w))|
+                (bitmask & (((w >> 1) ^ de & (uv >> 1) ^ (de >> 1) & uv ^ (de >> 1) & de & asymm) << 1)))
                 .collect()
 
         });
@@ -489,14 +486,14 @@ pub fn pairwise_mult_z2(bitset: &Vec<u128>, _n_elems: usize, _bitlen: usize, ctx
     }
 
     let mut subvecs: Vec<Vec<u128>> = t_handles.into_iter().map(|t| t.join().unwrap()).collect();
-    let mut result: Vec<u128> = Vec::new(); 
-    
+    let mut result: Vec<u128> = Vec::new();
+
     for i in 0..ctx.sys.threads.online {
-        result.append(&mut subvecs[i]); 
+        result.append(&mut subvecs[i]);
     }
 
     Ok(result)
-    
+
 }
 
 pub fn parallel_mult_z2(bitset: &Vec<u128>, n_elems: usize, bitlen: usize, ctx: &mut Context) -> Result<Vec<u128>, Box<dyn Error>> {
@@ -511,7 +508,7 @@ pub fn parallel_mult_z2(bitset: &Vec<u128>, n_elems: usize, bitlen: usize, ctx: 
     while bitlen > 1 {
 
         bitset = pairwise_mult_z2(&bitset, n_elems, bitlen, ctx)?;
-        
+
         bitlen = (bitlen + 1) >> 1;
 
         if bitlen == 1 {
@@ -528,7 +525,7 @@ pub fn parallel_mult_z2(bitset: &Vec<u128>, n_elems: usize, bitlen: usize, ctx: 
 
 pub fn equality_from_z2(x: &Vec<u128>, y: &Vec<u128>, n_elems: usize, bitlen: usize, ctx: &mut Context) -> Result<Vec<u128>, Box<dyn Error>> {
 
-    let bitmask = if ctx.num.asymm == 1 {(1u128 << bitlen) - 1} else {0u128}; 
+    let bitmask = if ctx.num.asymm == 1 {(1u128 << bitlen) - 1} else {0u128};
 
     let bitset = x.iter().zip(y).map(|(xs, ys)| xs ^ ys ^ bitmask).collect::<Vec<u128>>();
 
@@ -545,13 +542,13 @@ pub fn z2_to_zq(vec: &Vec<u128>, ctx: &mut Context) -> Result<Vec<Wrapping<u64>>
         vec.iter().map(|&b| Wrapping(b as u64)).collect::<Vec<Wrapping<u64>>>()
     } else {
         vec![ Wrapping(0u64) ; vec.len() ]
-    }; 
+    };
 
     let s1 = if ctx.num.asymm == 1 {
         vec.iter().map(|&b| Wrapping(b as u64)).collect::<Vec<Wrapping<u64>>>()
     } else {
         vec![ Wrapping(0u64) ; vec.len() ]
-    }; 
+    };
 
     let prod = multiply(&s0, &s1, ctx)?;
 
@@ -570,7 +567,7 @@ pub fn argmax(vec: &Vec<Wrapping<u64>>, ctx: &mut Context ) -> Result<Vec<u128>,
     }
 
     let x_geq_y = geq(&vec[0], &vec[1], ctx)?;
-        
+
     let agmx = vec![ x_geq_y, (ctx.num.asymm as u128) ^ x_geq_y ];
 
     Ok(agmx)
@@ -583,7 +580,7 @@ pub fn bit_extract(val: &Wrapping<u64>, bit_pos: usize, ctx: &mut Context) -> Re
     assert!(bit_pos < 64);
 
     let propogate = val.0 as u128;
-    
+
     if bit_pos == 0 {
         return Ok(1 & propogate);
     }
@@ -610,7 +607,7 @@ pub fn bit_extract(val: &Wrapping<u64>, bit_pos: usize, ctx: &mut Context) -> Re
             p |= ((p_layer >> (2*i)) & 1) << i;
             g |= ((g_layer >> (2*i)) & 1) << i;
             p_next |= ((p_layer >> (2*i+1)) & 1) << i;
-            g_next |= ((g_layer >> (2*i+1)) & 1) << i;	
+            g_next |= ((g_layer >> (2*i+1)) & 1) << i;
         }
 
         let l_ops  = util::compress_bit_vector(&vec![ p_next ; 2 ], 2, pairs as usize, false, 0, ctx.sys.threads.offline)?;
@@ -628,7 +625,7 @@ pub fn bit_extract(val: &Wrapping<u64>, bit_pos: usize, ctx: &mut Context) -> Re
 
         if remainder == 1 {
             p_layer_next |= ((p_layer >> (matrices-1)) & 1) << pairs;
-            g_layer_next |= ((g_layer >> (matrices-1)) & 1) << pairs;  
+            g_layer_next |= ((g_layer >> (matrices-1)) & 1) << pairs;
         }
 
         p_layer = p_layer_next;
@@ -640,7 +637,7 @@ pub fn bit_extract(val: &Wrapping<u64>, bit_pos: usize, ctx: &mut Context) -> Re
 
 }
 
-pub fn batch_bit_extract(vec: &Vec<Wrapping<u64>>, bit_pos: usize, ctx: &mut Context) -> Result<Vec<u128>, Box<dyn Error>> { 
+pub fn batch_bit_extract(vec: &Vec<Wrapping<u64>>, bit_pos: usize, ctx: &mut Context) -> Result<Vec<u128>, Box<dyn Error>> {
 
     assert!(bit_pos < 64);
     assert!(ctx.sys.threads.online > 1);
@@ -661,7 +658,7 @@ pub fn batch_bit_extract(vec: &Vec<Wrapping<u64>>, bit_pos: usize, ctx: &mut Con
         bit_len > 1,
         ctx.num.asymm,
         ctx.sys.threads.online
-    )?;            
+    )?;
 
     let mut g_layer = if ctx.num.asymm == 0 {
         multiply_z2(&p_layer, &vec![0u128; p_layer.len()], ctx)?
@@ -669,9 +666,9 @@ pub fn batch_bit_extract(vec: &Vec<Wrapping<u64>>, bit_pos: usize, ctx: &mut Con
         multiply_z2(&vec![0u128; p_layer.len()], &p_layer, ctx)?
     };
 
-    let mut bit_len = bit_pos; 
+    let mut bit_len = bit_pos;
     while bit_len > 1 {
-       
+
         bit_len = (bit_len + 1) >> 1;
 
         let mut p_ctx = ctx.clone();
@@ -689,9 +686,9 @@ pub fn batch_bit_extract(vec: &Vec<Wrapping<u64>>, bit_pos: usize, ctx: &mut Con
                 bit_len > 1,
                 p_ctx.num.asymm,
                 p_ctx.sys.threads.offline
-            ).unwrap() 
-        });    
-        
+            ).unwrap()
+        });
+
         let mut g_ctx = ctx.clone();
         let g_layer_t_handle = thread::spawn(move || {
 
@@ -710,7 +707,7 @@ pub fn batch_bit_extract(vec: &Vec<Wrapping<u64>>, bit_pos: usize, ctx: &mut Con
                 bit_len > 1,
                 g_ctx.num.asymm,
                 g_ctx.sys.threads.online
-            ).unwrap()    
+            ).unwrap()
         });
 
         p_layer = p_layer_t_handle.join().unwrap();
@@ -740,13 +737,13 @@ pub fn batch_geq(x: &Vec<Wrapping<u64>>, y: &Vec<Wrapping<u64>>, ctx: &mut Conte
 
     Ok(
         batch_bit_extract(
-            &x.iter().zip(y).map(|(xx, yy)| xx - yy).collect(), 
+            &x.iter().zip(y).map(|(xx, yy)| xx - yy).collect(),
             ctx.num.precision_int + ctx.num.precision_frac + 1,
             ctx
-        )?  
-        .iter()
-        .map(|msb| (ctx.num.asymm as u128) ^ msb)
-        .collect()
+        )?
+            .iter()
+            .map(|msb| (ctx.num.asymm as u128) ^ msb)
+            .collect()
     )
 }
 
@@ -959,8 +956,8 @@ pub fn convert_integer_to_bits(x: u64, bit_length: usize) -> Vec<u8> {
 }
 
 pub fn discretize_into_ohe_batch(x_list: &Vec<Vec<Wrapping<u64>>>,
-                           bin_count: usize,
-                           ctx: &mut Context) -> (Vec<Vec<Wrapping<u64>>>,Vec<Vec<Wrapping<u64>>>) {
+                                 bin_count: usize,
+                                 ctx: &mut Context) -> (Vec<Vec<Wrapping<u64>>>,Vec<Vec<Wrapping<u64>>>) {
 
     // let asym = ctx.num.asymm;
 
@@ -987,7 +984,7 @@ pub fn discretize_into_ohe_batch(x_list: &Vec<Vec<Wrapping<u64>>>,
 
     // There are three options. Either (1) max,min are positive, (2) max is positive, min is negative, or (3) both max and min are negative.
     // Each operation requires a different way to calculate the range, so, make comparisons to determine which setting we are in
-    
+
     // let smallest_neg_value = if asym == 0 {u64::MAX} else {0}; // This assumes Lambda = 64 TODO: Make more general
 
     // let smallest_neg_array = vec![Wrapping(smallest_neg_value); mins_maxes.len()];
@@ -1000,7 +997,7 @@ pub fn discretize_into_ohe_batch(x_list: &Vec<Vec<Wrapping<u64>>>,
     let selected_ranges_1: Vec<Wrapping<u64>> = selected_mins.iter().zip(selected_maxes.iter()).map(|(x, y)| y - x).collect();
 
     let mut ranges = vec![];
-    
+
     // for (x, y, z) in izip!(&selected_ranges_1, &selected_ranges_2, &selected_ranges_3) {
     //     selected_ranges.push(x + y + z);
     // }
@@ -1076,7 +1073,7 @@ pub fn discretize_into_ohe_batch(x_list: &Vec<Vec<Wrapping<u64>>>,
     let mut l_operands: Vec<u128> = Vec::new();
     let mut r_operands: Vec<u128> = Vec::new();
 
-    for i in 0.. cols { // Looks good to me ~ David 
+    for i in 0.. cols { // Looks good to me ~ David
         for j in 0.. rows {
             l_operands.push(ctx.num.asymm as u128);
             r_operands.push((ctx.num.asymm as u128) ^ e_mat[i][j][0] as u128);
@@ -1095,7 +1092,7 @@ pub fn discretize_into_ohe_batch(x_list: &Vec<Vec<Wrapping<u64>>>,
     // println!("\nr_operands: {:?}", open_z2(&r_operands, ctx).unwrap());
     let tempf = &multiply_z2(&l_operands, &r_operands, ctx).unwrap().iter().map(|x| x & 1).collect(); //WHY DOES THIS WORK?????? ~Sam
     // println!("\n\ntempf: {:?}", open_z2(&tempf, ctx).unwrap());
-    
+
     let f = z2_to_zq(&tempf, ctx).unwrap();
     // println!("\n\nf: {:?}", open(&f, ctx).unwrap());
     // println!("\n\nmaskedf: {:?}", open(&f).collect(), ctx).unwrap());
@@ -1139,7 +1136,7 @@ pub fn discretize_into_ohe_batch(x_list: &Vec<Vec<Wrapping<u64>>>,
 }
 
 /** Multiplies a vector of a vectors values in a pairwise fashion, leading to log_2 communication complexity
- * dependent on the inner vector size multiplied by the outer vector size. Still needs testing.
+* dependent on the inner vector size multiplied by the outer vector size. Still needs testing.
  */
 pub fn pairwise_mult_zq(x: &Vec<Vec<Wrapping<u64>>>, ctx: &mut Context) -> Result<Vec<Wrapping<u64>>, Box<dyn Error>> {
 
@@ -1157,7 +1154,7 @@ pub fn pairwise_mult_zq(x: &Vec<Vec<Wrapping<u64>>>, ctx: &mut Context) -> Resul
     // nothing to multiply
     if num_of_vals <= 1 {
         let mut result = vec![];
-        
+
         for vec in x {
             for val in vec {
                 result.push(*val);
@@ -1235,7 +1232,7 @@ pub fn pairwise_mult_zq(x: &Vec<Vec<Wrapping<u64>>>, ctx: &mut Context) -> Resul
 
         values_to_process = vec![];
 
-        // if true, tack on unprocessed values to the end of the logically partitioned vectors 
+        // if true, tack on unprocessed values to the end of the logically partitioned vectors
         // that were not processed in previous round of multiplicaiton
         if odd_length == 1 {
             let mut offest = 0;
@@ -1298,14 +1295,14 @@ pub fn batch_matmul(u: &Vec<Vec<Wrapping<u64>>>, e: &Vec<Wrapping<u64>>, b: &Vec
     let u = u.clone();
 
     let asymm = Wrapping(ctx.num.asymm);
-	let m = u.len();
-	let n = u[0].len();
-	let r = b[0][0].len();
+    let m = u.len();
+    let n = u[0].len();
+    let r = b[0][0].len();
     let k = b.len();
 
     let v = vec![vec![vec![Wrapping(0u64); r]; n]; k];
     let z = vec![vec![vec![Wrapping(0u64); r]; m]; k];
-    
+
     let mut f: Vec<Wrapping<u64>> = b.iter().flatten().flatten().zip(v.iter().flatten().flatten()).map(|(bb, vv)| bb - vv).collect();
 
     let mut ef = e.clone();
@@ -1324,31 +1321,31 @@ pub fn batch_matmul(u: &Vec<Vec<Wrapping<u64>>>, e: &Vec<Wrapping<u64>>, b: &Vec
         let t_handle = thread::spawn(move || {
 
             let data = lock.read().unwrap();
-            
+
             let mut mat_subset = vec![vec![vec![Wrapping(0u64); r]; m]; ub - lb];
             for kk in lb..ub {
                 for mm in 0..m {
                     for rr in 0..r {
                         mat_subset[kk - lb][mm][rr] = (0..n)
                             .fold(Wrapping(0u64), |acc, nn| acc +
-                                data.2[kk][mm][rr] + 
+                                data.2[kk][mm][rr] +
                                 data.0[mm][nn] * data.3[m * n + kk * n * r + nn * r + rr] +
                                 data.3[n * mm + nn] * data.1[kk][nn][rr] +
-                                asymm * data.3[n * mm + nn] * data.3[m * n + kk * n * r + nn * r + rr] 
+                                asymm * data.3[n * mm + nn] * data.3[m * n + kk * n * r + nn * r + rr]
                             )
                     }
                 }
             }
 
             mat_subset
-        });   
+        });
         t_handles.push(t_handle);
     }
 
     let result = t_handles.into_iter()
-    .map(|t| t.join().unwrap())
-    .flatten()
-    .collect::<Vec<Vec<Vec<Wrapping<u64>>>>>();
+        .map(|t| t.join().unwrap())
+        .flatten()
+        .collect::<Vec<Vec<Vec<Wrapping<u64>>>>>();
 
     Ok(result)
 }

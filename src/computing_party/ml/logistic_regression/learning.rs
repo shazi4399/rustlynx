@@ -19,73 +19,74 @@ struct LRLearningContext {
 }
 
 impl fmt::Display for LRLearningContext {
-     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-         
-         write!(f, "rustlynx::computing_party::ml::logistic_regression::learning::LRLearningContext:
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+
+        write!(f, "rustlynx::computing_party::ml::logistic_regression::learning::LRLearningContext:
      n_attributes.:{}
      n_instances..:{}
      n_iterations.:{}
      learning_rate:{:?}",
-        self.n_attributes, self.n_instances, self.n_iterations, self.learning_rate)   
-     }       
- }
+               self.n_attributes, self.n_instances, self.n_iterations, self.learning_rate)
+    }
+}
 
 pub fn run(ctx: &mut Context) -> Result<(), Box<dyn Error>> {
-    
+
     let mut lr = init(ctx)?;
 
     println!("rustlynx::computing_party::ml::logistic_regression::learning::run: done parsing cfg");
     println!("{}", lr);
-    
+
     let runtime = SystemTime::now();
 
-    lr.data = protocol::normalize(&lr.data, ctx)?;
+    // lr.data = protocol::normalize(&lr.data, ctx)?;
     let data_mask = vec![vec![Wrapping(0u64); lr.n_instances]; lr.n_attributes]; /* TODO: Get from TI instead */
     let masked_data = protocol::open(
-        &lr.data.iter().flatten().zip(data_mask.iter().flatten()).map(|(a, u)| a - u).collect(), 
+        &lr.data.iter().flatten().zip(data_mask.iter().flatten()).map(|(a, u)| a - u).collect(),
         ctx)?;
-   
+
     println!("_____________________________________");
-    for i in 0..lr.n_iterations {    
-        
+    for i in 0..lr.n_iterations {
+
         let now = SystemTime::now();
         let predictions = protocol::batch_matmul(
-            &data_mask, 
-            &masked_data, 
-            &vec![util::transpose(&vec![lr.weights.clone()])?], 
+            &data_mask,
+            &masked_data,
+            &vec![util::transpose(&vec![lr.weights.clone()])?],
             ctx)?[0][0].to_owned();
         println!("[iter={}] matmul complete..: {} ms", i, now.elapsed()?.as_millis());
-        
+
         let now = SystemTime::now();
         let diff = lr.class.iter().zip(protocol::clipped_relu(&predictions, ctx)?.iter())
             .map(|(y, o)| y - o).collect::<Vec<Wrapping<u64>>>();
         lr.weights = protocol::batch_matmul(
-                &data_mask, 
-                &masked_data, 
-                &vec![util::transpose(&diff.iter().map(|x| vec![*x; lr.n_instances]).collect())?], 
-                ctx)?[0]
+            &data_mask,
+            &masked_data,
+            &vec![util::transpose(&diff.iter().map(|x| vec![*x; lr.n_instances]).collect())?],
+            ctx)?[0]
             .iter()
             .zip(lr.weights.iter())
-            .map(|(x, w)| w + util::truncate(lr.learning_rate * x.iter().sum::<Wrapping<u64>>(), 
-                    ctx.num.precision_frac, 
-                    ctx.num.asymm))
+            .map(|(x, w)| w + util::truncate(lr.learning_rate * x.iter().sum::<Wrapping<u64>>(),
+                                             ctx.num.precision_frac,
+                                             ctx.num.asymm))
             .collect::<Vec<Wrapping<u64>>>();
         println!("[iter={}] gradient complete: {} ms", i, now.elapsed()?.as_millis());
         println!("_____________________________________");
     }
-    
+
 
     println!("training complete.........: {} ms", runtime.elapsed()?.as_millis());
     let parameters = protocol::open(&lr.weights, ctx)?;
     println!("model is :{:?}!!!", parameters);
-    println!("rustlynx::computing_party::ml::logistic_regression::learning::run: outputting model parameters to file");
+    //TODO 将模型存储到文件
+    //println!("rustlynx::computing_party::ml::logistic_regression::learning::run: outputting model parameters to file");
     Ok(())
 }
 
 
 fn init(ctx: &mut Context) -> Result<LRLearningContext, Box<dyn Error>> {
-   
-	let mut settings = config::Config::default();
+
+    let mut settings = config::Config::default();
     settings
         .merge(config::File::with_name(ctx.ml.cfg.as_str())).unwrap()
         .merge(config::Environment::with_prefix("APP")).unwrap();
@@ -104,7 +105,7 @@ fn init(ctx: &mut Context) -> Result<LRLearningContext, Box<dyn Error>> {
         weights: weights,
         n_attributes: n_attributes,
         n_instances: n_instances,
-        n_iterations: 300 
+        n_iterations: 300
     };
 
     Ok(lr)
