@@ -18,9 +18,9 @@ navigate to the root directory rustlynx and type the command "launch.PS1"
 ### To execute the code using a different terminal ###
 
 * open two terminals and navigate to rustlynx/ with each
-* in one of the terminals, enter "cargo build --release"
-* in the first, enter "cargo run cfg=cfg/Party0.toml"
-* in the second, enter  "cargo run cfg=cfg/Party1.toml"  
+* in one of the terminals, enter `cargo build --release`
+* in the first, enter `cargo run cfg=cfg/Party0_learning.toml`
+* in the second, enter  `cargo run cfg=cfg/Party1_learning.toml`  
 
 ### What is this repository for? ###
 
